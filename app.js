@@ -773,7 +773,23 @@ $("#clearBtn")?.addEventListener("click",event=>{
   window.scrollTo({top:0,behavior:"smooth"});
 });
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
-$("#printBtn").onclick=()=>{fitEnabled=true;applyOnePageFit();setTimeout(()=>window.print(),80)};
+$("#printBtn").onclick=()=>{
+  document.body.classList.add("pdf-export");
+  fitEnabled=true;
+  applyOnePageFit();
+
+  // Give Safari time to apply the export-only layout.
+  setTimeout(()=>window.print(),180);
+};
+
+window.addEventListener("beforeprint",()=>{
+  document.body.classList.add("pdf-export");
+});
+
+window.addEventListener("afterprint",()=>{
+  document.body.classList.remove("pdf-export");
+  setTimeout(applyOnePageFit,50);
+});
 
 
 window.addEventListener("load",()=>{document.body.classList.add("fit-mode");applyOnePageFit()});

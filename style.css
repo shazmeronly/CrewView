@@ -690,3 +690,184 @@ tbody tr[data-blank-calendar="1"] td:not(:nth-child(1)):not(:nth-child(2)){
   background:#e1e6ec !important;
   color:#5f6975 !important;
 }
+
+
+/* =========================================================
+   CLEAN PDF EXPORT
+   iPhone Safari still opens its native PDF/print preview,
+   but the generated page contains only useful roster content.
+   ========================================================= */
+
+@media print{
+  @page{
+    size:A4 portrait;
+    margin:5mm;
+  }
+
+  html,
+  body{
+    width:auto !important;
+    height:auto !important;
+    min-height:0 !important;
+    overflow:visible !important;
+    margin:0 !important;
+    padding:0 !important;
+    background:#fff !important;
+  }
+
+  /* Never include web-only controls in the PDF */
+  header,
+  #uploadCard,
+  footer,
+  .help,
+  .status,
+  .theme-toggle{
+    display:none !important;
+  }
+
+  main{
+    display:block !important;
+    width:200mm !important;
+    max-width:200mm !important;
+    height:auto !important;
+    min-height:0 !important;
+    margin:0 auto !important;
+    padding:0 !important;
+    overflow:visible !important;
+  }
+
+  /* Keep the useful top information */
+  #nextDutyCard{
+    display:block !important;
+    width:100% !important;
+    margin:0 0 3mm !important;
+    padding:3mm 4mm !important;
+    border-radius:3mm !important;
+    box-shadow:none !important;
+    break-inside:avoid;
+  }
+
+  .compact-profile{
+    display:flex !important;
+    width:100% !important;
+    margin:0 0 2mm !important;
+    padding:2mm 3mm !important;
+    border-radius:2mm !important;
+    box-shadow:none !important;
+    break-inside:avoid;
+  }
+
+  #resultCard{
+    display:block !important;
+    width:100% !important;
+    margin:0 !important;
+    padding:2.5mm !important;
+    border-radius:2mm !important;
+    box-shadow:none !important;
+    break-inside:avoid;
+  }
+
+  #profileForm{
+    display:none !important;
+  }
+
+  .legend{
+    display:flex !important;
+    font-size:6.4px !important;
+    gap:1.2mm 2.2mm !important;
+    margin:0 0 1.5mm !important;
+    line-height:1 !important;
+  }
+
+  .swatch{
+    width:6px !important;
+    height:6px !important;
+  }
+
+  .fit-shell,
+  .table-wrap,
+  .scale-stage{
+    width:100% !important;
+    height:auto !important;
+    overflow:visible !important;
+    transform:none !important;
+  }
+
+  table{
+    width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
+    font-size:5.8px !important;
+    border-collapse:collapse !important;
+  }
+
+  th,
+  td{
+    height:4.25mm !important;
+    min-height:0 !important;
+    padding:.45mm .55mm !important;
+    line-height:1.05 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:clip !important;
+  }
+
+  th{
+    position:static !important;
+    font-size:5.5px !important;
+  }
+
+  .summary{
+    display:grid !important;
+    grid-template-columns:repeat(3,1fr) !important;
+    gap:2mm !important;
+    margin-top:2mm !important;
+    break-inside:avoid;
+  }
+
+  .stat{
+    padding:2mm !important;
+    border-radius:2mm !important;
+  }
+
+  .stat small{
+    font-size:6px !important;
+  }
+
+  .stat strong{
+    font-size:11px !important;
+  }
+
+  .compact-duty-title strong,
+  .compact-duty-report strong{
+    font-size:18px !important;
+  }
+
+  .compact-duty-title span{
+    font-size:10px !important;
+  }
+
+  .compact-duty-bottom{
+    font-size:7px !important;
+    margin-top:1.5mm !important;
+  }
+
+  .compact-track{
+    margin-top:1.5mm !important;
+    height:2px !important;
+  }
+
+  *{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+}
+
+/* Hide web-only sections immediately while Safari prepares the preview */
+body.pdf-export header,
+body.pdf-export #uploadCard,
+body.pdf-export footer,
+body.pdf-export .help,
+body.pdf-export .status{
+  display:none !important;
+}
