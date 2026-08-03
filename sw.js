@@ -1,12 +1,12 @@
-const CACHE = "crewview-pwa-v1";
+const CACHE = "crewview-flat-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./assets/style.css",
-  "./assets/app.js",
+  "./style.css",
+  "./app.js",
   "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {
