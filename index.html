@@ -8,7 +8,18 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1>CrewView</h1><p>Upload your current roster and view it in the classic one-page layout</p></header>
+<header>
+  <div class="header-row">
+    <div>
+      <h1>CrewView</h1>
+      <p>Upload your current roster and view it in the classic one-page layout</p>
+    </div>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch appearance">
+      <span id="themeIcon">🌙</span>
+      <span id="themeText">Dark</span>
+    </button>
+  </div>
+</header>
 <main>
 <section class="card upload-card">
   <div class="drop">

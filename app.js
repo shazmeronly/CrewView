@@ -1,3 +1,26 @@
+
+const themeToggle=document.querySelector("#themeToggle");
+const themeIcon=document.querySelector("#themeIcon");
+const themeText=document.querySelector("#themeText");
+
+function preferredTheme(){
+  const saved=localStorage.getItem("crewview-theme");
+  if(saved==="dark"||saved==="light") return saved;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function applyTheme(theme){
+  document.documentElement.dataset.theme=theme;
+  if(themeIcon) themeIcon.textContent=theme==="dark"?"☀️":"🌙";
+  if(themeText) themeText.textContent=theme==="dark"?"Light":"Dark";
+  if(themeToggle) themeToggle.setAttribute("aria-label",theme==="dark"?"Switch to light mode":"Switch to dark mode");
+}
+applyTheme(preferredTheme());
+themeToggle?.addEventListener("click",()=>{
+  const next=document.documentElement.dataset.theme==="dark"?"light":"dark";
+  localStorage.setItem("crewview-theme",next);
+  applyTheme(next);
+});
+
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 
