@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b5cab">
+<title>CrewView Pilot Roster</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header><h1>CrewView</h1><p>Upload your current roster and view it in the classic one-page layout</p></header>
+<main>
+<section class="card upload-card">
+  <div class="drop">
+    <div style="font-size:36px">📄</div>
+    <strong>Upload Current Roster</strong>
+    <p class="help">The file is processed inside your browser. It is not uploaded anywhere.</p>
+    <label class="btn primary" for="pdfInput">Load Current Roster</label>
+    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
+  </div>
+  <div class="actions">
+    <button class="btn secondary" id="fillDaysBtn">Show every day</button>
+    <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
+    <button class="btn secondary" id="addRowBtn">Add row manually</button>
+    <button class="btn danger" id="clearBtn">Clear</button>
+  </div>
+  <div class="status" id="status">No roster loaded.</div>
+</section>
+
+<section class="card" id="resultCard">
+  <div class="meta">
+    <div><label>Name</label><input id="name" value=""></div>
+    <div><label>Staff No.</label><input id="staff" value=""></div>
+    <div><label>Rank</label><input id="rank" value=""></div>
+    <div><label>Fleet</label><input id="fleet" value=""></div>
+    <div><label>Base</label><input id="base" value=""></div>
+  </div>
+
+  <div class="legend" aria-label="Roster colour legend">
+    <span class="legend-item"><i class="swatch date-swatch"></i>Date</span>
+    <span class="legend-item"><i class="swatch day-swatch"></i>Day</span>
+    <span class="legend-item"><i class="swatch report-swatch"></i>Reporting time</span>
+    <span class="legend-item"><i class="swatch flight-swatch"></i>Flight / duty</span>
+    <span class="legend-item"><i class="swatch timing-swatch"></i>Departure & arrival</span>
+    <span class="legend-item"><i class="swatch hours-swatch"></i>Hours</span>
+    <span class="legend-item"><i class="swatch off-swatch"></i>Off day</span>
+    <span class="legend-item"><i class="swatch training-swatch"></i>Training / DSA</span>
+  </div>
+
+  <div class="fit-shell" id="fitShell">
+  <div class="table-wrap" id="tableWrap">
+    <div class="scale-stage" id="scaleStage">
+    <table id="rosterTable">
+      <thead><tr>
+        <th style="width:74px">Date</th><th style="width:42px">Day</th><th>Duty Start</th><th>Item</th><th>Dep/Start</th>
+        <th>Arr/End</th><th>Duty End</th><th>Work Type</th><th>Block Hrs</th><th>Duty Hrs</th><th>A/C</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </div>
+</div>
+  <div class="summary">
+    <div class="stat"><small>Actual Block Hours</small><strong id="fh">00:00</strong></div>
+    <div class="stat"><small>Duty Hours</small><strong id="dh">00:00</strong></div>
+    <div class="stat"><small>Off Days</small><strong id="off">0</strong></div>
+  </div>
+  <p class="help">The roster automatically scales to fit one screen-width. Tap Full Size for easier editing, then Fit One Page before saving. On iPhone, tap “Save / Print PDF”, then use the Share button and choose “Save to Files”.</p>
+</section>
+</main>
+<footer>
+  <button class="btn secondary" id="fitBtn">Fit One Page</button>
+  <button class="btn secondary" id="sortBtn">Sort</button>
+  <button class="btn primary" id="printBtn">Save / Print PDF</button>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs" type="module"></script>
+<script type="module" src="assets/app.js"></script>
+</body></html>
