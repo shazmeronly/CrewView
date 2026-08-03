@@ -4,6 +4,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/p
 const $=s=>document.querySelector(s);
 const tbody=$("#rosterTable tbody"), status=$("#status");
 const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block","duty","ac"];
+let officialFH=null, officialDH=null;
 
 function dayName(dateStr){
   const m=dateStr.match(/(\d{2})-([A-Za-z]{3})-(\d{4})/); if(!m)return "";
@@ -57,16 +58,61 @@ function hhmm(n){return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%
 function updateStats(){
   const rows=getRows(); let fh=0,dh=0,off=0;
   rows.forEach(r=>{fh+=toMinutes(r.block);dh+=toMinutes(r.duty);if((r.item||"").trim()==="D")off++});
-  $("#fh").textContent=hhmm(fh);$("#dh").textContent=hhmm(dh);$("#off").textContent=off;
+  $("#fh").textContent=officialFH || hhmm(fh);
+  $("#dh").textContent=officialDH || hhmm(dh);
+  $("#off").textContent=off;
 }
 tbody.addEventListener("input",()=>{classifyRows();updateStats()});
 
 function parseHeader(text){
-  const head=text.replace(/\s+/g," ");
-  const person=head.match(/Roster Report.*?\d{2}-[A-Za-z]{3}-\d{4}\s+to\s+\d{2}-[A-Za-z]{3}-\d{4}\s+(.+?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]+)\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2})/i);
-  if(person){$("#name").value=person[1].trim();$("#staff").value=person[2];$("#fleet").value=person[3];$("#base").value=person[4];$("#rank").value=person[5]}
-  const fh=head.match(/FH\s*:\s*(\d+:\d{2})/i), dh=head.match(/DH\s*:\s*(\d+:\d{2})/i);
-  if(fh)$("#fh").textContent=fh[1];if(dh)$("#dh").textContent=dh[1];
+  const head=String(text||"").replace(/\s+/g," ").trim();
+
+  // Work only with the part after the roster date range so "Roster Report"
+  // cannot accidentally become part of the crew member's name.
+  const afterRange=head.replace(
+    /^.*?\d{2}-[A-Za-z]{3}-\d{4}\s+to\s+\d{2}-[A-Za-z]{3}-\d{4}\s*/i,
+    ""
+  );
+
+  // Normal PDF text order: NAME | STAFF | FLEET | BASE | RANK
+  let person=afterRange.match(
+    /^([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,3})(?=\s|FH|$)/i
+  );
+
+  // Fallback for PDFs where the vertical bars are omitted by the text layer.
+  if(!person){
+    person=afterRange.match(
+      /^([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,3})\s+(?=FH\s*:|Date\b)/i
+    );
+  }
+
+  // Last fallback: locate the staff/fleet/base/rank block and take the
+  // uppercase words immediately before it as the name.
+  if(!person){
+    const block=afterRange.match(
+      /(\d{5,})\s*(?:\|\s*)?([A-Z0-9]{2,5})\s*(?:\|\s*)?([A-Z]{3})\s*(?:\|\s*)?([A-Z]{2,3})(?=\s|FH|$)/i
+    );
+    if(block){
+      const namePart=afterRange.slice(0,block.index).replace(/\|/g," ").trim();
+      const nameMatch=namePart.match(/([A-Z][A-Z .'-]{5,})$/i);
+      if(nameMatch){
+        person=[block[0],nameMatch[1],block[1],block[2],block[3],block[4]];
+      }
+    }
+  }
+
+  if(person){
+    $("#name").value=person[1].trim().replace(/\s{2,}/g," ");
+    $("#staff").value=person[2].trim();
+    $("#fleet").value=person[3].trim();
+    $("#base").value=person[4].trim();
+    $("#rank").value=person[5].trim();
+  }
+
+  const fh=head.match(/\bFH\s*:\s*(\d+:\d{2})/i);
+  const dh=head.match(/\bDH\s*:\s*(\d+:\d{2})/i);
+  if(fh){officialFH=fh[1];$("#fh").textContent=officialFH;}
+  if(dh){officialDH=dh[1];$("#dh").textContent=officialDH;}
 }
 
 function closest(items, xMin,xMax, y, tol=9){
@@ -137,6 +183,9 @@ function fillEveryDay(rows=getRows()){
 
 async function parsePDF(file){
   status.textContent="Reading PDF…";
+  officialFH=null;
+  officialDH=null;
+  ["name","staff","rank","fleet","base"].forEach(id=>$("#"+id).value="");
   const data=new Uint8Array(await file.arrayBuffer());
   const pdf=await pdfjsLib.getDocument({data}).promise;
   let allRows=[], allText=[];
@@ -167,7 +216,7 @@ $("#pdfInput").addEventListener("change",async e=>{
 });
 $("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
 $("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
-$("#clearBtn").onclick=()=>{setRows([]);status.textContent="Cleared."}
+$("#clearBtn").onclick=()=>{officialFH=null;officialDH=null;setRows([]);status.textContent="Cleared."}
 $("#fillDaysBtn").onclick=()=>{const rows=fillEveryDay();setRows(rows);status.textContent="Every calendar day is now shown, including blank layover/rest dates."};
 $("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}
 $("#fitBtn").onclick=()=>{fitEnabled=!fitEnabled;applyOnePageFit()};
