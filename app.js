@@ -100,29 +100,54 @@ function closest(items, xMin,xMax, y, tol=9){
 }
 function cleanTime(v){return v.replace(/\s+/g,"").replace("(+ 1)","(+1)")}
 function buildRows(items,w,h){
-  // Coordinates are normalized to the rendered landscape page.
-  const dates=items.filter(i=>/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(i.s) && i.x < w*0.13 && i.y>h*0.10);
-  const unique=[]; dates.sort((a,b)=>a.y-b.y).forEach(d=>{if(!unique.some(x=>Math.abs(x.y-d.y)<4))unique.push(d)});
-  const rows=[];
-  for(const d of unique){
+  // Current Malaysia Airlines Roster Report uses a fixed landscape grid.
+  // These boundaries are based on the actual PDF columns and scale with page width.
+  const X={
+    date:[0.02,0.09], activity:[0.09,0.18], dutyStart:[0.185,0.225],
+    item:[0.235,0.285], work:[0.33,0.36], dep:[0.40,0.46],
+    arr:[0.465,0.52], dutyEnd:[0.56,0.61], block:[0.61,0.64],
+    duty:[0.64,0.68], ac:[0.72,0.755]
+  };
+  const col=(name,y,tol=10)=>closest(items,w*X[name][0],w*X[name][1],y,tol);
+
+  const dates=items.filter(i=>/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(i.s) && i.x<w*0.09 && i.y>h*0.10);
+  const unique=[];
+  dates.sort((a,b)=>a.y-b.y).forEach(d=>{if(!unique.some(x=>Math.abs(x.y-d.y)<4))unique.push(d)});
+
+  return unique.map(d=>{
     const y=d.y;
-    const activity=closest(items,w*.10,w*.225,y,10);
-    let dutyStart=closest(items,w*.225,w*.29,y,10);
-    let item=closest(items,w*.29,w*.365,y,10);
-    let work=closest(items,w*.42,w*.48,y,10);
-    let dep=closest(items,w*.52,w*.62,y,11);
-    let arr=closest(items,w*.62,w*.72,y,16);
-    let dutyEnd=closest(items,w*.76,w*.82,y,16);
-    let block=closest(items,w*.82,w*.87,y,11);
-    let duty=closest(items,w*.87,w*.92,y,11);
-    let ac=closest(items,w*.955,w*1.01,y,11);
+    const activity=col('activity',y,10);
+    let dutyStart=col('dutyStart',y,8);
+    let item=col('item',y,8);
+    let work=col('work',y,8);
+    let dep=col('dep',y,10);
+    let arr=col('arr',y,12);
+    let dutyEnd=col('dutyEnd',y,12);
+    let block=col('block',y,8);
+    let duty=col('duty',y,8);
+    let ac=col('ac',y,8);
+
     if(!item && /^(D|DO\d|DSA|OFF|AL|SL)$/i.test(activity)) item=activity;
-    if(item==="D"){dutyStart="";dep="";arr="";dutyEnd="";work="";block="";duty="";ac=""}
-    rows.push({date:d.s,day:dayName(d.s),dutyStart:cleanTime(dutyStart),item,
-      dep:dep.replace(/\s+/g," "),arr:arr.replace(/\s+/g," "),dutyEnd:cleanTime(dutyEnd),
-      work,block:cleanTime(block),duty:cleanTime(duty),ac});
-  }
-  return rows;
+
+    // The old layout should show only the duty code for an OFF day.
+    if(/^(D|OFF)$/i.test(item)){
+      dutyStart=''; dep=''; arr=''; dutyEnd=''; work=''; block=''; duty=''; ac='';
+    }
+
+    return {
+      date:d.s,
+      day:dayName(d.s),
+      dutyStart:cleanTime(dutyStart),
+      item:item.trim(),
+      dep:dep.replace(/\s+/g,' ').trim(),
+      arr:arr.replace(/\s+/g,' ').trim(),
+      dutyEnd:cleanTime(dutyEnd),
+      work:work.trim(),
+      block:cleanTime(block),
+      duty:cleanTime(duty),
+      ac:ac.trim()
+    };
+  });
 }
 
 
