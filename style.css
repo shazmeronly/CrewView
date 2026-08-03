@@ -172,3 +172,22 @@ html[data-theme="dark"] tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(
   .theme-toggle{display:none!important}
 }
 
+
+.clean-actions{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+  align-items:center;
+}
+.clean-actions .btn{
+  width:100%;
+}
+.clean-actions .danger{
+  width:auto;
+  min-width:92px;
+}
+@media(max-width:520px){
+  .clean-actions{
+    grid-template-columns:1fr 112px;
+  }
+}

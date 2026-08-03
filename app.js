@@ -271,7 +271,6 @@ $("#pdfInput").addEventListener("change",async e=>{
 $("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
 $("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
 $("#clearBtn").onclick=()=>{officialFH=null;officialDH=null;setRows([]);status.textContent="Cleared."}
-$("#fillDaysBtn").onclick=()=>{const rows=fillEveryDay();setRows(rows);status.textContent="Every calendar day is now shown, including blank layover/rest dates."};
 $("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}
 $("#fitBtn").onclick=()=>{fitEnabled=!fitEnabled;applyOnePageFit()};
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
