@@ -76,7 +76,15 @@ function classifyRows(){
   });
 }
 function setRows(rows){tbody.innerHTML=rows.map(rowHTML).join(""); classifyRows(); updateStats(); renderNextDuty(); setTimeout(applyOnePageFit,0)}
-function getRows(){return [...tbody.rows].map(tr=>Object.fromEntries([...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])))}
+function getRows(){
+  return [...tbody.rows].map(tr=>{
+    const row=Object.fromEntries(
+      [...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])
+    );
+    row._overnightContinuation=tr.dataset.overnightContinuation==="1";
+    return row;
+  });
+}
 function toMinutes(t){let m=String(t||"").match(/(\d{1,3}):(\d{2})/);return m?(+m[1]*60+ +m[2]):0}
 function hhmm(n){return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`}
 function updateStats(){
@@ -410,26 +418,74 @@ function formatCountdown(ms){
     : `${String(hours).padStart(2,"0")}h ${String(mins).padStart(2,"0")}m ${String(secs).padStart(2,"0")}s`;
 }
 
+function buildCompleteDuty(rows,index){
+  const duty={...rows[index]};
+  const continuation=rows[index+1];
+
+  if(continuation?._overnightContinuation){
+    duty._arrivalDate=continuation.date||"";
+    duty._arrivalDay=continuation.day||(
+      continuation.date ? dayName(continuation.date) : ""
+    );
+    duty._arrival=continuation.arr||"";
+    duty._finalDutyEnd=continuation.dutyEnd||"";
+  }else{
+    duty._arrivalDate=duty.date||"";
+    duty._arrivalDay=duty.day||(
+      duty.date ? dayName(duty.date) : ""
+    );
+    duty._arrival=duty.arr||"";
+    duty._finalDutyEnd=duty.dutyEnd||"";
+  }
+
+  return duty;
+}
+
 function getUpcomingDuty(rows){
   const now=new Date();
-  const candidates=rows
-    .filter(r=>{
-      const item=(r.item||"").trim().toUpperCase();
-      return item && item!=="D" && item!=="OFF" && dutyDateTime(r);
-    })
-    .map(r=>({...r,_dt:dutyDateTime(r)}))
-    .sort((a,b)=>a._dt-b._dt);
+  const candidates=[];
 
-  // Keep a currently active duty visible until its rostered duty end when possible.
-  const active=candidates.find(r=>{
-    if(r._dt>now) return false;
-    const dutyMinutes=toMinutes(r.duty);
-    const estimatedEnd=new Date(r._dt.getTime()+(dutyMinutes||720)*60000);
+  rows.forEach((row,index)=>{
+    if(row._overnightContinuation) return;
+
+    const item=(row.item||"").trim().toUpperCase();
+    const report=dutyDateTime(row);
+    if(!item || item==="D" || item==="OFF" || !report) return;
+
+    candidates.push({
+      ...buildCompleteDuty(rows,index),
+      _dt:report
+    });
+  });
+
+  candidates.sort((a,b)=>a._dt-b._dt);
+
+  // Keep a currently active duty visible until its final duty end where possible.
+  const active=candidates.find(row=>{
+    if(row._dt>now) return false;
+
+    let estimatedEnd;
+    if(row._arrivalDate && row._finalDutyEnd){
+      const endDate=parseRosterDate(row._arrivalDate);
+      const m=String(row._finalDutyEnd).match(/^(\d{1,2}):(\d{2})/);
+      if(endDate && m){
+        endDate.setHours(Number(m[1]),Number(m[2]),0,0);
+        estimatedEnd=endDate;
+      }
+    }
+
+    if(!estimatedEnd){
+      const dutyMinutes=toMinutes(row.duty);
+      estimatedEnd=new Date(
+        row._dt.getTime()+(dutyMinutes||720)*60000
+      );
+    }
+
     return estimatedEnd>=now;
   });
-  if(active) return {...active,_current:true};
 
-  return candidates.find(r=>r._dt>now)||null;
+  if(active) return {...active,_current:true};
+  return candidates.find(row=>row._dt>now)||null;
 }
 
 function renderNextDuty(){
@@ -445,17 +501,50 @@ function renderNextDuty(){
 
   card.classList.remove("hidden","soon","urgent","current");
   $("#nextDutyItem").textContent=row.item||"Duty";
-  $("#nextDutyRoute").textContent=routeFromRow(row);
+
+  const departureAirport=(row.dep||"").trim().split(/\s+/)[0]||"";
+  const arrivalAirport=(row._arrival||row.arr||"").trim().split(/\s+/)[0]||"";
+  $("#nextDutyRoute").textContent=
+    departureAirport&&arrivalAirport
+      ? `${departureAirport} → ${arrivalAirport}`
+      : (departureAirport||arrivalAirport||"—");
+
   $("#nextDutyReport").textContent=row.dutyStart||"—";
-  $("#nextDutyDate").textContent=`${row.date} · ${row.day||dayName(row.date)}`;
-  $("#nextDutyEnd").textContent=row.dutyEnd||"—";
+
+  const reportDay=row.day||dayName(row.date);
+  const arrivalDate=row._arrivalDate||row.date;
+  const arrivalDay=row._arrivalDay||(
+    arrivalDate ? dayName(arrivalDate) : ""
+  );
+
+  $("#nextDutyDate").textContent=
+    arrivalDate && arrivalDate!==row.date
+      ? `${row.date} · ${reportDay} → ${arrivalDate} · ${arrivalDay}`
+      : `${row.date} · ${reportDay}`;
+
+  $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
   $("#nextDutyAircraft").textContent=row.ac||"—";
 
   const update=()=>{
     const now=new Date();
     const diff=row._dt-now;
     const dutyMinutes=toMinutes(row.duty);
-    const estimatedEnd=new Date(row._dt.getTime()+(dutyMinutes||720)*60000);
+    let estimatedEnd;
+
+    if(row._arrivalDate && row._finalDutyEnd){
+      const endDate=parseRosterDate(row._arrivalDate);
+      const m=String(row._finalDutyEnd).match(/^(\d{1,2}):(\d{2})/);
+      if(endDate && m){
+        endDate.setHours(Number(m[1]),Number(m[2]),0,0);
+        estimatedEnd=endDate;
+      }
+    }
+
+    if(!estimatedEnd){
+      estimatedEnd=new Date(
+        row._dt.getTime()+(dutyMinutes||720)*60000
+      );
+    }
 
     card.classList.remove("soon","urgent","current");
 

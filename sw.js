@@ -1,4 +1,4 @@
-const CACHE = "crewview-verified-overnight-v17";
+const CACHE = "crewview-next-duty-complete-v18";
 const ASSETS = [
   "./",
   "./index.html",
