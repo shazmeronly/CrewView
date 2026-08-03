@@ -659,3 +659,34 @@ html[data-theme="dark"] tbody tr.row-overnight-continuation td[data-k="day"]{
   background:#245a78 !important;
   color:#ffffff !important;
 }
+
+
+/* FINAL OVERRIDE: blank/non-duty calendar rows must never appear black */
+html[data-theme="dark"] tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(2)),
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td:not(:nth-child(1)):not(:nth-child(2)){
+  background:#394655 !important;
+  color:#e1e8ef !important;
+}
+
+html[data-theme="dark"] tbody tr.row-empty td:nth-child(1),
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td:nth-child(1),
+html[data-theme="dark"] tbody tr.row-empty td[data-k="date"],
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td[data-k="date"]{
+  background:#465363 !important;
+  color:#ffffff !important;
+}
+
+html[data-theme="dark"] tbody tr.row-empty td:nth-child(2),
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td:nth-child(2),
+html[data-theme="dark"] tbody tr.row-empty td[data-k="day"],
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td[data-k="day"]{
+  background:#465363 !important;
+  color:#ffffff !important;
+}
+
+/* Light mode equivalent */
+tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(2)),
+tbody tr[data-blank-calendar="1"] td:not(:nth-child(1)):not(:nth-child(2)){
+  background:#e1e6ec !important;
+  color:#5f6975 !important;
+}
