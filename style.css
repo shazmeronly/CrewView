@@ -366,3 +366,16 @@ html[data-theme="dark"] .legend .swatch{
   box-shadow:0 0 0 1px rgba(0,0,0,.25);
 }
 
+
+footer{
+  display:block !important;
+  padding-left:16px !important;
+  padding-right:16px !important;
+}
+footer .btn{
+  width:100% !important;
+  max-width:none !important;
+  min-height:56px;
+  font-size:17px;
+  border-radius:14px;
+}

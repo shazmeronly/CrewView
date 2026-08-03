@@ -374,7 +374,6 @@ $("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
 $("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
 $("#clearBtn").onclick=()=>{officialFH=null;officialDH=null;setRows([]);status.textContent="Cleared."}
 $("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}
-$("#fitBtn").onclick=()=>{fitEnabled=!fitEnabled;applyOnePageFit()};
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
 $("#printBtn").onclick=()=>{fitEnabled=true;applyOnePageFit();setTimeout(()=>window.print(),80)};
 
