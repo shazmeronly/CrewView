@@ -513,3 +513,31 @@ html[data-theme="dark"] tbody tr.row-empty td:nth-child(2){
   background:#4a3b72 !important;
   color:#efe5ff !important;
 }
+
+
+/* Guaranteed blank-calendar styling */
+tbody tr[data-blank-calendar="1"] td{
+  background:#e3e8ee !important;
+  color:#5e6b78 !important;
+}
+tbody tr[data-blank-calendar="1"] td[data-k="date"]{
+  background:#dcecff !important;
+  color:#245a86 !important;
+}
+tbody tr[data-blank-calendar="1"] td[data-k="day"]{
+  background:#e8e1f5 !important;
+  color:#57457a !important;
+}
+
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td{
+  background:#3a4655 !important;
+  color:#e1e8ef !important;
+}
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td[data-k="date"]{
+  background:#1f4f7a !important;
+  color:#d9efff !important;
+}
+html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td[data-k="day"]{
+  background:#4a3b72 !important;
+  color:#efe5ff !important;
+}

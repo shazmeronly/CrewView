@@ -67,15 +67,44 @@ function rowHTML(r={}){
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function classifyRows(){
   [...tbody.rows].forEach(tr=>{
-    tr.classList.remove("row-off","row-training","row-positioning","row-empty","row-overnight-continuation");
-    if(tr.dataset.overnightContinuation==="1") tr.classList.add("row-overnight-continuation");
-    const item=(tr.cells[3]?.textContent||"").trim().toUpperCase();
-    const work=(tr.cells[7]?.textContent||"").trim().toUpperCase();
-    const hasDuty=[...tr.cells].slice(2).some(td=>td.textContent.trim());
-    if(item==="D" || item==="OFF" || item.startsWith("DO")) tr.classList.add("row-off");
-    else if(item==="DSA" || item.includes("TRAIN") || item.includes("SIM")) tr.classList.add("row-training");
-    else if(work==="PS") tr.classList.add("row-positioning");
-    else if(!hasDuty) tr.classList.add("row-empty");
+    tr.classList.remove(
+      "row-off",
+      "row-training",
+      "row-positioning",
+      "row-empty",
+      "row-overnight-continuation"
+    );
+    tr.removeAttribute("data-blank-calendar");
+
+    if(tr.dataset.overnightContinuation==="1"){
+      tr.classList.add("row-overnight-continuation");
+    }
+
+    const value=key=>
+      (tr.querySelector(`[data-k="${key}"]`)?.textContent||"").trim();
+
+    const item=value("item").toUpperCase();
+    const work=value("work").toUpperCase();
+
+    const blankCalendarDay=[
+      "dutyStart","item","dep","arr","dutyEnd",
+      "work","block","duty","ac"
+    ].every(key=>value(key)==="");
+
+    if(item==="D" || item==="OFF" || item.startsWith("DO")){
+      tr.classList.add("row-off");
+    }else if(
+      item==="DSA" ||
+      item.includes("TRAIN") ||
+      item.includes("SIM")
+    ){
+      tr.classList.add("row-training");
+    }else if(work==="PS"){
+      tr.classList.add("row-positioning");
+    }else if(blankCalendarDay){
+      tr.classList.add("row-empty");
+      tr.setAttribute("data-blank-calendar","1");
+    }
   });
 }
 function setRows(rows){tbody.innerHTML=rows.map(rowHTML).join(""); classifyRows(); updateStats(); renderNextDuty(); setTimeout(applyOnePageFit,0)}
