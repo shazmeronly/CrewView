@@ -383,7 +383,13 @@ async function parsePDF(file){
   status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days.`;
   document.body.classList.add("roster-loaded");
   updateCompactProfile();
-  setTimeout(applyOnePageFit,50);
+  setTimeout(()=>{
+    applyOnePageFit();
+    document.querySelector("#nextDutyCard")?.scrollIntoView({
+      behavior:"smooth",
+      block:"start"
+    });
+  },80);
 }
 
 $("#pdfInput").addEventListener("change",async e=>{

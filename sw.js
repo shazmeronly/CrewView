@@ -1,4 +1,4 @@
-const CACHE = "crewview-keep-upload-v13";
+const CACHE = "crewview-upload-first-v14";
 const ASSETS = [
   "./",
   "./index.html",

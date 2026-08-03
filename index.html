@@ -21,7 +21,20 @@
   </div>
 </header>
 <main>
-
+<section class="card upload-card" id="uploadCard">
+  <div class="drop">
+    <div style="font-size:36px">📄</div>
+    <strong>Upload Current Roster</strong>
+    <p class="help compact-help">The file is processed inside your browser. It is not uploaded anywhere.</p>
+    <label class="btn primary" for="pdfInput">Load Current Roster</label>
+    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
+  </div>
+  <div class="actions clean-actions">
+    <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
+    <button class="btn danger" id="clearBtn">Clear</button>
+  </div>
+  <div class="status" id="status">No roster loaded.</div>
+</section>
 <section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite">
   <div class="compact-duty-main">
     <div>
@@ -48,20 +61,9 @@
   </div>
 </section>
 
-<section class="card upload-card" id="uploadCard">
-  <div class="drop">
-    <div style="font-size:36px">📄</div>
-    <strong>Upload Current Roster</strong>
-    <p class="help compact-help">The file is processed inside your browser. It is not uploaded anywhere.</p>
-    <label class="btn primary" for="pdfInput">Load Current Roster</label>
-    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
-  </div>
-  <div class="actions clean-actions">
-    <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
-    <button class="btn danger" id="clearBtn">Clear</button>
-  </div>
-  <div class="status" id="status">No roster loaded.</div>
-</section>
+
+
+
 
 
 

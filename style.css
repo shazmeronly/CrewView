@@ -463,17 +463,15 @@ body.roster-loaded .fit-shell{
   .compact-profile span{font-size:9px}
 }
 
-body.roster-loaded .upload-card{
-  margin-bottom:10px;
+
+#uploadCard{
+  margin-top:0;
+  margin-bottom:12px;
 }
-body.roster-loaded .upload-card .drop{
-  padding-top:14px;
-  padding-bottom:14px;
+#nextDutyCard{
+  margin-top:0;
+  scroll-margin-top:12px;
 }
-body.roster-loaded .upload-card .drop > div:first-child{
-  font-size:28px !important;
-}
-body.roster-loaded .upload-card .help{
-  margin-top:6px;
-  margin-bottom:8px;
+body.roster-loaded #uploadCard{
+  display:block !important;
 }
