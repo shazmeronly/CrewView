@@ -1,4 +1,4 @@
-const CACHE = "crewview-clear-reload-v22";
+const CACHE = "crewview-blank-days-v23";
 const ASSETS = [
   "./",
   "./index.html",

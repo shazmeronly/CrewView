@@ -484,3 +484,32 @@ html[data-theme="dark"] tbody tr.row-overnight-continuation td{
   background:#173a50 !important;
   color:#d2efff !important;
 }
+
+
+/* Blank calendar days: neutral non-duty colour instead of black */
+tbody tr.row-empty td{
+  background:#edf1f5 !important;
+  color:#5f6b78 !important;
+}
+tbody tr.row-empty td:nth-child(1){
+  background:#dcecff !important;
+  color:#245a86 !important;
+}
+tbody tr.row-empty td:nth-child(2){
+  background:#e8e1f5 !important;
+  color:#57457a !important;
+}
+
+/* Dark mode: keep blank days visibly neutral and consistent with OFF days */
+html[data-theme="dark"] tbody tr.row-empty td{
+  background:#344252 !important;
+  color:#dce5ee !important;
+}
+html[data-theme="dark"] tbody tr.row-empty td:nth-child(1){
+  background:#1f4f7a !important;
+  color:#d9efff !important;
+}
+html[data-theme="dark"] tbody tr.row-empty td:nth-child(2){
+  background:#4a3b72 !important;
+  color:#efe5ff !important;
+}
