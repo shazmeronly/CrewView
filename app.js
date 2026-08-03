@@ -668,7 +668,9 @@ $("#pdfInput").addEventListener("change",async e=>{
   try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
 });
 $("#loadAnotherBtn")?.addEventListener("click",()=>$("#pdfInput")?.click());
-$("#clearBtn").onclick=()=>{
+$("#clearBtn")?.addEventListener("click",event=>{
+  event.preventDefault();
+
   officialFH=null;
   officialDH=null;
 
@@ -701,7 +703,7 @@ $("#clearBtn").onclick=()=>{
 
   status.textContent="No roster loaded.";
   window.scrollTo({top:0,behavior:"smooth"});
-};
+});
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
 $("#printBtn").onclick=()=>{fitEnabled=true;applyOnePageFit();setTimeout(()=>window.print(),80)};
 
