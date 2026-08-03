@@ -60,7 +60,16 @@ function applyOnePageFit(){
 
 function rowHTML(r={}){
   const continuation=r._overnightContinuation ? "1" : "";
-  return `<tr data-overnight-continuation="${continuation}">${cols.map(c=>
+  const dutyGroup=esc(r._dutyGroup||"");
+  const sectorIndex=Number.isFinite(r._sectorIndex) ? String(r._sectorIndex) : "";
+  const sectorCount=Number.isFinite(r._sectorCount) ? String(r._sectorCount) : "";
+
+  return `<tr
+    data-overnight-continuation="${continuation}"
+    data-duty-group="${dutyGroup}"
+    data-sector-index="${sectorIndex}"
+    data-sector-count="${sectorCount}"
+  >${cols.map(c=>
     `<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`
   ).join("")}</tr>`;
 }
@@ -125,6 +134,15 @@ function getRows(){
       [...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])
     );
     row._overnightContinuation=tr.dataset.overnightContinuation==="1";
+    row._dutyGroup=tr.dataset.dutyGroup||"";
+
+    if(tr.dataset.sectorIndex!==""){
+      row._sectorIndex=Number(tr.dataset.sectorIndex);
+    }
+    if(tr.dataset.sectorCount!==""){
+      row._sectorCount=Number(tr.dataset.sectorCount);
+    }
+
     return row;
   });
 }
@@ -439,6 +457,159 @@ function fillEveryDay(rows=getRows()){
 }
 
 
+
+function allTimeTokens(text){
+  return [...String(text||"").matchAll(/\b\d{1,2}:\d{2}(?:\(\+1\))?/g)]
+    .map(match=>match[0]);
+}
+
+function parseMultiSectorRosterText(pdfText){
+  const text=String(pdfText||"").replace(/\s+/g," ").trim();
+
+  // Cabin-crew reports identify these columns in their extracted text.
+  const looksLikeMultiSector=
+    /Pairing\/Activity/i.test(text) &&
+    /Duty\s+Report/i.test(text) &&
+    /Dep\s+Stn\s*\/\s*Dep\s+Time/i.test(text);
+
+  if(!looksLikeMultiSector) return [];
+
+  const dateMatches=[
+    ...text.matchAll(/\b\d{2}-[A-Za-z]{3}-\d{4}\b/g)
+  ];
+
+  const rows=[];
+
+  for(let index=0; index<dateMatches.length; index++){
+    const dateMatch=dateMatches[index];
+    const date=dateMatch[0];
+    const start=dateMatch.index + date.length;
+    const end=index+1<dateMatches.length
+      ? dateMatches[index+1].index
+      : text.length;
+
+    let chunk=text.slice(start,end).trim();
+
+    // Remove page/header fragments accidentally captured between dated duties.
+    chunk=chunk
+      .replace(/Date Item Duty Report[\s\S]*?Updated Date/gi," ")
+      .replace(/\s+/g," ")
+      .trim();
+
+    if(!chunk) continue;
+
+    // OFF days and days off.
+    const off=chunk.match(/^(D|DO)\b/i);
+    if(off){
+      rows.push({
+        date,
+        day:dayName(date),
+        dutyStart:"",
+        item:"D",
+        dep:"",
+        arr:"",
+        dutyEnd:"",
+        work:"",
+        block:"",
+        duty:"",
+        ac:""
+      });
+      continue;
+    }
+
+    const sectorMatches=[
+      ...chunk.matchAll(
+        /(MH\d{2,4})\s+(OP|PS)\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2}(?:\(\+1\))?)/g
+      )
+    ];
+
+    if(sectorMatches.length){
+      const beforeFirst=chunk.slice(0,sectorMatches[0].index);
+      const reportTimes=allTimeTokens(beforeFirst);
+      const report=reportTimes.length ? reportTimes[reportTimes.length-1] : "";
+
+      // Aircraft normally appears after each sector's timing information.
+      const aircraftMatches=[
+        ...chunk.matchAll(/\b(359|333|332|339|73H|7M8|738|737|330|350|A3[2359])\b/g)
+      ];
+      const defaultAircraft=aircraftMatches.length
+        ? aircraftMatches[aircraftMatches.length-1][1]
+        : "";
+
+      const dutyGroup=`${date}|${report}|${sectorMatches[0][1]}`;
+
+      sectorMatches.forEach((match,sectorIndex)=>{
+        const sectorEnd=match.index+match[0].length;
+        const nextSectorStart=sectorIndex+1<sectorMatches.length
+          ? sectorMatches[sectorIndex+1].index
+          : chunk.length;
+        const tail=chunk.slice(sectorEnd,nextSectorStart);
+        const tailTimes=allTimeTokens(tail);
+
+        const isLast=sectorIndex===sectorMatches.length-1;
+        let dutyEnd="";
+        let block="";
+        let duty="";
+
+        if(isLast){
+          // Last sector format:
+          // arrival, duty debrief/end, sector flying hours, total duty hours.
+          dutyEnd=tailTimes[0]||"";
+          block=tailTimes[1]||"";
+          duty=tailTimes[2]||"";
+        }else{
+          // Intermediate sector format:
+          // arrival, sector flying hours, sometimes total duty hours.
+          block=tailTimes[0]||"";
+          duty=tailTimes[1]||"";
+        }
+
+        rows.push({
+          date,
+          day:dayName(date),
+          dutyStart:sectorIndex===0 ? report : "",
+          item:match[1],
+          dep:`${match[3]} ${match[4]}`,
+          arr:`${match[5]} ${match[6]}`,
+          dutyEnd,
+          work:match[2],
+          block,
+          duty:sectorIndex===0 ? duty : "",
+          ac:defaultAircraft,
+          _dutyGroup:dutyGroup,
+          _sectorIndex:sectorIndex,
+          _sectorCount:sectorMatches.length
+        });
+      });
+
+      continue;
+    }
+
+    // Non-flight duties such as AS4NB or S4NBA.
+    const ground=chunk.match(
+      /^([A-Z0-9-]+)\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})/
+    );
+
+    if(ground){
+      rows.push({
+        date,
+        day:dayName(date),
+        dutyStart:ground[2],
+        item:ground[1],
+        dep:`${ground[3]} ${ground[4]}`,
+        arr:`${ground[5]} ${ground[6]}`,
+        dutyEnd:ground[7],
+        work:"",
+        block:"",
+        duty:"",
+        ac:""
+      });
+    }
+  }
+
+  return rows;
+}
+
 function recoverMissingFlightRows(text, existingRows){
   const recovered=[];
   const normalized=String(text||"").replace(/\s+/g," ").trim();
@@ -510,43 +681,118 @@ function isOvernightContinuationRow(row, previousDuty){
   return true;
 }
 
-function buildCompleteDuty(rows,index){
-  const duty={...rows[index]};
-  let continuation=null;
+function isSectorContinuation(row,firstDuty){
+  if(!row || !firstDuty) return false;
 
-  // Normally the following row is the arrival continuation.
-  for(let i=index+1;i<Math.min(rows.length,index+3);i++){
-    const candidate=rows[i];
-
-    if(isOvernightContinuationRow(candidate,duty)){
-      continuation=candidate;
-      break;
-    }
-
-    // Stop when another actual duty starts.
-    if(
-      String(candidate.item||"").trim() ||
-      String(candidate.dutyStart||"").trim()
-    ){
-      break;
-    }
+  if(
+    firstDuty._dutyGroup &&
+    row._dutyGroup &&
+    row._dutyGroup===firstDuty._dutyGroup
+  ){
+    return true;
   }
 
-  if(continuation){
-    duty._arrivalDate=
-      continuation.date || followingRosterDate(duty.date);
-    duty._arrivalDay=
-      continuation.day ||
-      dayName(duty._arrivalDate);
-    duty._arrival=continuation.arr||"";
-    duty._finalDutyEnd=continuation.dutyEnd||"";
+  // Fallback for editable/manual rows: same date, another flight number,
+  // and no new report time means another sector in the same duty.
+  return (
+    row.date===firstDuty.date &&
+    !String(row.dutyStart||"").trim() &&
+    /^MH\d+/i.test(String(row.item||"").trim())
+  );
+}
+
+function buildCompleteDuty(rows,index){
+  const duty={...rows[index]};
+  const sectors=[];
+
+  if(/^MH\d+/i.test(String(duty.item||"").trim())){
+    sectors.push({
+      item:duty.item,
+      dep:duty.dep,
+      arr:duty.arr,
+      block:duty.block,
+      work:duty.work,
+      ac:duty.ac
+    });
+  }
+
+  let finalRow=duty;
+  let scan=index+1;
+
+  while(scan<rows.length){
+    const candidate=rows[scan];
+
+    if(isSectorContinuation(candidate,duty)){
+      sectors.push({
+        item:candidate.item,
+        dep:candidate.dep,
+        arr:candidate.arr,
+        block:candidate.block,
+        work:candidate.work,
+        ac:candidate.ac||duty.ac
+      });
+      finalRow=candidate;
+      scan++;
+      continue;
+    }
+
+    if(isOvernightContinuationRow(candidate,finalRow)){
+      finalRow=candidate;
+      scan++;
+      continue;
+    }
+
+    break;
+  }
+
+  duty._sectors=sectors;
+  duty._sectorCount=sectors.length||1;
+
+  if(sectors.length){
+    duty._displayItems=sectors.map(s=>s.item).filter(Boolean).join(" · ");
+    duty._routeAirports=[];
+
+    sectors.forEach((sector,sectorIndex)=>{
+      const dep=String(sector.dep||"").trim().split(/\s+/)[0]||"";
+      const arr=String(sector.arr||"").trim().split(/\s+/)[0]||"";
+
+      if(sectorIndex===0 && dep) duty._routeAirports.push(dep);
+      if(arr) duty._routeAirports.push(arr);
+    });
+
+    duty._arrival=finalRow.arr || sectors[sectors.length-1]?.arr || duty.arr || "";
   }else{
-    duty._arrivalDate=duty.date||"";
-    duty._arrivalDay=
-      duty.day ||
-      (duty.date ? dayName(duty.date) : "");
-    duty._arrival=duty.arr||"";
-    duty._finalDutyEnd=duty.dutyEnd||"";
+    duty._displayItems=duty.item||"";
+    duty._routeAirports=[];
+    duty._arrival=finalRow.arr||duty.arr||"";
+  }
+
+  duty._arrivalDate=
+    finalRow.date ||
+    duty.date;
+
+  duty._arrivalDay=
+    finalRow.day ||
+    (duty._arrivalDate ? dayName(duty._arrivalDate) : "");
+
+  duty._finalDutyEnd=
+    finalRow.dutyEnd ||
+    duty.dutyEnd ||
+    "";
+
+  // Total block hours across every sector.
+  const totalBlock=sectors.reduce(
+    (sum,sector)=>sum+toMinutes(sector.block),
+    0
+  );
+  if(totalBlock>0) duty._totalBlock=hhmm(totalBlock);
+
+  // Use the first available total duty-hours value in the grouped rows.
+  for(let i=index;i<scan;i++){
+    if(toMinutes(rows[i].duty)>0){
+      duty._totalDuty=rows[i].duty;
+      break;
+    }
   }
 
   return duty;
@@ -560,12 +806,20 @@ function getUpcomingDuty(rows){
     if(
       row._overnightContinuation ||
       (
+        row._dutyGroup &&
+        Number(row._sectorIndex||0)>0
+      ) ||
+      (
         !String(row.item||"").trim() &&
         !String(row.dutyStart||"").trim() &&
         (
           String(row.arr||"").trim() ||
           String(row.dutyEnd||"").trim()
         )
+      ) ||
+      (
+        !String(row.dutyStart||"").trim() &&
+        /^MH\d+/i.test(String(row.item||"").trim())
       )
     ) return;
 
@@ -598,14 +852,20 @@ function renderNextDuty(){
   }
 
   card.classList.remove("hidden","soon","urgent","current");
-  $("#nextDutyItem").textContent=row.item||"Duty";
+  $("#nextDutyItem").textContent=row._displayItems||row.item||"Duty";
 
+  const routeAirports=(row._routeAirports||[]).filter(Boolean);
   const departureAirport=(row.dep||"").trim().split(/\s+/)[0]||"";
   const arrivalAirport=(row._arrival||row.arr||"").trim().split(/\s+/)[0]||"";
+
   $("#nextDutyRoute").textContent=
-    departureAirport&&arrivalAirport
-      ? `${departureAirport} → ${arrivalAirport}`
-      : (departureAirport||arrivalAirport||"—");
+    routeAirports.length>1
+      ? routeAirports.join(" → ")
+      : (
+          departureAirport&&arrivalAirport
+            ? `${departureAirport} → ${arrivalAirport}`
+            : (departureAirport||arrivalAirport||"—")
+        );
 
   $("#nextDutyReport").textContent=row.dutyStart||"—";
 
@@ -677,10 +937,14 @@ function openDutyDetails(){
   const arrival=row._arrival||row.arr||"";
   const depAirport=String(departure).trim().split(/\s+/)[0]||"";
   const arrAirport=String(arrival).trim().split(/\s+/)[0]||"";
+  const routeAirports=(row._routeAirports||[]).filter(Boolean);
 
-  $("#dutyDetailTitle").textContent=row.item||"Duty";
+  $("#dutyDetailTitle").textContent=
+    row._displayItems||row.item||"Duty";
   $("#dutyDetailRoute").textContent=
-    depAirport&&arrAirport ? `${depAirport} → ${arrAirport}` : "—";
+    routeAirports.length>1
+      ? routeAirports.join(" → ")
+      : (depAirport&&arrAirport ? `${depAirport} → ${arrAirport}` : "—");
 
   $("#detailDate").textContent=
     `${row.date} · ${row.day||dayName(row.date)}`;
@@ -690,11 +954,27 @@ function openDutyDetails(){
   $("#detailDutyEnd").textContent=
     row._finalDutyEnd||row.dutyEnd||"—";
   $("#detailAircraft").textContent=row.ac||"—";
-  $("#detailBlock").textContent=row.block||"—";
-  $("#detailDutyHours").textContent=row.duty||"—";
+  $("#detailBlock").textContent=row._totalBlock||row.block||"—";
+  $("#detailDutyHours").textContent=row._totalDuty||row.duty||"—";
   $("#detailWorkType").textContent=row.work||"—";
   $("#detailCountdown").textContent=
     formatCountdown(row._dt-new Date());
+
+  const sectorSection=$("#dutySectorSection");
+  const sectorList=$("#dutySectorList");
+  const sectors=row._sectors||[];
+
+  if(sectorSection && sectorList){
+    sectorSection.classList.toggle("hidden",sectors.length<2);
+    sectorList.innerHTML=sectors.map((sector,index)=>`
+      <div class="duty-sector-row">
+        <span class="duty-sector-number">${index+1}</span>
+        <strong>${esc(sector.item||"Sector")}</strong>
+        <span>${esc(sector.dep||"—")} → ${esc(sector.arr||"—")}</span>
+        <small>${esc(sector.block||"")}</small>
+      </div>
+    `).join("");
+  }
 
   $("#dutyDetailBackdrop").classList.remove("hidden");
   $("#dutyDetailSheet").classList.remove("hidden");
@@ -747,13 +1027,21 @@ async function parsePDF(file){
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
 
-  // Recover any flight row missed by coordinate parsing, especially the final
-  // row at the bottom edge of the PDF.
-  allRows.push(...recoverMissingFlightRows(combinedText, allRows));
+  const multiSectorRows=parseMultiSectorRosterText(combinedText);
 
-  // dedupe by date+item+start
+  if(multiSectorRows.length){
+    // Cabin-crew and other pairing-based reports are parsed from the text layer
+    // so every sector within one duty is retained.
+    allRows=multiSectorRows;
+  }else{
+    // Pilot-style roster: recover any row missed by coordinate parsing,
+    // especially the final row at the bottom edge of the PDF.
+    allRows.push(...recoverMissingFlightRows(combinedText, allRows));
+  }
+
+  // dedupe by date+item+start+sector
   const seen=new Set();
-  allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart;if(seen.has(k))return false;seen.add(k);return true});
+  allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart+"|"+(r._sectorIndex??"");if(seen.has(k))return false;seen.add(k);return true});
   if(!allRows.length) throw new Error("No roster rows were detected. This version supports the current Malaysia Airlines Roster Report PDF.");
   allRows=markRemainingBlankDaysAsOff(applyClassicOvernightTiming(fillEveryDay(allRows),combinedText));
   setRows(allRows);

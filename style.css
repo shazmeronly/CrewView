@@ -1103,3 +1103,77 @@ body.duty-details-open{
     display:none !important;
   }
 }
+
+
+/* Multi-sector duty details */
+.duty-sector-section{
+  margin:0 0 14px;
+}
+
+.duty-sector-heading{
+  display:block;
+  margin:0 2px 8px;
+  color:var(--muted);
+  font-size:.78rem;
+  font-weight:800;
+  letter-spacing:.12em;
+}
+
+.duty-sector-list{
+  display:grid;
+  gap:8px;
+}
+
+.duty-sector-row{
+  display:grid;
+  grid-template-columns:28px minmax(62px,.75fr) minmax(0,2fr) auto;
+  align-items:center;
+  gap:8px;
+  padding:10px 11px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--soft);
+}
+
+.duty-sector-number{
+  display:grid;
+  place-items:center;
+  width:25px;
+  height:25px;
+  border-radius:50%;
+  background:var(--accent);
+  color:#fff;
+  font-size:.75rem;
+  font-weight:800;
+}
+
+.duty-sector-row strong{
+  color:var(--text);
+}
+
+.duty-sector-row > span:not(.duty-sector-number){
+  min-width:0;
+  overflow-wrap:anywhere;
+  color:var(--muted);
+}
+
+.duty-sector-row small{
+  color:var(--text);
+  font-weight:750;
+}
+
+@media(max-width:460px){
+  .duty-sector-row{
+    grid-template-columns:26px 64px minmax(0,1fr);
+  }
+
+  .duty-sector-row small{
+    grid-column:3;
+  }
+}
+
+@media print{
+  #dutySectorSection{
+    display:none !important;
+  }
+}
