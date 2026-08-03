@@ -87,6 +87,22 @@ function updateStats(){
 }
 tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty()});
 
+
+function updateCompactProfile(){
+  const name=($("#name")?.value||"").trim();
+  const staff=($("#staff")?.value||"").trim();
+  const rank=($("#rank")?.value||"").trim();
+  const fleet=($("#fleet")?.value||"").trim();
+  const base=($("#base")?.value||"").trim();
+
+  const compact=$("#compactProfile");
+  if(!compact) return;
+
+  $("#compactName").textContent=name||"Crew Member";
+  $("#compactMeta").textContent=[staff,rank,fleet,base].filter(Boolean).join(" · ");
+  compact.classList.toggle("hidden",!name);
+}
+
 function parseHeader(text){
   const head=String(text||"").replace(/\s+/g," ").trim();
 
@@ -116,6 +132,7 @@ function parseHeader(text){
   const dh=head.match(/\bDH\s*:\s*(\d+:\d{2})/i);
   if(fh){officialFH=fh[1];$("#fh").textContent=officialFH;}
   if(dh){officialDH=dh[1];$("#dh").textContent=officialDH;}
+  updateCompactProfile();
 }
 function closest(items, xMin,xMax, y, tol=9){
   return items.filter(i=>i.x>=xMin&&i.x<xMax&&Math.abs(i.y-y)<=tol)
@@ -364,20 +381,16 @@ async function parsePDF(file){
   allRows=fillEveryDay(allRows);
   setRows(allRows);
   status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days.`;
-  const uploadCard=$("#uploadCard");
-  if(uploadCard) uploadCard.classList.add("collapsed-after-load");
-  window.scrollTo({top:0,behavior:"smooth"});
+  document.body.classList.add("roster-loaded");
+  updateCompactProfile();
+  setTimeout(applyOnePageFit,50);
 }
 
 $("#pdfInput").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file)return;
   try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
 });
-$("#loadAnotherBtn").onclick=()=>{
-  const uploadCard=$("#uploadCard");
-  if(uploadCard) uploadCard.classList.remove("collapsed-after-load");
-  $("#pdfInput").click();
-};
+$("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
 $("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
 $("#clearBtn").onclick=()=>{officialFH=null;officialDH=null;setRows([]);status.textContent="Cleared."}
 $("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}

@@ -243,9 +243,6 @@ html[data-theme="dark"] .next-duty-card{box-shadow:0 5px 20px #0007}
   cursor:default;
   text-overflow:clip;
 }
-.upload-card.collapsed-after-load{
-  display:none;
-}
 .next-duty-card{
   margin-top:0;
 }
@@ -464,4 +461,19 @@ body.roster-loaded .fit-shell{
   }
   .compact-profile strong{font-size:11px}
   .compact-profile span{font-size:9px}
+}
+
+body.roster-loaded .upload-card{
+  margin-bottom:10px;
+}
+body.roster-loaded .upload-card .drop{
+  padding-top:14px;
+  padding-bottom:14px;
+}
+body.roster-loaded .upload-card .drop > div:first-child{
+  font-size:28px !important;
+}
+body.roster-loaded .upload-card .help{
+  margin-top:6px;
+  margin-bottom:8px;
 }
