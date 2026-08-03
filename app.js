@@ -185,6 +185,27 @@ function fillEveryDay(rows=getRows()){
   return full;
 }
 
+
+function recoverMissingFlightRows(text, existingRows){
+  const recovered=[];
+  const normalized=String(text||"").replace(/\s+/g," ").trim();
+
+  // Text-layer fallback for flight rows that sit very close to a PDF page edge.
+  // Example: 31-Aug-2026 00:30 MH191 OP DEL 01:30 KUL 06:55 07:40 05:25 07:10 333
+  const re=/(\d{2}-[A-Za-z]{3}-\d{4})\s+(?:(?:\d{3}-\d{2}\/\d{8}\/F)\s+)?(\d{2}:\d{2})\s+(MH\d{2,4})\s+(OP|PS)\s+([A-Z]{3})\s+(\d{2}:\d{2})\s+([A-Z]{3})\s+(\d{2}:\d{2}(?:\(\+1\))?)\s+(\d{2}:\d{2}(?:\(\+1\))?)\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s+([A-Z0-9]{3})/g;
+  let m;
+  while((m=re.exec(normalized))!==null){
+    const row={
+      date:m[1], day:dayName(m[1]), dutyStart:m[2], item:m[3],
+      work:m[4], dep:`${m[5]} ${m[6]}`, arr:`${m[7]} ${m[8]}`,
+      dutyEnd:m[9], block:m[10], duty:m[11], ac:m[12]
+    };
+    const exists=existingRows.some(r=>r.date===row.date && r.item===row.item);
+    if(!exists) recovered.push(row);
+  }
+  return recovered;
+}
+
 async function parsePDF(file){
   status.textContent="Reading PDF…";
   officialFH=null;
@@ -204,7 +225,13 @@ async function parsePDF(file){
     const pageRows=buildRows(items,viewport.width,viewport.height);
     allRows.push(...pageRows);
   }
-  parseHeader(allText.join(" "));
+  const combinedText=allText.join(" ");
+  parseHeader(combinedText);
+
+  // Recover any flight row missed by coordinate parsing, especially the final
+  // row at the bottom edge of the PDF.
+  allRows.push(...recoverMissingFlightRows(combinedText, allRows));
+
   // dedupe by date+item+start
   const seen=new Set();
   allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart;if(seen.has(k))return false;seen.add(k);return true});
