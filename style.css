@@ -934,3 +934,27 @@ body.pdf-export .status{
 body.pdf-export #nextDutyCard{
   display:none !important;
 }
+
+
+/* PDF crew-name contrast fix */
+@media print{
+  .compact-profile{
+    background:#0f1a25 !important;
+    border-color:#405168 !important;
+  }
+
+  .compact-profile strong,
+  #compactName{
+    color:#ffffff !important;
+    opacity:1 !important;
+    -webkit-text-fill-color:#ffffff !important;
+    font-weight:800 !important;
+  }
+
+  .compact-profile span,
+  #compactMeta{
+    color:#dbe5ef !important;
+    opacity:1 !important;
+    -webkit-text-fill-color:#dbe5ef !important;
+  }
+}
