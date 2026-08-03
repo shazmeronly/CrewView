@@ -21,47 +21,38 @@
   </div>
 </header>
 <main>
-<section class="next-duty-card hidden" id="nextDutyCard" aria-live="polite">
-  <div class="next-duty-top">
+
+<section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite">
+  <div class="compact-duty-main">
     <div>
       <div class="next-duty-eyebrow">NEXT DUTY</div>
-      <div class="next-duty-item" id="nextDutyItem">—</div>
-      <div class="next-duty-route" id="nextDutyRoute">—</div>
+      <div class="compact-duty-title">
+        <strong id="nextDutyItem">—</strong>
+        <span id="nextDutyRoute">—</span>
+      </div>
     </div>
-    <div class="next-duty-report">
+    <div class="compact-duty-report">
       <span>REPORT</span>
       <strong id="nextDutyReport">—</strong>
     </div>
   </div>
 
-  <div class="next-duty-details">
-    <div>
-      <span>Date</span>
-      <strong id="nextDutyDate">—</strong>
-    </div>
-    <div>
-      <span>Duty End</span>
-      <strong id="nextDutyEnd">—</strong>
-    </div>
-    <div>
-      <span>Aircraft</span>
-      <strong id="nextDutyAircraft">—</strong>
-    </div>
+  <div class="compact-duty-bottom">
+    <span id="nextDutyDate">—</span>
+    <span>End <strong id="nextDutyEnd">—</strong></span>
+    <span>A/C <strong id="nextDutyAircraft">—</strong></span>
+    <span class="compact-countdown">In <strong id="nextDutyCountdown">—</strong></span>
   </div>
-
-  <div class="countdown-wrap">
-    <div class="countdown-label">REPORTS IN</div>
-    <div class="countdown-value" id="nextDutyCountdown">—</div>
-    <div class="countdown-track" aria-hidden="true">
-      <div class="countdown-fill" id="nextDutyProgress"></div>
-    </div>
+  <div class="countdown-track compact-track" aria-hidden="true">
+    <div class="countdown-fill" id="nextDutyProgress"></div>
   </div>
 </section>
+
 <section class="card upload-card" id="uploadCard">
   <div class="drop">
     <div style="font-size:36px">📄</div>
     <strong>Upload Current Roster</strong>
-    <p class="help">The file is processed inside your browser. It is not uploaded anywhere.</p>
+    <p class="help compact-help">Tap Save / Print PDF to export.</p>
     <label class="btn primary" for="pdfInput">Load Current Roster</label>
     <input id="pdfInput" type="file" accept="application/pdf,.pdf">
   </div>
@@ -75,8 +66,12 @@
 
 
 
+<section class="compact-profile hidden" id="compactProfile">
+  <strong id="compactName">—</strong>
+  <span id="compactMeta">—</span>
+</section>
 <section class="card" id="resultCard">
-  <div class="meta">
+  <div class="meta" id="profileForm">
     <div class="name-field"><label>Name</label><input id="name" value="" readonly></div>
     <div><label>Staff No.</label><input id="staff" value="" readonly></div>
     <div><label>Rank</label><input id="rank" value="" readonly></div>
@@ -108,7 +103,7 @@
     </div>
   </div>
 </div>
-  <div class="summary">
+  <div class="summary compact-summary">
     <div class="stat"><small>Actual Block Hours</small><strong id="fh">00:00</strong></div>
     <div class="stat"><small>Duty Hours</small><strong id="dh">00:00</strong></div>
     <div class="stat"><small>Off Days</small><strong id="off">0</strong></div>

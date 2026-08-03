@@ -296,3 +296,172 @@ html[data-theme="dark"] .timing-swatch{background:#1d5269!important}
 html[data-theme="dark"] .hours-swatch{background:#6b421f!important}
 html[data-theme="dark"] .off-swatch{background:#3a4554!important}
 html[data-theme="dark"] .training-swatch{background:#6a244b!important}
+
+/* Compact one-screen layout */
+header{
+  padding-top:calc(8px + env(safe-area-inset-top)) !important;
+  padding-bottom:8px !important;
+}
+header h1{font-size:18px !important}
+header p{font-size:11px !important;line-height:1.2}
+.theme-toggle{padding:7px 9px !important;font-size:12px !important}
+
+body.roster-loaded main{
+  padding-top:8px;
+}
+.compact-next{
+  padding:11px 13px !important;
+  border-radius:14px !important;
+  margin-bottom:8px !important;
+}
+.compact-duty-main{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.compact-duty-title{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-top:2px;
+}
+.compact-duty-title strong{
+  font-size:24px;
+  line-height:1;
+}
+.compact-duty-title span{
+  font-size:14px;
+  font-weight:700;
+}
+.compact-duty-report{
+  text-align:right;
+}
+.compact-duty-report span{
+  display:block;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.12em;
+  opacity:.8;
+}
+.compact-duty-report strong{
+  display:block;
+  font-size:24px;
+  line-height:1;
+  margin-top:2px;
+}
+.compact-duty-bottom{
+  display:grid;
+  grid-template-columns:1.45fr .85fr .65fr 1.2fr;
+  gap:6px;
+  margin-top:9px;
+  font-size:10px;
+  align-items:center;
+}
+.compact-duty-bottom span{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.compact-countdown{
+  text-align:right;
+}
+.compact-track{
+  height:5px !important;
+  margin-top:7px;
+}
+
+.compact-profile{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:8px 11px;
+  margin-bottom:8px;
+}
+.compact-profile.hidden{display:none}
+.compact-profile strong{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+}
+.compact-profile span{
+  flex:0 0 auto;
+  color:var(--muted);
+  font-size:10px;
+  white-space:nowrap;
+}
+
+body.roster-loaded #profileForm{display:none !important}
+body.roster-loaded #resultCard{
+  padding:8px !important;
+  margin-bottom:82px !important;
+}
+body.roster-loaded .legend{
+  margin:2px 0 5px !important;
+  gap:3px 6px !important;
+  font-size:8px !important;
+}
+body.roster-loaded .swatch,
+body.roster-loaded .dot{
+  width:8px !important;
+  height:8px !important;
+}
+body.roster-loaded .compact-summary{
+  grid-template-columns:repeat(3,1fr);
+  gap:5px;
+  margin-top:5px;
+}
+body.roster-loaded .compact-summary .stat{
+  padding:5px 7px !important;
+}
+body.roster-loaded .compact-summary .stat small{
+  font-size:8px !important;
+}
+body.roster-loaded .compact-summary .stat strong{
+  font-size:14px !important;
+}
+body.roster-loaded .compact-help{
+  display:none !important;
+}
+body.roster-loaded .table-wrap{
+  border-radius:8px;
+}
+body.roster-loaded table{
+  font-size:9px;
+}
+body.roster-loaded th,
+body.roster-loaded td{
+  height:21px;
+  padding:2px 3px;
+}
+
+footer{
+  padding-top:7px !important;
+  padding-bottom:calc(7px + env(safe-area-inset-bottom)) !important;
+}
+footer .btn{
+  min-height:50px !important;
+  font-size:16px !important;
+}
+
+/* Fit the roster vertically as well as horizontally */
+body.roster-loaded .fit-shell{
+  height:auto;
+}
+@media(max-width:640px){
+  .compact-duty-bottom{
+    grid-template-columns:1.35fr .85fr .55fr 1.25fr;
+    font-size:9px;
+  }
+  .compact-profile{
+    padding:7px 9px;
+  }
+  .compact-profile strong{font-size:11px}
+  .compact-profile span{font-size:9px}
+}
