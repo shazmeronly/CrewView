@@ -59,7 +59,10 @@ function applyOnePageFit(){
 }
 
 function rowHTML(r={}){
-  return `<tr>${cols.map(c=>`<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`).join("")}</tr>`;
+  const continuation=r._overnightContinuation ? "1" : "";
+  return `<tr data-overnight-continuation="${continuation}">${cols.map(c=>
+    `<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`
+  ).join("")}</tr>`;
 }
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function classifyRows(){
@@ -418,22 +421,61 @@ function formatCountdown(ms){
     : `${String(hours).padStart(2,"0")}h ${String(mins).padStart(2,"0")}m ${String(secs).padStart(2,"0")}s`;
 }
 
+function isOvernightContinuationRow(row, previousDuty){
+  if(!row) return false;
+  if(row._overnightContinuation) return true;
+
+  const noNewDuty=!String(row.item||"").trim() && !String(row.dutyStart||"").trim();
+  const hasArrival=Boolean(
+    String(row.arr||"").trim() || String(row.dutyEnd||"").trim()
+  );
+
+  if(!noNewDuty || !hasArrival) return false;
+
+  // The continuation should be on the next calendar date.
+  if(previousDuty?.date && row.date){
+    return row.date===followingRosterDate(previousDuty.date);
+  }
+
+  // Fallback for a second line where date/day are intentionally blank.
+  return true;
+}
+
 function buildCompleteDuty(rows,index){
   const duty={...rows[index]};
-  const continuation=rows[index+1];
+  let continuation=null;
 
-  if(continuation?._overnightContinuation){
-    duty._arrivalDate=continuation.date||"";
-    duty._arrivalDay=continuation.day||(
-      continuation.date ? dayName(continuation.date) : ""
-    );
+  // Normally the following row is the arrival continuation.
+  for(let i=index+1;i<Math.min(rows.length,index+3);i++){
+    const candidate=rows[i];
+
+    if(isOvernightContinuationRow(candidate,duty)){
+      continuation=candidate;
+      break;
+    }
+
+    // Stop when another actual duty starts.
+    if(
+      String(candidate.item||"").trim() ||
+      String(candidate.dutyStart||"").trim()
+    ){
+      break;
+    }
+  }
+
+  if(continuation){
+    duty._arrivalDate=
+      continuation.date || followingRosterDate(duty.date);
+    duty._arrivalDay=
+      continuation.day ||
+      dayName(duty._arrivalDate);
     duty._arrival=continuation.arr||"";
     duty._finalDutyEnd=continuation.dutyEnd||"";
   }else{
     duty._arrivalDate=duty.date||"";
-    duty._arrivalDay=duty.day||(
-      duty.date ? dayName(duty.date) : ""
-    );
+    duty._arrivalDay=
+      duty.day ||
+      (duty.date ? dayName(duty.date) : "");
     duty._arrival=duty.arr||"";
     duty._finalDutyEnd=duty.dutyEnd||"";
   }
@@ -446,7 +488,17 @@ function getUpcomingDuty(rows){
   const candidates=[];
 
   rows.forEach((row,index)=>{
-    if(row._overnightContinuation) return;
+    if(
+      row._overnightContinuation ||
+      (
+        !String(row.item||"").trim() &&
+        !String(row.dutyStart||"").trim() &&
+        (
+          String(row.arr||"").trim() ||
+          String(row.dutyEnd||"").trim()
+        )
+      )
+    ) return;
 
     const item=(row.item||"").trim().toUpperCase();
     const report=dutyDateTime(row);
@@ -522,7 +574,8 @@ function renderNextDuty(){
       ? `${row.date} · ${reportDay} → ${arrivalDate} · ${arrivalDay}`
       : `${row.date} · ${reportDay}`;
 
-  $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
+  $("#nextDutyEnd").textContent=
+    row._finalDutyEnd || row.dutyEnd || "—";
   $("#nextDutyAircraft").textContent=row.ac||"—";
 
   const update=()=>{
