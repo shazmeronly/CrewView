@@ -475,3 +475,24 @@ body.roster-loaded .fit-shell{
 body.roster-loaded #uploadCard{
   display:block !important;
 }
+
+/* Overnight arrival / duty-end continuation rows */
+tbody tr.continuation-row td{
+  background:#e8f4ff !important;
+  color:#0b4f7a !important;
+}
+tbody tr.continuation-row td:nth-child(1),
+tbody tr.continuation-row td:nth-child(2){
+  font-weight:800;
+}
+tbody tr.continuation-row td:nth-child(4){
+  font-style:italic;
+  font-weight:700;
+}
+html[data-theme="dark"] tbody tr.continuation-row td{
+  background:#17394e !important;
+  color:#c9ecff !important;
+}
+html[data-theme="dark"] tbody tr.continuation-row td:nth-child(4){
+  color:#9fdcff !important;
+}
