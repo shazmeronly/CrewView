@@ -59,12 +59,14 @@ function applyOnePageFit(){
 }
 
 function rowHTML(r={}){
-  return `<tr>${cols.map(c=>`<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`).join("")}</tr>`;
+  const continuation=r._overnightContinuation ? "1" : "";
+  return `<tr data-overnight-continuation="${continuation}">${cols.map(c=>`<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`).join("")}</tr>`;
 }
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function classifyRows(){
   [...tbody.rows].forEach(tr=>{
-    tr.classList.remove("row-off","row-training","row-positioning","row-empty");
+    tr.classList.remove("row-off","row-training","row-positioning","row-empty","row-overnight-continuation");
+    if(tr.dataset.overnightContinuation==="1") tr.classList.add("row-overnight-continuation");
     const item=(tr.cells[3]?.textContent||"").trim().toUpperCase();
     const work=(tr.cells[7]?.textContent||"").trim().toUpperCase();
     const hasDuty=[...tr.cells].slice(2).some(td=>td.textContent.trim());
@@ -201,6 +203,143 @@ function fmtDate(d){
   const mon=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
   return `${String(d.getDate()).padStart(2,"0")}-${mon}-${d.getFullYear()}`;
 }
+
+function removePlusOne(value){
+  return String(value||"").replace(/\s*\(\+1\)\s*/g,"").trim();
+}
+
+function nextRosterDate(dateText){
+  const d=parseRosterDate(dateText);
+  if(!d) return dateText;
+  d.setDate(d.getDate()+1);
+  return fmtDate(d);
+}
+
+/*
+  Reproduce the classic roster behaviour:
+
+  Departure date:
+    - report, item and departure remain on the original row
+    - next-day arrival and duty end are blank
+
+  Following calendar date:
+    - arrival and duty end appear on that date
+    - if the date already has another duty, the arrival continuation is inserted
+      immediately before the later duty, with the date/day shown only once
+*/
+function movePlusOneTimingsToNextDate(rows){
+  const copied=rows.map(r=>({...r}));
+  const arrivalsByDate=new Map();
+
+  for(const row of copied){
+    const arrivalIsNextDay=/\(\+1\)/.test(row.arr||"");
+    const dutyEndIsNextDay=/\(\+1\)/.test(row.dutyEnd||"");
+
+    if(!arrivalIsNextDay && !dutyEndIsNextDay) continue;
+
+    const nextDate=nextRosterDate(row.date);
+    const continuation={
+      date:nextDate,
+      day:dayName(nextDate),
+      dutyStart:"",
+      item:"",
+      dep:"",
+      arr:arrivalIsNextDay ? removePlusOne(row.arr) : "",
+      dutyEnd:dutyEndIsNextDay ? removePlusOne(row.dutyEnd) : "",
+      work:"",
+      block:"",
+      duty:"",
+      ac:"",
+      _overnightContinuation:true
+    };
+
+    if(arrivalIsNextDay) row.arr="";
+    if(dutyEndIsNextDay) row.dutyEnd="";
+
+    if(!arrivalsByDate.has(nextDate)) arrivalsByDate.set(nextDate,[]);
+    arrivalsByDate.get(nextDate).push(continuation);
+  }
+
+  const result=[];
+  const datesHandled=new Set();
+
+  for(let i=0;i<copied.length;i++){
+    const row=copied[i];
+    const date=row.date;
+    const continuations=arrivalsByDate.get(date)||[];
+
+    if(continuations.length && !datesHandled.has(date)){
+      const sameDateRows=[];
+      let j=i;
+      while(j<copied.length && copied[j].date===date){
+        sameDateRows.push(copied[j]);
+        j++;
+      }
+
+      const firstRow=sameDateRows[0];
+      const firstHasRosterContent=[
+        firstRow.dutyStart, firstRow.item, firstRow.dep, firstRow.arr,
+        firstRow.dutyEnd, firstRow.work, firstRow.block, firstRow.duty, firstRow.ac
+      ].some(v=>String(v||"").trim());
+
+      if(!firstHasRosterContent){
+        // Use the existing blank calendar row.
+        firstRow.arr=continuations[0].arr;
+        firstRow.dutyEnd=continuations[0].dutyEnd;
+        firstRow._overnightContinuation=true;
+        result.push(firstRow);
+
+        // More than one overnight arrival on the same date is unusual,
+        // but preserve it as an additional line if it occurs.
+        for(const extra of continuations.slice(1)){
+          extra.date="";
+          extra.day="";
+          result.push(extra);
+        }
+
+        for(const extraDuty of sameDateRows.slice(1)){
+          extraDuty.date="";
+          extraDuty.day="";
+          result.push(extraDuty);
+        }
+      } else {
+        // The arrival date already has another duty. Show the overnight
+        // arrival first, then the later duty on a second line like the old roster.
+        const firstContinuation={...continuations[0],date,day:dayName(date)};
+        result.push(firstContinuation);
+
+        for(const extra of continuations.slice(1)){
+          result.push({...extra,date:"",day:""});
+        }
+
+        sameDateRows.forEach((dutyRow,index)=>{
+          result.push({
+            ...dutyRow,
+            date:"",
+            day:""
+          });
+        });
+      }
+
+      datesHandled.add(date);
+      i=j-1;
+      continue;
+    }
+
+    result.push(row);
+  }
+
+  // Handle a next-day continuation that falls just beyond the existing rows.
+  for(const [date,continuations] of arrivalsByDate.entries()){
+    if(datesHandled.has(date) || copied.some(r=>r.date===date)) continue;
+    continuations.forEach((r,index)=>{
+      result.push({...r,date:index===0?date:"",day:index===0?dayName(date):""});
+    });
+  }
+
+  return result;
+}
+
 function fillEveryDay(rows=getRows()){
   const valid=rows.map(r=>({r,d:parseRosterDate(r.date)})).filter(x=>x.d);
   if(!valid.length){status.textContent="Load a roster first.";return rows}
@@ -378,7 +517,7 @@ async function parsePDF(file){
   const seen=new Set();
   allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart;if(seen.has(k))return false;seen.add(k);return true});
   if(!allRows.length) throw new Error("No roster rows were detected. This version supports the current Malaysia Airlines Roster Report PDF.");
-  allRows=fillEveryDay(allRows);
+  allRows=movePlusOneTimingsToNextDate(fillEveryDay(allRows));
   setRows(allRows);
   status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days.`;
   document.body.classList.add("roster-loaded");

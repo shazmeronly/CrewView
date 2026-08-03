@@ -476,23 +476,18 @@ body.roster-loaded #uploadCard{
   display:block !important;
 }
 
-/* Overnight arrival / duty-end continuation rows */
-tbody tr.continuation-row td{
-  background:#e8f4ff !important;
-  color:#0b4f7a !important;
+
+/* Classic overnight continuation row:
+   arrival and duty-end appear on the following calendar date. */
+tbody tr.row-overnight-continuation td{
+  background:#eef7ff !important;
+  color:#184f73 !important;
 }
-tbody tr.continuation-row td:nth-child(1),
-tbody tr.continuation-row td:nth-child(2){
-  font-weight:800;
-}
-tbody tr.continuation-row td:nth-child(4){
-  font-style:italic;
+tbody tr.row-overnight-continuation td:nth-child(1),
+tbody tr.row-overnight-continuation td:nth-child(2){
   font-weight:700;
 }
-html[data-theme="dark"] tbody tr.continuation-row td{
-  background:#17394e !important;
-  color:#c9ecff !important;
-}
-html[data-theme="dark"] tbody tr.continuation-row td:nth-child(4){
-  color:#9fdcff !important;
+html[data-theme="dark"] tbody tr.row-overnight-continuation td{
+  background:#173a50 !important;
+  color:#d2efff !important;
 }
