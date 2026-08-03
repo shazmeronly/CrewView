@@ -35,26 +35,26 @@
   </div>
   <div class="status" id="status">No roster loaded.</div>
 </section>
-<section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite">
+<section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite" role="button" tabindex="0" aria-label="Open next duty details">
   <div class="compact-duty-main">
     <div>
-      <div class="next-duty-eyebrow" id="nextDutyEyebrow">NEXT DUTY</div>
+      <div class="next-duty-eyebrow">NEXT DUTY</div>
       <div class="compact-duty-title">
         <strong id="nextDutyItem">—</strong>
         <span id="nextDutyRoute">—</span>
       </div>
     </div>
     <div class="compact-duty-report">
-      <span id="nextDutyReportLabel">REPORT</span>
+      <span>REPORT</span>
       <strong id="nextDutyReport">—</strong>
     </div>
   </div>
 
   <div class="compact-duty-bottom">
     <span id="nextDutyDate">—</span>
-    <span><span id="nextDutyEndLabel">End</span> <strong id="nextDutyEnd">—</strong></span>
-    <span><span id="nextDutyMetaLabel">A/C</span> <strong id="nextDutyAircraft">—</strong></span>
-    <span class="compact-countdown"><span id="nextDutyCountdownLabel">In</span> <strong id="nextDutyCountdown">—</strong></span>
+    <span>End <strong id="nextDutyEnd">—</strong></span>
+    <span>A/C <strong id="nextDutyAircraft">—</strong></span>
+    <span class="compact-countdown">In <strong id="nextDutyCountdown">—</strong></span>
   </div>
   <div class="countdown-track compact-track" aria-hidden="true">
     <div class="countdown-fill" id="nextDutyProgress"></div>
@@ -67,6 +67,35 @@
 
 
 
+
+
+<div class="duty-detail-backdrop hidden" id="dutyDetailBackdrop"></div>
+<section class="duty-detail-sheet hidden" id="dutyDetailSheet" role="dialog" aria-modal="true" aria-labelledby="dutyDetailTitle">
+  <div class="duty-detail-handle" aria-hidden="true"></div>
+  <div class="duty-detail-header">
+    <div>
+      <small>NEXT DUTY DETAILS</small>
+      <h2 id="dutyDetailTitle">—</h2>
+      <p id="dutyDetailRoute">—</p>
+    </div>
+    <button type="button" class="duty-detail-close" id="dutyDetailClose" aria-label="Close duty details">×</button>
+  </div>
+
+  <div class="duty-detail-grid">
+    <div><span>Date</span><strong id="detailDate">—</strong></div>
+    <div><span>Report</span><strong id="detailReport">—</strong></div>
+    <div><span>Departure</span><strong id="detailDeparture">—</strong></div>
+    <div><span>Arrival</span><strong id="detailArrival">—</strong></div>
+    <div><span>Duty End</span><strong id="detailDutyEnd">—</strong></div>
+    <div><span>Aircraft</span><strong id="detailAircraft">—</strong></div>
+    <div><span>Block Hours</span><strong id="detailBlock">—</strong></div>
+    <div><span>Duty Hours</span><strong id="detailDutyHours">—</strong></div>
+    <div><span>Work Type</span><strong id="detailWorkType">—</strong></div>
+    <div><span>Reports In</span><strong id="detailCountdown">—</strong></div>
+  </div>
+
+  <p class="duty-detail-note">Tap outside this panel or use × to close.</p>
+</section>
 
 <section class="compact-profile hidden" id="compactProfile">
   <strong id="compactName">—</strong>
