@@ -68,17 +68,13 @@ function esc(v){return String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;","
 function classifyRows(){
   [...tbody.rows].forEach(tr=>{
     tr.classList.remove(
+      "row-duty",
       "row-off",
       "row-training",
       "row-positioning",
       "row-empty",
       "row-overnight-continuation"
     );
-    tr.removeAttribute("data-blank-calendar");
-
-    if(tr.dataset.overnightContinuation==="1"){
-      tr.classList.add("row-overnight-continuation");
-    }
 
     const value=key=>
       (tr.querySelector(`[data-k="${key}"]`)?.textContent||"").trim();
@@ -86,24 +82,39 @@ function classifyRows(){
     const item=value("item").toUpperCase();
     const work=value("work").toUpperCase();
 
-    const blankCalendarDay=[
+    const hasDutyContent=[
       "dutyStart","item","dep","arr","dutyEnd",
       "work","block","duty","ac"
-    ].every(key=>value(key)==="");
+    ].some(key=>value(key)!=="");
 
-    if(item==="D" || item==="OFF" || item.startsWith("DO")){
-      tr.classList.add("row-off");
+    const blankCalendarDay=!hasDutyContent;
+
+    if(tr.dataset.overnightContinuation==="1"){
+      tr.classList.add("row-overnight-continuation");
     }else if(
       item==="DSA" ||
       item.includes("TRAIN") ||
-      item.includes("SIM")
+      item.includes("SIM") ||
+      item.includes("LPC") ||
+      item.includes("OPC") ||
+      item.includes("ETOPS") ||
+      item.includes("LVO") ||
+      item.includes("GROUND") ||
+      item.includes("COURSE")
     ){
       tr.classList.add("row-training");
-    }else if(work==="PS"){
-      tr.classList.add("row-positioning");
+    }else if(
+      item==="D" ||
+      item==="OFF" ||
+      item.startsWith("DO")
+    ){
+      tr.classList.add("row-off");
     }else if(blankCalendarDay){
       tr.classList.add("row-empty");
-      tr.setAttribute("data-blank-calendar","1");
+    }else if(work==="PS"){
+      tr.classList.add("row-positioning");
+    }else{
+      tr.classList.add("row-duty");
     }
   });
 }

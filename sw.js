@@ -1,4 +1,4 @@
-const CACHE = "crewview-blank-day-force-v24";
+const CACHE = "crewview-row-status-colours-v25";
 const ASSETS = [
   "./",
   "./index.html",

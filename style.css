@@ -541,3 +541,121 @@ html[data-theme="dark"] tbody tr[data-blank-calendar="1"] td[data-k="day"]{
   background:#4a3b72 !important;
   color:#efe5ff !important;
 }
+
+
+/* =========================================================
+   ROW STATUS COLOURS
+   Duty dates use one colour.
+   OFF and blank non-duty dates use the same grey.
+   Training/DSA keeps magenta.
+   Positioning keeps green.
+   ========================================================= */
+
+/* Duty rows: Date and Day use one consistent blue */
+tbody tr.row-duty td[data-k="date"],
+tbody tr.row-duty td[data-k="day"]{
+  background:#d9ecff !important;
+  color:#164f7a !important;
+  font-weight:800;
+}
+
+/* OFF and completely blank non-duty rows: entire row grey */
+tbody tr.row-off td,
+tbody tr.row-empty td{
+  background:#e1e6ec !important;
+  color:#5f6975 !important;
+}
+tbody tr.row-off td[data-k="date"],
+tbody tr.row-off td[data-k="day"],
+tbody tr.row-empty td[data-k="date"],
+tbody tr.row-empty td[data-k="day"]{
+  background:#d3dae2 !important;
+  color:#4f5b67 !important;
+  font-weight:800;
+}
+
+/* Training / DSA / ground training: entire row retains magenta */
+tbody tr.row-training td{
+  background:#f5d9e9 !important;
+  color:#81224f !important;
+}
+tbody tr.row-training td[data-k="date"],
+tbody tr.row-training td[data-k="day"]{
+  background:#edc4dd !important;
+  color:#761b48 !important;
+  font-weight:800;
+}
+
+/* Positioning duty: entire row green */
+tbody tr.row-positioning td{
+  background:#d9f1eb !important;
+  color:#145f55 !important;
+}
+tbody tr.row-positioning td[data-k="date"],
+tbody tr.row-positioning td[data-k="day"]{
+  background:#bfe7dd !important;
+  color:#0f594f !important;
+  font-weight:800;
+}
+
+/* Overnight continuation: same duty family, slightly lighter blue */
+tbody tr.row-overnight-continuation td{
+  background:#e8f4ff !important;
+  color:#184f73 !important;
+}
+tbody tr.row-overnight-continuation td[data-k="date"],
+tbody tr.row-overnight-continuation td[data-k="day"]{
+  background:#cfe7fb !important;
+  color:#174f76 !important;
+  font-weight:800;
+}
+
+/* Dark mode */
+html[data-theme="dark"] tbody tr.row-duty td[data-k="date"],
+html[data-theme="dark"] tbody tr.row-duty td[data-k="day"]{
+  background:#24577f !important;
+  color:#e3f3ff !important;
+}
+
+html[data-theme="dark"] tbody tr.row-off td,
+html[data-theme="dark"] tbody tr.row-empty td{
+  background:#394655 !important;
+  color:#e1e8ef !important;
+}
+html[data-theme="dark"] tbody tr.row-off td[data-k="date"],
+html[data-theme="dark"] tbody tr.row-off td[data-k="day"],
+html[data-theme="dark"] tbody tr.row-empty td[data-k="date"],
+html[data-theme="dark"] tbody tr.row-empty td[data-k="day"]{
+  background:#465363 !important;
+  color:#ffffff !important;
+}
+
+html[data-theme="dark"] tbody tr.row-training td{
+  background:#7a2854 !important;
+  color:#ffe0f0 !important;
+}
+html[data-theme="dark"] tbody tr.row-training td[data-k="date"],
+html[data-theme="dark"] tbody tr.row-training td[data-k="day"]{
+  background:#8c2f62 !important;
+  color:#ffffff !important;
+}
+
+html[data-theme="dark"] tbody tr.row-positioning td{
+  background:#236b62 !important;
+  color:#d7fff8 !important;
+}
+html[data-theme="dark"] tbody tr.row-positioning td[data-k="date"],
+html[data-theme="dark"] tbody tr.row-positioning td[data-k="day"]{
+  background:#2b7d72 !important;
+  color:#ffffff !important;
+}
+
+html[data-theme="dark"] tbody tr.row-overnight-continuation td{
+  background:#1b455e !important;
+  color:#d4f1ff !important;
+}
+html[data-theme="dark"] tbody tr.row-overnight-continuation td[data-k="date"],
+html[data-theme="dark"] tbody tr.row-overnight-continuation td[data-k="day"]{
+  background:#245a78 !important;
+  color:#ffffff !important;
+}
