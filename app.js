@@ -67,38 +67,18 @@ tbody.addEventListener("input",()=>{classifyRows();updateStats()});
 function parseHeader(text){
   const head=String(text||"").replace(/\s+/g," ").trim();
 
-  // Work only with the part after the roster date range so "Roster Report"
-  // cannot accidentally become part of the crew member's name.
-  const afterRange=head.replace(
-    /^.*?\d{2}-[A-Za-z]{3}-\d{4}\s+to\s+\d{2}-[A-Za-z]{3}-\d{4}\s*/i,
-    ""
+  // This roster PDF places the crew profile BEFORE "Roster Report" in its
+  // internal text order, even though it is visually shown on the same header.
+  // Search the complete extracted text instead of only the text after the date range.
+  let person=head.match(
+    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,3})(?=\s|Roster Report|FH|$)/i
   );
 
-  // Normal PDF text order: NAME | STAFF | FLEET | BASE | RANK
-  let person=afterRange.match(
-    /^([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,3})(?=\s|FH|$)/i
-  );
-
-  // Fallback for PDFs where the vertical bars are omitted by the text layer.
+  // Fallback when PDF.js drops the vertical bars.
   if(!person){
-    person=afterRange.match(
-      /^([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,3})\s+(?=FH\s*:|Date\b)/i
+    person=head.match(
+      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,3})(?=\s+Roster Report|\s+FH\s*:|$)/i
     );
-  }
-
-  // Last fallback: locate the staff/fleet/base/rank block and take the
-  // uppercase words immediately before it as the name.
-  if(!person){
-    const block=afterRange.match(
-      /(\d{5,})\s*(?:\|\s*)?([A-Z0-9]{2,5})\s*(?:\|\s*)?([A-Z]{3})\s*(?:\|\s*)?([A-Z]{2,3})(?=\s|FH|$)/i
-    );
-    if(block){
-      const namePart=afterRange.slice(0,block.index).replace(/\|/g," ").trim();
-      const nameMatch=namePart.match(/([A-Z][A-Z .'-]{5,})$/i);
-      if(nameMatch){
-        person=[block[0],nameMatch[1],block[1],block[2],block[3],block[4]];
-      }
-    }
   }
 
   if(person){
@@ -114,7 +94,6 @@ function parseHeader(text){
   if(fh){officialFH=fh[1];$("#fh").textContent=officialFH;}
   if(dh){officialDH=dh[1];$("#dh").textContent=officialDH;}
 }
-
 function closest(items, xMin,xMax, y, tol=9){
   return items.filter(i=>i.x>=xMin&&i.x<xMax&&Math.abs(i.y-y)<=tol)
               .sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").trim();
