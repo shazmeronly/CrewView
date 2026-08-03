@@ -416,6 +416,27 @@ function buildPairingRows(items,w,h,pageNumber=1){
     }
   });
 
+  // Normalize all continuation sectors to the first sector's duty date.
+  // This is essential for return sectors such as:
+  // 07 Aug MH102 KUL-DAC followed by MH103 DAC-KUL.
+  const groupDates=new Map();
+
+  rows.forEach(row=>{
+    if(
+      row._dutyGroup &&
+      Number(row._sectorIndex||0)===0
+    ){
+      groupDates.set(row._dutyGroup,row.date);
+    }
+  });
+
+  rows.forEach(row=>{
+    if(row._dutyGroup && groupDates.has(row._dutyGroup)){
+      row.date=groupDates.get(row._dutyGroup);
+      row.day=dayName(row.date);
+    }
+  });
+
   // Store the sector count on every sector in a duty.
   const counts=new Map();
   rows.forEach(row=>{
@@ -604,6 +625,99 @@ function markRemainingBlankDaysAsOff(rows){
 
     return row;
   });
+}
+
+
+function normalizePairingDutySequence(rows){
+  const normalized=[];
+  let activeDuty=null;
+  let sectorIndex=0;
+
+  rows.forEach((sourceRow,visualIndex)=>{
+    const row={...sourceRow};
+    const item=String(row.item||"").trim().toUpperCase();
+    const report=String(row.dutyStart||"").trim();
+    const isFlight=/^MH\d{2,4}$/.test(item);
+    const isOff=item==="D" || item==="DO" || item==="OFF";
+    const isGroundDuty=!isFlight && !isOff && (
+      item ||
+      report ||
+      String(row.dep||"").trim() ||
+      String(row.arr||"").trim() ||
+      String(row.dutyEnd||"").trim()
+    );
+
+    if(isOff){
+      activeDuty=null;
+      sectorIndex=0;
+      row.item="D";
+      normalized.push(row);
+      return;
+    }
+
+    if(isFlight && report){
+      // A report time always starts a new duty.
+      activeDuty={
+        date:row.date,
+        day:row.day||dayName(row.date),
+        group:`${row.date}|${report}|${item}|${visualIndex}`
+      };
+      sectorIndex=0;
+
+      row.date=activeDuty.date;
+      row.day=activeDuty.day;
+      row._dutyGroup=activeDuty.group;
+      row._sectorIndex=0;
+      normalized.push(row);
+      return;
+    }
+
+    if(isFlight && activeDuty){
+      // A flight without a new report time is a continuation sector of the
+      // currently active duty, regardless of a nearby printed date label.
+      sectorIndex+=1;
+      row.date=activeDuty.date;
+      row.day=activeDuty.day;
+      row.dutyStart="";
+      row._dutyGroup=activeDuty.group;
+      row._sectorIndex=sectorIndex;
+      normalized.push(row);
+
+      // Duty end on a sector closes that duty.
+      if(String(row.dutyEnd||"").trim()){
+        activeDuty=null;
+        sectorIndex=0;
+      }
+      return;
+    }
+
+    if(isGroundDuty){
+      activeDuty=null;
+      sectorIndex=0;
+      normalized.push(row);
+      return;
+    }
+
+    normalized.push(row);
+  });
+
+  const counts=new Map();
+  normalized.forEach(row=>{
+    if(row._dutyGroup){
+      counts.set(
+        row._dutyGroup,
+        (counts.get(row._dutyGroup)||0)+1
+      );
+    }
+  });
+
+  normalized.forEach(row=>{
+    if(row._dutyGroup){
+      row._sectorCount=counts.get(row._dutyGroup)||1;
+    }
+  });
+
+  return normalized;
 }
 
 function fillEveryDay(rows=getRows()){
@@ -1272,6 +1386,10 @@ async function parsePDF(file){
     );
   }
 
+  if(pairingMode){
+    allRows=normalizePairingDutySequence(allRows);
+  }
+
   allRows=fillEveryDay(allRows);
 
   // Keep classic next-day rows for (+1) arrivals while preserving all sectors.
@@ -1280,7 +1398,61 @@ async function parsePDF(file){
     combinedText
   );
 
+  // Re-normalize grouped sectors after overnight processing. A normal return
+  // sector without (+1) remains on the original duty date.
+  if(pairingMode){
+    const actualDutyRows=allRows.filter(row=>!row._overnightContinuation);
+    const continuationRows=allRows.filter(row=>row._overnightContinuation);
+    allRows=[
+      ...normalizePairingDutySequence(actualDutyRows),
+      ...continuationRows
+    ];
+  }
+
+  const dutyDates=new Map();
+  allRows.forEach(row=>{
+    if(
+      row._dutyGroup &&
+      Number(row._sectorIndex||0)===0
+    ){
+      dutyDates.set(row._dutyGroup,row.date);
+    }
+  });
+  allRows.forEach(row=>{
+    if(
+      row._dutyGroup &&
+      dutyDates.has(row._dutyGroup) &&
+      !row._overnightContinuation
+    ){
+      row.date=dutyDates.get(row._dutyGroup);
+      row.day=dayName(row.date);
+    }
+  });
+
   allRows=markRemainingBlankDaysAsOff(allRows);
+
+  allRows.forEach((row,index)=>{
+    row._displayOrder=index;
+  });
+
+  allRows.sort((a,b)=>{
+    const ad=parseRosterDate(a.date);
+    const bd=parseRosterDate(b.date);
+    const dateDiff=(ad?.getTime()||0)-(bd?.getTime()||0);
+    if(dateDiff!==0) return dateDiff;
+
+    const ag=a._dutyGroup||"";
+    const bg=b._dutyGroup||"";
+
+    if(ag && bg && ag===bg){
+      return Number(a._sectorIndex||0)-Number(b._sectorIndex||0);
+    }
+
+    if(a._overnightContinuation && !b._overnightContinuation) return -1;
+    if(!a._overnightContinuation && b._overnightContinuation) return 1;
+
+    return Number(a._displayOrder||0)-Number(b._displayOrder||0);
+  });
 
   setRows(allRows);
 
