@@ -1,4 +1,4 @@
-const CACHE = "crewview-clean-pdf-v28";
+const CACHE = "crewview-roster-only-pdf-v29";
 const ASSETS = [
   "./",
   "./index.html",

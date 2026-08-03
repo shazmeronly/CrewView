@@ -871,3 +871,66 @@ body.pdf-export .help,
 body.pdf-export .status{
   display:none !important;
 }
+
+
+/* =========================================================
+   ROSTER-ONLY PDF EXPORT
+   ========================================================= */
+
+@media print{
+  /* Remove all app-only sections */
+  #nextDutyCard,
+  header,
+  #uploadCard,
+  footer,
+  .help,
+  .status,
+  .theme-toggle,
+  #profileForm{
+    display:none !important;
+  }
+
+  /* Keep only the compact crew strip and roster card */
+  .compact-profile{
+    display:flex !important;
+    margin:0 0 2mm !important;
+  }
+
+  #resultCard{
+    display:block !important;
+    margin:0 !important;
+    padding:2.5mm !important;
+  }
+
+  main{
+    width:200mm !important;
+    max-width:200mm !important;
+    margin:0 auto !important;
+    padding:0 !important;
+  }
+
+  /* Use the freed space to enlarge the roster */
+  table{
+    font-size:6.4px !important;
+  }
+
+  th,
+  td{
+    height:4.45mm !important;
+    padding:.5mm .6mm !important;
+  }
+
+  .legend{
+    font-size:6.8px !important;
+    margin-bottom:1.8mm !important;
+  }
+
+  .summary{
+    margin-top:2.5mm !important;
+  }
+}
+
+/* Hide Next Duty immediately while Safari prepares the PDF preview */
+body.pdf-export #nextDutyCard{
+  display:none !important;
+}
