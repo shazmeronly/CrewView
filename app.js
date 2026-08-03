@@ -667,10 +667,41 @@ $("#pdfInput").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file)return;
   try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
 });
-$("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
-$("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
-$("#clearBtn").onclick=()=>{officialFH=null;officialDH=null;setRows([]);status.textContent="Cleared."}
-$("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}
+$("#loadAnotherBtn")?.addEventListener("click",()=>$("#pdfInput")?.click());
+$("#clearBtn").onclick=()=>{
+  officialFH=null;
+  officialDH=null;
+
+  if(nextDutyTimer){
+    clearInterval(nextDutyTimer);
+    nextDutyTimer=null;
+  }
+
+  setRows([]);
+
+  ["name","staff","rank","fleet","base"].forEach(id=>{
+    const input=$("#"+id);
+    if(input) input.value="";
+  });
+
+  $("#fh").textContent="00:00";
+  $("#dh").textContent="00:00";
+  $("#off").textContent="0";
+
+  const nextCard=$("#nextDutyCard");
+  if(nextCard) nextCard.classList.add("hidden");
+
+  const compactProfile=$("#compactProfile");
+  if(compactProfile) compactProfile.classList.add("hidden");
+
+  document.body.classList.remove("roster-loaded");
+
+  const fileInput=$("#pdfInput");
+  if(fileInput) fileInput.value="";
+
+  status.textContent="No roster loaded.";
+  window.scrollTo({top:0,behavior:"smooth"});
+};
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
 $("#printBtn").onclick=()=>{fitEnabled=true;applyOnePageFit();setTimeout(()=>window.print(),80)};
 
