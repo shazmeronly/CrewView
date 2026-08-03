@@ -318,3 +318,51 @@ html[data-theme="dark"] td[contenteditable="true"]:focus{
   box-shadow:inset 0 0 0 2px #ffd35c !important;
 }
 
+
+
+/* Make dark-mode legend swatches exactly match the table colours */
+html[data-theme="dark"] .legend span:nth-child(1) .dot,
+html[data-theme="dark"] .legend .date-swatch{
+  background:#1f4f7a !important;
+}
+html[data-theme="dark"] .legend span:nth-child(2) .dot,
+html[data-theme="dark"] .legend .day-swatch{
+  background:#4a3b72 !important;
+}
+html[data-theme="dark"] .legend span:nth-child(3) .dot,
+html[data-theme="dark"] .legend .report-swatch{
+  background:#66561f !important;
+}
+html[data-theme="dark"] .legend span:nth-child(4) .dot,
+html[data-theme="dark"] .legend .flight-swatch{
+  background:#1f5b3b !important;
+}
+html[data-theme="dark"] .legend span:nth-child(5) .dot,
+html[data-theme="dark"] .legend .timing-swatch{
+  background:#1d5269 !important;
+}
+html[data-theme="dark"] .legend span:nth-child(6) .dot,
+html[data-theme="dark"] .legend .hours-swatch{
+  background:#6b421f !important;
+}
+html[data-theme="dark"] .legend span:nth-child(7) .dot,
+html[data-theme="dark"] .legend .off-swatch{
+  background:#3a4554 !important;
+}
+html[data-theme="dark"] .legend span:nth-child(8) .dot,
+html[data-theme="dark"] .legend .training-swatch{
+  background:#6a244b !important;
+}
+
+/* If positioning is shown in a future legend, use the same teal as the table */
+html[data-theme="dark"] .legend .positioning-swatch{
+  background:#1f665f !important;
+}
+
+/* Improve swatch visibility in dark mode */
+html[data-theme="dark"] .legend .dot,
+html[data-theme="dark"] .legend .swatch{
+  border:1px solid rgba(255,255,255,.45) !important;
+  box-shadow:0 0 0 1px rgba(0,0,0,.25);
+}
+
