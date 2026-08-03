@@ -386,6 +386,34 @@ function applyClassicOvernightTiming(rows,pdfText){
   return result;
 }
 
+
+function markRemainingBlankDaysAsOff(rows){
+  return rows.map(row=>{
+    if(row._overnightContinuation) return row;
+
+    const hasDutyInformation=[
+      row.dutyStart,
+      row.item,
+      row.dep,
+      row.arr,
+      row.dutyEnd,
+      row.work,
+      row.block,
+      row.duty,
+      row.ac
+    ].some(value=>String(value||"").trim()!=="");
+
+    if(!hasDutyInformation){
+      return {
+        ...row,
+        item:"D"
+      };
+    }
+
+    return row;
+  });
+}
+
 function fillEveryDay(rows=getRows()){
   const valid=rows.map(r=>({r,d:parseRosterDate(r.date)})).filter(x=>x.d);
   if(!valid.length){status.textContent="Load a roster first.";return rows}
@@ -689,7 +717,7 @@ async function parsePDF(file){
   const seen=new Set();
   allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart;if(seen.has(k))return false;seen.add(k);return true});
   if(!allRows.length) throw new Error("No roster rows were detected. This version supports the current Malaysia Airlines Roster Report PDF.");
-  allRows=applyClassicOvernightTiming(fillEveryDay(allRows),combinedText);
+  allRows=markRemainingBlankDaysAsOff(applyClassicOvernightTiming(fillEveryDay(allRows),combinedText));
   setRows(allRows);
   status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days.`;
   document.body.classList.add("roster-loaded");
