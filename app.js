@@ -261,6 +261,180 @@ function buildRows(items,w,h){
 }
 
 
+
+function buildPairingRows(items,w,h,pageNumber=1){
+  const X={
+    date:[0.02,0.09],
+    activity:[0.09,0.185],
+    report:[0.185,0.23],
+    item:[0.23,0.31],
+    work:[0.33,0.37],
+    dep:[0.40,0.465],
+    arr:[0.465,0.55],
+    dutyEnd:[0.55,0.61],
+    block:[0.61,0.645],
+    duty:[0.645,0.69],
+    ac:[0.72,0.76]
+  };
+
+  const col=(name,y,tol=7)=>
+    closest(
+      items,
+      w*X[name][0],
+      w*X[name][1],
+      y,
+      tol
+    );
+
+  // Each visible roster line has at least a date, activity code or flight number.
+  // Page 2 starts close to the top, so use a low vertical threshold.
+  const anchors=items.filter(item=>{
+    if(item.y<h*0.075) return false;
+
+    const isDate=
+      /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s) &&
+      item.x<w*0.09;
+
+    const isFlight=
+      /^MH\d{2,4}$/i.test(item.s) &&
+      item.x>=w*0.23 &&
+      item.x<w*0.31;
+
+    const isActivity=
+      item.x>=w*0.09 &&
+      item.x<w*0.185 &&
+      /^(?:D|DO|[A-Z0-9]+(?:-[A-Z0-9/]+)?)$/i.test(item.s);
+
+    return isDate || isFlight || isActivity;
+  });
+
+  const rowYs=[];
+  anchors
+    .sort((a,b)=>a.y-b.y)
+    .forEach(anchor=>{
+      if(!rowYs.some(y=>Math.abs(y-anchor.y)<4)){
+        rowYs.push(anchor.y);
+      }
+    });
+
+  const rows=[];
+  let currentDate="";
+  let currentGroup="";
+  let sectorIndex=0;
+
+  rowYs.forEach(y=>{
+    const explicitDate=col("date",y,7);
+    if(explicitDate) currentDate=explicitDate;
+    if(!currentDate) return;
+
+    const activity=col("activity",y,7);
+    const report=cleanTime(col("report",y,7));
+    const item=col("item",y,7).trim();
+    const work=col("work",y,7).trim();
+    const dep=col("dep",y,8).replace(/\s+/g," ").trim();
+
+    // Some (+1) airport/time cells are vertically split across two text lines.
+    const arr=cleanNextDayMarker(
+      col("arr",y,13).replace(/\s+/g," ").trim()
+    );
+    const dutyEnd=cleanNextDayMarker(
+      cleanTime(col("dutyEnd",y,13))
+    );
+
+    const block=cleanTime(col("block",y,7));
+    const duty=cleanTime(col("duty",y,7));
+    const ac=col("ac",y,7).trim();
+
+    const offCode=/^(D|DO)$/i.test(activity);
+    const hasFlight=/^MH\d{2,4}$/i.test(item);
+
+    if(offCode){
+      rows.push({
+        date:currentDate,
+        day:dayName(currentDate),
+        dutyStart:"",
+        item:"D",
+        dep:"",
+        arr:"",
+        dutyEnd:"",
+        work:"",
+        block:"",
+        duty:"",
+        ac:""
+      });
+      currentGroup="";
+      sectorIndex=0;
+      return;
+    }
+
+    if(hasFlight){
+      // A visible report time starts a new duty. A following flight line without
+      // a report time is another sector in the same duty.
+      if(report || !currentGroup){
+        currentGroup=
+          `${currentDate}|${report||"NO-REPORT"}|${item}|P${pageNumber}`;
+        sectorIndex=0;
+      }else{
+        sectorIndex+=1;
+      }
+
+      rows.push({
+        date:currentDate,
+        day:dayName(currentDate),
+        dutyStart:sectorIndex===0 ? report : "",
+        item,
+        dep,
+        arr,
+        dutyEnd,
+        work,
+        block,
+        duty:sectorIndex===0 ? duty : "",
+        ac,
+        _dutyGroup:currentGroup,
+        _sectorIndex:sectorIndex
+      });
+      return;
+    }
+
+    // Ground duties, standby and other activities.
+    if(activity || report || dep || arr || dutyEnd){
+      rows.push({
+        date:currentDate,
+        day:dayName(currentDate),
+        dutyStart:report,
+        item:activity || "DUTY",
+        dep,
+        arr,
+        dutyEnd,
+        work,
+        block,
+        duty,
+        ac
+      });
+      currentGroup="";
+      sectorIndex=0;
+    }
+  });
+
+  // Store the sector count on every sector in a duty.
+  const counts=new Map();
+  rows.forEach(row=>{
+    if(row._dutyGroup){
+      counts.set(
+        row._dutyGroup,
+        (counts.get(row._dutyGroup)||0)+1
+      );
+    }
+  });
+  rows.forEach(row=>{
+    if(row._dutyGroup){
+      row._sectorCount=counts.get(row._dutyGroup)||1;
+    }
+  });
+
+  return rows;
+}
+
 function parseRosterDate(s){
   const m=String(s||"").match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
   if(!m)return null;
@@ -1010,44 +1184,124 @@ async function parsePDF(file){
   officialFH=null;
   officialDH=null;
   ["name","staff","rank","fleet","base"].forEach(id=>$("#"+id).value="");
+
   const data=new Uint8Array(await file.arrayBuffer());
   const pdf=await pdfjsLib.getDocument({data}).promise;
-  let allRows=[], allText=[];
-  for(let p=1;p<=pdf.numPages;p++){
-    const page=await pdf.getPage(p), viewport=page.getViewport({scale:1});
-    const tc=await page.getTextContent();
-    const items=tc.items.map(it=>{
-      const t=pdfjsLib.Util.transform(viewport.transform,it.transform);
-      return {s:it.str.trim(),x:t[4],y:viewport.height-t[5]};
-    }).filter(i=>i.s);
-    allText.push(items.map(i=>i.s).join(" "));
-    const pageRows=buildRows(items,viewport.width,viewport.height);
-    allRows.push(...pageRows);
+
+  let allRows=[];
+  let allText=[];
+  let pairingMode=false;
+
+  for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
+    const page=await pdf.getPage(pageNumber);
+    const viewport=page.getViewport({scale:1});
+    const textContent=await page.getTextContent();
+
+    const items=textContent.items
+      .map(item=>{
+        const transformed=pdfjsLib.Util.transform(
+          viewport.transform,
+          item.transform
+        );
+        return {
+          s:item.str.trim(),
+          x:transformed[4],
+          y:viewport.height-transformed[5]
+        };
+      })
+      .filter(item=>item.s);
+
+    const pageText=items.map(item=>item.s).join(" ");
+    allText.push(pageText);
+
+    const isPairingPage=
+      /Pairing\/Activity/i.test(pageText) &&
+      /Duty\s*Report/i.test(pageText);
+
+    if(isPairingPage){
+      pairingMode=true;
+      allRows.push(
+        ...buildPairingRows(
+          items,
+          viewport.width,
+          viewport.height,
+          pageNumber
+        )
+      );
+    }else{
+      allRows.push(
+        ...buildRows(
+          items,
+          viewport.width,
+          viewport.height
+        )
+      );
+    }
   }
+
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
 
-  const multiSectorRows=parseMultiSectorRosterText(combinedText);
-
-  if(multiSectorRows.length){
-    // Cabin-crew and other pairing-based reports are parsed from the text layer
-    // so every sector within one duty is retained.
-    allRows=multiSectorRows;
-  }else{
-    // Pilot-style roster: recover any row missed by coordinate parsing,
-    // especially the final row at the bottom edge of the PDF.
-    allRows.push(...recoverMissingFlightRows(combinedText, allRows));
+  if(!pairingMode){
+    allRows.push(
+      ...recoverMissingFlightRows(
+        combinedText,
+        allRows
+      )
+    );
   }
 
-  // dedupe by date+item+start+sector
   const seen=new Set();
-  allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart+"|"+(r._sectorIndex??"");if(seen.has(k))return false;seen.add(k);return true});
-  if(!allRows.length) throw new Error("No roster rows were detected. This version supports the current Malaysia Airlines Roster Report PDF.");
-  allRows=markRemainingBlankDaysAsOff(applyClassicOvernightTiming(fillEveryDay(allRows),combinedText));
+  allRows=allRows.filter(row=>{
+    const key=[
+      row.date,
+      row.item,
+      row.dutyStart,
+      row._dutyGroup||"",
+      row._sectorIndex??""
+    ].join("|");
+
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if(!allRows.length){
+    throw new Error(
+      "No roster rows were detected. This version supports Malaysia Airlines pilot and pairing-based cabin crew Roster Report PDFs."
+    );
+  }
+
+  allRows=fillEveryDay(allRows);
+
+  // Keep classic next-day rows for (+1) arrivals while preserving all sectors.
+  allRows=applyClassicOvernightTiming(
+    allRows,
+    combinedText
+  );
+
+  allRows=markRemainingBlankDaysAsOff(allRows);
+
   setRows(allRows);
-  status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days.`;
+
+  const firstDate=allRows
+    .map(row=>parseRosterDate(row.date))
+    .find(Boolean);
+
+  const calendarDays=firstDate
+    ? new Date(
+        firstDate.getFullYear(),
+        firstDate.getMonth()+1,
+        0
+      ).getDate()
+    : allRows.length;
+
+  status.textContent=
+    `Converted the roster and displayed all ${calendarDays} calendar days.`;
+
   document.body.classList.add("roster-loaded");
   updateCompactProfile();
+
   setTimeout(()=>{
     applyOnePageFit();
     document.querySelector("#nextDutyCard")?.scrollIntoView({
