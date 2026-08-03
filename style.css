@@ -230,3 +230,91 @@ html[data-theme="dark"] .next-duty-card{box-shadow:0 5px 20px #0007}
 @media print{
   .next-duty-card{display:none!important}
 }
+
+
+/* Stronger dark-mode category colours */
+html[data-theme="dark"] tbody td{
+  border-color:#415166;
+}
+
+html[data-theme="dark"] tbody td:nth-child(1){
+  background:#1f4f7a !important;
+  color:#d9efff !important;
+}
+html[data-theme="dark"] tbody td:nth-child(2){
+  background:#4a3b72 !important;
+  color:#efe5ff !important;
+}
+html[data-theme="dark"] tbody td:nth-child(3){
+  background:#66561f !important;
+  color:#fff1a8 !important;
+}
+html[data-theme="dark"] tbody td:nth-child(4){
+  background:#1f5b3b !important;
+  color:#c7ffd9 !important;
+}
+html[data-theme="dark"] tbody td:nth-child(5),
+html[data-theme="dark"] tbody td:nth-child(6),
+html[data-theme="dark"] tbody td:nth-child(7){
+  background:#1d5269 !important;
+  color:#cdefff !important;
+}
+html[data-theme="dark"] tbody td:nth-child(8){
+  background:#263444 !important;
+  color:#d9e4ef !important;
+}
+html[data-theme="dark"] tbody td:nth-child(9),
+html[data-theme="dark"] tbody td:nth-child(10){
+  background:#6b421f !important;
+  color:#ffd3a6 !important;
+}
+html[data-theme="dark"] tbody td:nth-child(11){
+  background:#343a46 !important;
+  color:#e3e8ef !important;
+}
+
+/* Whole-row categories need to stay visually distinct */
+html[data-theme="dark"] tbody tr.row-off td{
+  background:#3a4554 !important;
+  color:#eef3f8 !important;
+}
+html[data-theme="dark"] tbody tr.row-off td:nth-child(4){
+  color:#ffffff !important;
+}
+html[data-theme="dark"] tbody tr.row-training td{
+  background:#6a244b !important;
+  color:#ffd4ec !important;
+}
+html[data-theme="dark"] tbody tr.row-positioning td{
+  background:#1f665f !important;
+  color:#c9fff8 !important;
+}
+html[data-theme="dark"] tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(2)){
+  background:#121b25 !important;
+  color:#758599 !important;
+}
+
+/* Keep headings and totals readable */
+html[data-theme="dark"] th{
+  background:#5a4d22 !important;
+  color:#fff3b8 !important;
+}
+html[data-theme="dark"] .stat{
+  background:#111d29 !important;
+  border-color:#466079 !important;
+}
+html[data-theme="dark"] .stat strong{
+  color:#ffffff !important;
+}
+html[data-theme="dark"] .legend{
+  color:#c8d4e1 !important;
+}
+html[data-theme="dark"] .swatch{
+  border-color:#ffffff55 !important;
+}
+
+/* Slightly brighter editable focus */
+html[data-theme="dark"] td[contenteditable="true"]:focus{
+  box-shadow:inset 0 0 0 2px #ffd35c !important;
+}
+

@@ -1,4 +1,4 @@
-const CACHE = "crewview-next-duty-v6";
+const CACHE = "crewview-dark-contrast-v8";
 const ASSETS = [
   "./",
   "./index.html",
