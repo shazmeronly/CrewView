@@ -231,142 +231,24 @@ html[data-theme="dark"] .next-duty-card{box-shadow:0 5px 20px #0007}
   .next-duty-card{display:none!important}
 }
 
-
-/* Stronger dark-mode category colours */
-html[data-theme="dark"] tbody td{
-  border-color:#415166;
+.name-field{
+  grid-column:1 / -1;
 }
-
-html[data-theme="dark"] tbody td:nth-child(1){
-  background:#1f4f7a !important;
-  color:#d9efff !important;
+.name-field input{
+  font-size:14px !important;
+  font-weight:700;
+  letter-spacing:.01em;
 }
-html[data-theme="dark"] tbody td:nth-child(2){
-  background:#4a3b72 !important;
-  color:#efe5ff !important;
+.meta input[readonly]{
+  cursor:default;
+  text-overflow:clip;
 }
-html[data-theme="dark"] tbody td:nth-child(3){
-  background:#66561f !important;
-  color:#fff1a8 !important;
+.upload-card.collapsed-after-load{
+  display:none;
 }
-html[data-theme="dark"] tbody td:nth-child(4){
-  background:#1f5b3b !important;
-  color:#c7ffd9 !important;
+.next-duty-card{
+  margin-top:0;
 }
-html[data-theme="dark"] tbody td:nth-child(5),
-html[data-theme="dark"] tbody td:nth-child(6),
-html[data-theme="dark"] tbody td:nth-child(7){
-  background:#1d5269 !important;
-  color:#cdefff !important;
-}
-html[data-theme="dark"] tbody td:nth-child(8){
-  background:#263444 !important;
-  color:#d9e4ef !important;
-}
-html[data-theme="dark"] tbody td:nth-child(9),
-html[data-theme="dark"] tbody td:nth-child(10){
-  background:#6b421f !important;
-  color:#ffd3a6 !important;
-}
-html[data-theme="dark"] tbody td:nth-child(11){
-  background:#343a46 !important;
-  color:#e3e8ef !important;
-}
-
-/* Whole-row categories need to stay visually distinct */
-html[data-theme="dark"] tbody tr.row-off td{
-  background:#3a4554 !important;
-  color:#eef3f8 !important;
-}
-html[data-theme="dark"] tbody tr.row-off td:nth-child(4){
-  color:#ffffff !important;
-}
-html[data-theme="dark"] tbody tr.row-training td{
-  background:#6a244b !important;
-  color:#ffd4ec !important;
-}
-html[data-theme="dark"] tbody tr.row-positioning td{
-  background:#1f665f !important;
-  color:#c9fff8 !important;
-}
-html[data-theme="dark"] tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(2)){
-  background:#121b25 !important;
-  color:#758599 !important;
-}
-
-/* Keep headings and totals readable */
-html[data-theme="dark"] th{
-  background:#5a4d22 !important;
-  color:#fff3b8 !important;
-}
-html[data-theme="dark"] .stat{
-  background:#111d29 !important;
-  border-color:#466079 !important;
-}
-html[data-theme="dark"] .stat strong{
-  color:#ffffff !important;
-}
-html[data-theme="dark"] .legend{
-  color:#c8d4e1 !important;
-}
-html[data-theme="dark"] .swatch{
-  border-color:#ffffff55 !important;
-}
-
-/* Slightly brighter editable focus */
-html[data-theme="dark"] td[contenteditable="true"]:focus{
-  box-shadow:inset 0 0 0 2px #ffd35c !important;
-}
-
-
-
-/* Make dark-mode legend swatches exactly match the table colours */
-html[data-theme="dark"] .legend span:nth-child(1) .dot,
-html[data-theme="dark"] .legend .date-swatch{
-  background:#1f4f7a !important;
-}
-html[data-theme="dark"] .legend span:nth-child(2) .dot,
-html[data-theme="dark"] .legend .day-swatch{
-  background:#4a3b72 !important;
-}
-html[data-theme="dark"] .legend span:nth-child(3) .dot,
-html[data-theme="dark"] .legend .report-swatch{
-  background:#66561f !important;
-}
-html[data-theme="dark"] .legend span:nth-child(4) .dot,
-html[data-theme="dark"] .legend .flight-swatch{
-  background:#1f5b3b !important;
-}
-html[data-theme="dark"] .legend span:nth-child(5) .dot,
-html[data-theme="dark"] .legend .timing-swatch{
-  background:#1d5269 !important;
-}
-html[data-theme="dark"] .legend span:nth-child(6) .dot,
-html[data-theme="dark"] .legend .hours-swatch{
-  background:#6b421f !important;
-}
-html[data-theme="dark"] .legend span:nth-child(7) .dot,
-html[data-theme="dark"] .legend .off-swatch{
-  background:#3a4554 !important;
-}
-html[data-theme="dark"] .legend span:nth-child(8) .dot,
-html[data-theme="dark"] .legend .training-swatch{
-  background:#6a244b !important;
-}
-
-/* If positioning is shown in a future legend, use the same teal as the table */
-html[data-theme="dark"] .legend .positioning-swatch{
-  background:#1f665f !important;
-}
-
-/* Improve swatch visibility in dark mode */
-html[data-theme="dark"] .legend .dot,
-html[data-theme="dark"] .legend .swatch{
-  border:1px solid rgba(255,255,255,.45) !important;
-  box-shadow:0 0 0 1px rgba(0,0,0,.25);
-}
-
-
 footer{
   display:block !important;
   padding-left:16px !important;
@@ -375,7 +257,42 @@ footer{
 footer .btn{
   width:100% !important;
   max-width:none !important;
-  min-height:56px;
-  font-size:17px;
+  min-height:58px;
+  font-size:18px;
   border-radius:14px;
 }
+@media(max-width:640px){
+  .meta{
+    grid-template-columns:1fr 1fr;
+  }
+  .name-field{
+    grid-column:1 / -1;
+  }
+  .name-field input{
+    font-size:12px !important;
+  }
+}
+
+html[data-theme="dark"] tbody td{border-color:#415166}
+html[data-theme="dark"] tbody td:nth-child(1){background:#1f4f7a!important;color:#d9efff!important}
+html[data-theme="dark"] tbody td:nth-child(2){background:#4a3b72!important;color:#efe5ff!important}
+html[data-theme="dark"] tbody td:nth-child(3){background:#66561f!important;color:#fff1a8!important}
+html[data-theme="dark"] tbody td:nth-child(4){background:#1f5b3b!important;color:#c7ffd9!important}
+html[data-theme="dark"] tbody td:nth-child(5),
+html[data-theme="dark"] tbody td:nth-child(6),
+html[data-theme="dark"] tbody td:nth-child(7){background:#1d5269!important;color:#cdefff!important}
+html[data-theme="dark"] tbody td:nth-child(8){background:#263444!important;color:#d9e4ef!important}
+html[data-theme="dark"] tbody td:nth-child(9),
+html[data-theme="dark"] tbody td:nth-child(10){background:#6b421f!important;color:#ffd3a6!important}
+html[data-theme="dark"] tbody td:nth-child(11){background:#343a46!important;color:#e3e8ef!important}
+html[data-theme="dark"] tbody tr.row-off td{background:#3a4554!important;color:#eef3f8!important}
+html[data-theme="dark"] tbody tr.row-training td{background:#6a244b!important;color:#ffd4ec!important}
+html[data-theme="dark"] tbody tr.row-positioning td{background:#1f665f!important;color:#c9fff8!important}
+html[data-theme="dark"] .date-swatch{background:#1f4f7a!important}
+html[data-theme="dark"] .day-swatch{background:#4a3b72!important}
+html[data-theme="dark"] .report-swatch{background:#66561f!important}
+html[data-theme="dark"] .flight-swatch{background:#1f5b3b!important}
+html[data-theme="dark"] .timing-swatch{background:#1d5269!important}
+html[data-theme="dark"] .hours-swatch{background:#6b421f!important}
+html[data-theme="dark"] .off-swatch{background:#3a4554!important}
+html[data-theme="dark"] .training-swatch{background:#6a244b!important}

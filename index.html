@@ -21,22 +21,6 @@
   </div>
 </header>
 <main>
-<section class="card upload-card">
-  <div class="drop">
-    <div style="font-size:36px">📄</div>
-    <strong>Upload Current Roster</strong>
-    <p class="help">The file is processed inside your browser. It is not uploaded anywhere.</p>
-    <label class="btn primary" for="pdfInput">Load Current Roster</label>
-    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
-  </div>
-  <div class="actions clean-actions">
-    <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
-    <button class="btn danger" id="clearBtn">Clear</button>
-  </div>
-  <div class="status" id="status">No roster loaded.</div>
-</section>
-
-
 <section class="next-duty-card hidden" id="nextDutyCard" aria-live="polite">
   <div class="next-duty-top">
     <div>
@@ -73,14 +57,31 @@
     </div>
   </div>
 </section>
+<section class="card upload-card" id="uploadCard">
+  <div class="drop">
+    <div style="font-size:36px">📄</div>
+    <strong>Upload Current Roster</strong>
+    <p class="help">The file is processed inside your browser. It is not uploaded anywhere.</p>
+    <label class="btn primary" for="pdfInput">Load Current Roster</label>
+    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
+  </div>
+  <div class="actions clean-actions">
+    <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
+    <button class="btn danger" id="clearBtn">Clear</button>
+  </div>
+  <div class="status" id="status">No roster loaded.</div>
+</section>
+
+
+
 
 <section class="card" id="resultCard">
   <div class="meta">
-    <div><label>Name</label><input id="name" value=""></div>
-    <div><label>Staff No.</label><input id="staff" value=""></div>
-    <div><label>Rank</label><input id="rank" value=""></div>
-    <div><label>Fleet</label><input id="fleet" value=""></div>
-    <div><label>Base</label><input id="base" value=""></div>
+    <div class="name-field"><label>Name</label><input id="name" value="" readonly></div>
+    <div><label>Staff No.</label><input id="staff" value="" readonly></div>
+    <div><label>Rank</label><input id="rank" value="" readonly></div>
+    <div><label>Fleet</label><input id="fleet" value="" readonly></div>
+    <div><label>Base</label><input id="base" value="" readonly></div>
   </div>
 
   <div class="legend" aria-label="Roster colour legend">
@@ -112,7 +113,7 @@
     <div class="stat"><small>Duty Hours</small><strong id="dh">00:00</strong></div>
     <div class="stat"><small>Off Days</small><strong id="off">0</strong></div>
   </div>
-  <p class="help">The roster automatically scales to fit one screen-width. Tap Full Size for easier editing, then Fit One Page before saving. On iPhone, tap “Save / Print PDF”, then use the Share button and choose “Save to Files”.</p>
+  <p class="help">The roster automatically fits the screen and prints on one page. On iPhone, tap “Save / Print PDF”, then use Share and choose “Save to Files”.</p>
 </section>
 </main>
 <footer>

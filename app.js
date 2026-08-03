@@ -363,14 +363,21 @@ async function parsePDF(file){
   if(!allRows.length) throw new Error("No roster rows were detected. This version supports the current Malaysia Airlines Roster Report PDF.");
   allRows=fillEveryDay(allRows);
   setRows(allRows);
-  status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days. Please review the yellow cells.`;
+  status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days.`;
+  const uploadCard=$("#uploadCard");
+  if(uploadCard) uploadCard.classList.add("collapsed-after-load");
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 $("#pdfInput").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file)return;
   try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
 });
-$("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
+$("#loadAnotherBtn").onclick=()=>{
+  const uploadCard=$("#uploadCard");
+  if(uploadCard) uploadCard.classList.remove("collapsed-after-load");
+  $("#pdfInput").click();
+};
 $("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
 $("#clearBtn").onclick=()=>{officialFH=null;officialDH=null;setRows([]);status.textContent="Cleared."}
 $("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}
