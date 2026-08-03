@@ -476,16 +476,9 @@ body.roster-loaded #uploadCard{
   display:block !important;
 }
 
-
-/* Classic overnight continuation row:
-   arrival and duty-end appear on the following calendar date. */
 tbody tr.row-overnight-continuation td{
-  background:#eef7ff !important;
+  background:#e8f4ff !important;
   color:#184f73 !important;
-}
-tbody tr.row-overnight-continuation td:nth-child(1),
-tbody tr.row-overnight-continuation td:nth-child(2){
-  font-weight:700;
 }
 html[data-theme="dark"] tbody tr.row-overnight-continuation td{
   background:#173a50 !important;
