@@ -74,7 +74,7 @@ function classifyRows(){
     else if(!hasDuty) tr.classList.add("row-empty");
   });
 }
-function setRows(rows){tbody.innerHTML=rows.map(rowHTML).join(""); classifyRows(); updateStats(); setTimeout(applyOnePageFit,0)}
+function setRows(rows){tbody.innerHTML=rows.map(rowHTML).join(""); classifyRows(); updateStats(); renderNextDuty(); setTimeout(applyOnePageFit,0)}
 function getRows(){return [...tbody.rows].map(tr=>Object.fromEntries([...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])))}
 function toMinutes(t){let m=String(t||"").match(/(\d{1,3}):(\d{2})/);return m?(+m[1]*60+ +m[2]):0}
 function hhmm(n){return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`}
@@ -85,7 +85,7 @@ function updateStats(){
   $("#dh").textContent=officialDH || hhmm(dh);
   $("#off").textContent=off;
 }
-tbody.addEventListener("input",()=>{classifyRows();updateStats()});
+tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty()});
 
 function parseHeader(text){
   const head=String(text||"").replace(/\s+/g," ").trim();
@@ -227,6 +227,108 @@ function recoverMissingFlightRows(text, existingRows){
     if(!exists) recovered.push(row);
   }
   return recovered;
+}
+
+
+let nextDutyTimer=null;
+
+function dutyDateTime(row){
+  const d=parseRosterDate(row.date);
+  if(!d || !row.dutyStart) return null;
+  const m=String(row.dutyStart).match(/^(\d{1,2}):(\d{2})/);
+  if(!m) return null;
+  d.setHours(Number(m[1]),Number(m[2]),0,0);
+  return d;
+}
+
+function routeFromRow(row){
+  const dep=(row.dep||"").trim().split(/\s+/)[0]||"";
+  const arr=(row.arr||"").trim().split(/\s+/)[0]||"";
+  return dep&&arr ? `${dep} → ${arr}` : (dep||arr||"—");
+}
+
+function formatCountdown(ms){
+  if(ms<=0) return "REPORT NOW";
+  const total=Math.floor(ms/1000);
+  const days=Math.floor(total/86400);
+  const hours=Math.floor((total%86400)/3600);
+  const mins=Math.floor((total%3600)/60);
+  const secs=total%60;
+  return days>0
+    ? `${days}d ${String(hours).padStart(2,"0")}h ${String(mins).padStart(2,"0")}m`
+    : `${String(hours).padStart(2,"0")}h ${String(mins).padStart(2,"0")}m ${String(secs).padStart(2,"0")}s`;
+}
+
+function getUpcomingDuty(rows){
+  const now=new Date();
+  const candidates=rows
+    .filter(r=>{
+      const item=(r.item||"").trim().toUpperCase();
+      return item && item!=="D" && item!=="OFF" && dutyDateTime(r);
+    })
+    .map(r=>({...r,_dt:dutyDateTime(r)}))
+    .sort((a,b)=>a._dt-b._dt);
+
+  // Keep a currently active duty visible until its rostered duty end when possible.
+  const active=candidates.find(r=>{
+    if(r._dt>now) return false;
+    const dutyMinutes=toMinutes(r.duty);
+    const estimatedEnd=new Date(r._dt.getTime()+(dutyMinutes||720)*60000);
+    return estimatedEnd>=now;
+  });
+  if(active) return {...active,_current:true};
+
+  return candidates.find(r=>r._dt>now)||null;
+}
+
+function renderNextDuty(){
+  const card=$("#nextDutyCard");
+  if(!card) return;
+
+  const row=getUpcomingDuty(getRows());
+  if(!row){
+    card.classList.add("hidden");
+    if(nextDutyTimer){clearInterval(nextDutyTimer);nextDutyTimer=null;}
+    return;
+  }
+
+  card.classList.remove("hidden","soon","urgent","current");
+  $("#nextDutyItem").textContent=row.item||"Duty";
+  $("#nextDutyRoute").textContent=routeFromRow(row);
+  $("#nextDutyReport").textContent=row.dutyStart||"—";
+  $("#nextDutyDate").textContent=`${row.date} · ${row.day||dayName(row.date)}`;
+  $("#nextDutyEnd").textContent=row.dutyEnd||"—";
+  $("#nextDutyAircraft").textContent=row.ac||"—";
+
+  const update=()=>{
+    const now=new Date();
+    const diff=row._dt-now;
+    const dutyMinutes=toMinutes(row.duty);
+    const estimatedEnd=new Date(row._dt.getTime()+(dutyMinutes||720)*60000);
+
+    card.classList.remove("soon","urgent","current");
+
+    if(row._current && now<=estimatedEnd){
+      card.classList.add("current");
+      $("#nextDutyCountdown").textContent="CURRENT DUTY";
+      $("#nextDutyProgress").style.width="100%";
+      return;
+    }
+
+    if(diff<=6*3600000) card.classList.add("urgent");
+    else if(diff<=24*3600000) card.classList.add("soon");
+
+    $("#nextDutyCountdown").textContent=formatCountdown(diff);
+
+    // Progress is based on the final 48 hours before report.
+    const windowMs=48*3600000;
+    const pct=Math.max(0,Math.min(100,(1-(diff/windowMs))*100));
+    $("#nextDutyProgress").style.width=`${pct}%`;
+  };
+
+  update();
+  if(nextDutyTimer) clearInterval(nextDutyTimer);
+  nextDutyTimer=setInterval(update,1000);
 }
 
 async function parsePDF(file){

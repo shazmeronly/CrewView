@@ -191,3 +191,42 @@ html[data-theme="dark"] tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(
     grid-template-columns:1fr 112px;
   }
 }
+
+.next-duty-card{
+  background:linear-gradient(135deg,#0b5cab,#0b73c9);
+  color:#fff;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:12px;
+  box-shadow:0 5px 18px #0b5cab30;
+}
+.next-duty-card.hidden{display:none}
+.next-duty-card.soon{background:linear-gradient(135deg,#a16207,#d97706)}
+.next-duty-card.urgent{background:linear-gradient(135deg,#991b1b,#dc2626)}
+.next-duty-card.current{background:linear-gradient(135deg,#166534,#16a34a)}
+.next-duty-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.next-duty-eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;opacity:.82}
+.next-duty-item{font-size:30px;font-weight:900;line-height:1.05;margin-top:4px}
+.next-duty-route{font-size:15px;font-weight:700;margin-top:4px;opacity:.95}
+.next-duty-report{text-align:right;min-width:92px}
+.next-duty-report span{display:block;font-size:10px;font-weight:800;letter-spacing:.1em;opacity:.78}
+.next-duty-report strong{display:block;font-size:30px;line-height:1.05;margin-top:4px}
+.next-duty-details{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.next-duty-details div{background:#ffffff18;border:1px solid #ffffff24;border-radius:10px;padding:8px}
+.next-duty-details span{display:block;font-size:9px;opacity:.76}
+.next-duty-details strong{display:block;font-size:12px;margin-top:2px}
+.countdown-wrap{margin-top:14px}
+.countdown-label{font-size:10px;font-weight:800;letter-spacing:.11em;opacity:.8}
+.countdown-value{font-size:25px;font-weight:900;margin:3px 0 7px}
+.countdown-track{height:7px;border-radius:999px;background:#ffffff30;overflow:hidden}
+.countdown-fill{height:100%;width:0%;background:#fff;border-radius:999px;transition:width .4s ease}
+html[data-theme="dark"] .next-duty-card{box-shadow:0 5px 20px #0007}
+@media(max-width:520px){
+  .next-duty-card{padding:14px}
+  .next-duty-item,.next-duty-report strong{font-size:26px}
+  .next-duty-details{gap:6px}
+  .next-duty-details div{padding:7px}
+}
+@media print{
+  .next-duty-card{display:none!important}
+}

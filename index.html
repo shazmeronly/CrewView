@@ -36,6 +36,44 @@
   <div class="status" id="status">No roster loaded.</div>
 </section>
 
+
+<section class="next-duty-card hidden" id="nextDutyCard" aria-live="polite">
+  <div class="next-duty-top">
+    <div>
+      <div class="next-duty-eyebrow">NEXT DUTY</div>
+      <div class="next-duty-item" id="nextDutyItem">—</div>
+      <div class="next-duty-route" id="nextDutyRoute">—</div>
+    </div>
+    <div class="next-duty-report">
+      <span>REPORT</span>
+      <strong id="nextDutyReport">—</strong>
+    </div>
+  </div>
+
+  <div class="next-duty-details">
+    <div>
+      <span>Date</span>
+      <strong id="nextDutyDate">—</strong>
+    </div>
+    <div>
+      <span>Duty End</span>
+      <strong id="nextDutyEnd">—</strong>
+    </div>
+    <div>
+      <span>Aircraft</span>
+      <strong id="nextDutyAircraft">—</strong>
+    </div>
+  </div>
+
+  <div class="countdown-wrap">
+    <div class="countdown-label">REPORTS IN</div>
+    <div class="countdown-value" id="nextDutyCountdown">—</div>
+    <div class="countdown-track" aria-hidden="true">
+      <div class="countdown-fill" id="nextDutyProgress"></div>
+    </div>
+  </div>
+</section>
+
 <section class="card" id="resultCard">
   <div class="meta">
     <div><label>Name</label><input id="name" value=""></div>
