@@ -564,16 +564,11 @@ function renderNextDuty(){
   $("#nextDutyReport").textContent=row.dutyStart||"—";
 
   const reportDay=row.day||dayName(row.date);
-  const arrivalDate=row._arrivalDate||row.date;
-  const arrivalDay=row._arrivalDay||(
-    arrivalDate ? dayName(arrivalDate) : ""
-  );
 
-  $("#nextDutyDate").textContent=
-    arrivalDate && arrivalDate!==row.date
-      ? `${row.date} · ${reportDay} → ${arrivalDate} · ${arrivalDay}`
-      : `${row.date} · ${reportDay}`;
+  // Keep the card compact: show only the departure/report date.
+  $("#nextDutyDate").textContent=`${row.date} · ${reportDay}`;
 
+  // For overnight duties, use the final duty-end time from the continuation row.
   $("#nextDutyEnd").textContent=
     row._finalDutyEnd || row.dutyEnd || "—";
   $("#nextDutyAircraft").textContent=row.ac||"—";
