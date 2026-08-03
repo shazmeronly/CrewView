@@ -958,3 +958,26 @@ body.pdf-export #nextDutyCard{
     -webkit-text-fill-color:#dbe5ef !important;
   }
 }
+
+
+/* Adaptive Next Duty card types */
+.next-duty-card.type-off{
+  background:linear-gradient(135deg,#475569,#64748b);
+}
+.next-duty-card.type-training{
+  background:linear-gradient(135deg,#8a245c,#be3d7b);
+}
+.next-duty-card.type-standby{
+  background:linear-gradient(135deg,#5b3aa6,#7c56d8);
+}
+.next-duty-card.type-positioning{
+  background:linear-gradient(135deg,#146b5f,#1c917f);
+}
+.next-duty-card.type-other{
+  background:linear-gradient(135deg,#334155,#475569);
+}
+
+/* The whole card is tappable-looking without changing its action */
+.next-duty-card{
+  cursor:default;
+}

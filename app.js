@@ -551,6 +551,75 @@ function buildCompleteDuty(rows,index){
   return duty;
 }
 
+
+function dutyKind(row){
+  const item=String(row.item||"").trim().toUpperCase();
+  const work=String(row.work||"").trim().toUpperCase();
+
+  if(item==="D" || item==="OFF" || item.startsWith("DO")) return "off";
+
+  if(
+    item==="DSA" ||
+    item.includes("TRAIN") ||
+    item.includes("SIM") ||
+    item.includes("LPC") ||
+    item.includes("OPC") ||
+    item.includes("GROUND") ||
+    item.includes("COURSE") ||
+    item.includes("RECURRENT")
+  ) return "training";
+
+  if(
+    item.includes("STBY") ||
+    item.includes("STANDBY") ||
+    item==="SB" ||
+    item.startsWith("RSV") ||
+    item.includes("RESERVE")
+  ) return "standby";
+
+  if(work==="PS") return "positioning";
+  if(/^MH\d+/i.test(item) || String(row.dep||"").trim()) return "flight";
+  return "other";
+}
+
+function calendarStart(row){
+  const date=parseRosterDate(row.date);
+  if(!date) return null;
+  date.setHours(0,0,0,0);
+  return date;
+}
+
+function rowStartDateTime(row){
+  const kind=dutyKind(row);
+  if(kind==="off") return calendarStart(row);
+  return dutyDateTime(row) || calendarStart(row);
+}
+
+function rowEndDateTime(row){
+  const kind=dutyKind(row);
+
+  if(kind==="off"){
+    const end=calendarStart(row);
+    if(end) end.setHours(23,59,59,999);
+    return end;
+  }
+
+  const endDate=parseRosterDate(row._arrivalDate||row.date);
+  const endText=String(row._finalDutyEnd||row.dutyEnd||"").trim();
+  const match=endText.match(/^(\d{1,2}):(\d{2})/);
+
+  if(endDate && match){
+    endDate.setHours(Number(match[1]),Number(match[2]),0,0);
+    return endDate;
+  }
+
+  const start=rowStartDateTime(row);
+  if(!start) return null;
+
+  const dutyMinutes=toMinutes(row.duty);
+  return new Date(start.getTime()+(dutyMinutes||720)*60000);
+}
+
 function getUpcomingDuty(rows){
   const now=new Date();
   const candidates=[];
@@ -568,105 +637,203 @@ function getUpcomingDuty(rows){
       )
     ) return;
 
-    const item=(row.item||"").trim().toUpperCase();
-    const report=dutyDateTime(row);
-    if(!item || item==="D" || item==="OFF" || !report) return;
+    const item=String(row.item||"").trim();
+    if(!item) return;
 
-    candidates.push({
-      ...buildCompleteDuty(rows,index),
-      _dt:report
-    });
+    const complete=buildCompleteDuty(rows,index);
+    const start=rowStartDateTime(complete);
+    if(!start) return;
+
+    const candidate={
+      ...complete,
+      _kind:dutyKind(complete),
+      _dt:start
+    };
+    candidate._endDt=rowEndDateTime(candidate);
+    candidates.push(candidate);
   });
 
   candidates.sort((a,b)=>a._dt-b._dt);
 
-  // Keep a currently active duty visible until its final duty end where possible.
-  const active=candidates.find(row=>{
-    if(row._dt>now) return false;
-
-    let estimatedEnd;
-    if(row._arrivalDate && row._finalDutyEnd){
-      const endDate=parseRosterDate(row._arrivalDate);
-      const m=String(row._finalDutyEnd).match(/^(\d{1,2}):(\d{2})/);
-      if(endDate && m){
-        endDate.setHours(Number(m[1]),Number(m[2]),0,0);
-        estimatedEnd=endDate;
-      }
-    }
-
-    if(!estimatedEnd){
-      const dutyMinutes=toMinutes(row.duty);
-      estimatedEnd=new Date(
-        row._dt.getTime()+(dutyMinutes||720)*60000
-      );
-    }
-
-    return estimatedEnd>=now;
-  });
+  // Show the duty/status that is currently active.
+  const active=candidates.find(row=>
+    row._dt<=now &&
+    row._endDt &&
+    row._endDt>=now
+  );
 
   if(active) return {...active,_current:true};
+
   return candidates.find(row=>row._dt>now)||null;
+}
+
+function setNextDutyLabels({
+  eyebrow="NEXT DUTY",
+  reportLabel="REPORT",
+  endLabel="End",
+  metaLabel="A/C",
+  countdownLabel="In"
+}={}){
+  $("#nextDutyEyebrow").textContent=eyebrow;
+  $("#nextDutyReportLabel").textContent=reportLabel;
+  $("#nextDutyEndLabel").textContent=endLabel;
+  $("#nextDutyMetaLabel").textContent=metaLabel;
+  $("#nextDutyCountdownLabel").textContent=countdownLabel;
+}
+
+function consecutiveOffDays(row,rows){
+  const index=rows.findIndex(r=>
+    r.date===row.date &&
+    String(r.item||"").trim().toUpperCase()===String(row.item||"").trim().toUpperCase()
+  );
+  if(index<0) return 1;
+
+  let total=0;
+  for(let i=index;i<rows.length;i++){
+    if(dutyKind(rows[i])!=="off") break;
+    total++;
+  }
+  return Math.max(1,total);
 }
 
 function renderNextDuty(){
   const card=$("#nextDutyCard");
   if(!card) return;
 
-  const row=getUpcomingDuty(getRows());
+  const rows=getRows();
+  const row=getUpcomingDuty(rows);
+
   if(!row){
     card.classList.add("hidden");
-    if(nextDutyTimer){clearInterval(nextDutyTimer);nextDutyTimer=null;}
+    if(nextDutyTimer){
+      clearInterval(nextDutyTimer);
+      nextDutyTimer=null;
+    }
     return;
   }
 
-  card.classList.remove("hidden","soon","urgent","current");
-  $("#nextDutyItem").textContent=row.item||"Duty";
-
-  const departureAirport=(row.dep||"").trim().split(/\s+/)[0]||"";
-  const arrivalAirport=(row._arrival||row.arr||"").trim().split(/\s+/)[0]||"";
-  $("#nextDutyRoute").textContent=
-    departureAirport&&arrivalAirport
-      ? `${departureAirport} → ${arrivalAirport}`
-      : (departureAirport||arrivalAirport||"—");
-
-  $("#nextDutyReport").textContent=row.dutyStart||"—";
+  card.classList.remove(
+    "hidden","soon","urgent","current",
+    "type-flight","type-off","type-training",
+    "type-standby","type-positioning","type-other"
+  );
+  card.classList.add(`type-${row._kind}`);
 
   const reportDay=row.day||dayName(row.date);
-
-  // Keep the card compact: show only the departure/report date.
   $("#nextDutyDate").textContent=`${row.date} · ${reportDay}`;
 
-  // For overnight duties, use the final duty-end time from the continuation row.
-  $("#nextDutyEnd").textContent=
-    row._finalDutyEnd || row.dutyEnd || "—";
-  $("#nextDutyAircraft").textContent=row.ac||"—";
+  const departureAirport=String(row.dep||"").trim().split(/\s+/)[0]||"";
+  const arrivalAirport=String(row._arrival||row.arr||"").trim().split(/\s+/)[0]||"";
+  const finalEnd=row._finalDutyEnd||row.dutyEnd||"—";
+
+  if(row._kind==="flight"){
+    setNextDutyLabels();
+    $("#nextDutyItem").textContent=row.item||"FLIGHT";
+    $("#nextDutyRoute").textContent=
+      departureAirport&&arrivalAirport
+        ? `${departureAirport} → ${arrivalAirport}`
+        : (departureAirport||arrivalAirport||"—");
+    $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#nextDutyEnd").textContent=finalEnd;
+    $("#nextDutyAircraft").textContent=row.ac||"—";
+
+  }else if(row._kind==="positioning"){
+    setNextDutyLabels({
+      eyebrow:"NEXT DUTY",
+      reportLabel:"REPORT",
+      endLabel:"End",
+      metaLabel:"TYPE",
+      countdownLabel:"In"
+    });
+    $("#nextDutyItem").textContent=row.item||"POSITIONING";
+    $("#nextDutyRoute").textContent=
+      departureAirport&&arrivalAirport
+        ? `${departureAirport} → ${arrivalAirport}`
+        : "POSITIONING";
+    $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#nextDutyEnd").textContent=finalEnd;
+    $("#nextDutyAircraft").textContent="POSITIONING";
+
+  }else if(row._kind==="training"){
+    setNextDutyLabels({
+      eyebrow:"NEXT DUTY",
+      reportLabel:"START",
+      endLabel:"End",
+      metaLabel:"TYPE",
+      countdownLabel:"In"
+    });
+    $("#nextDutyItem").textContent=row.item||"TRAINING";
+    $("#nextDutyRoute").textContent=
+      departureAirport ||
+      String(row.work||"").trim() ||
+      "GROUND TRAINING";
+    $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#nextDutyEnd").textContent=finalEnd;
+    $("#nextDutyAircraft").textContent="TRAINING";
+
+  }else if(row._kind==="standby"){
+    setNextDutyLabels({
+      eyebrow:"NEXT DUTY",
+      reportLabel:"START",
+      endLabel:"End",
+      metaLabel:"TYPE",
+      countdownLabel:"In"
+    });
+    $("#nextDutyItem").textContent=row.item||"STANDBY";
+    $("#nextDutyRoute").textContent=
+      String(row.dep||"").trim() ||
+      String(row.work||"").trim() ||
+      "STANDBY";
+    $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#nextDutyEnd").textContent=finalEnd;
+    $("#nextDutyAircraft").textContent="STANDBY";
+
+  }else if(row._kind==="off"){
+    const offDays=consecutiveOffDays(row,rows);
+    setNextDutyLabels({
+      eyebrow:"CURRENT STATUS",
+      reportLabel:"STATUS",
+      endLabel:"Days",
+      metaLabel:"TYPE",
+      countdownLabel:"Until"
+    });
+    $("#nextDutyItem").textContent="OFF DAY";
+    $("#nextDutyRoute").textContent="REST DAY";
+    $("#nextDutyReport").textContent="OFF";
+    $("#nextDutyEnd").textContent=String(offDays);
+    $("#nextDutyAircraft").textContent="REST";
+
+  }else{
+    setNextDutyLabels({
+      reportLabel:"START",
+      metaLabel:"TYPE"
+    });
+    $("#nextDutyItem").textContent=row.item||"DUTY";
+    $("#nextDutyRoute").textContent=
+      String(row.dep||"").trim() ||
+      String(row.work||"").trim() ||
+      "CREW DUTY";
+    $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#nextDutyEnd").textContent=finalEnd;
+    $("#nextDutyAircraft").textContent=row.work||"DUTY";
+  }
 
   const update=()=>{
     const now=new Date();
     const diff=row._dt-now;
-    const dutyMinutes=toMinutes(row.duty);
-    let estimatedEnd;
-
-    if(row._arrivalDate && row._finalDutyEnd){
-      const endDate=parseRosterDate(row._arrivalDate);
-      const m=String(row._finalDutyEnd).match(/^(\d{1,2}):(\d{2})/);
-      if(endDate && m){
-        endDate.setHours(Number(m[1]),Number(m[2]),0,0);
-        estimatedEnd=endDate;
-      }
-    }
-
-    if(!estimatedEnd){
-      estimatedEnd=new Date(
-        row._dt.getTime()+(dutyMinutes||720)*60000
-      );
-    }
 
     card.classList.remove("soon","urgent","current");
 
-    if(row._current && now<=estimatedEnd){
+    if(row._current && row._endDt && now<=row._endDt){
       card.classList.add("current");
-      $("#nextDutyCountdown").textContent="CURRENT DUTY";
+
+      if(row._kind==="off"){
+        const remaining=row._endDt-now;
+        $("#nextDutyCountdown").textContent=formatCountdown(remaining);
+      }else{
+        $("#nextDutyCountdown").textContent="CURRENT";
+      }
+
       $("#nextDutyProgress").style.width="100%";
       return;
     }
@@ -676,13 +843,13 @@ function renderNextDuty(){
 
     $("#nextDutyCountdown").textContent=formatCountdown(diff);
 
-    // Progress is based on the final 48 hours before report.
     const windowMs=48*3600000;
     const pct=Math.max(0,Math.min(100,(1-(diff/windowMs))*100));
     $("#nextDutyProgress").style.width=`${pct}%`;
   };
 
   update();
+
   if(nextDutyTimer) clearInterval(nextDutyTimer);
   nextDutyTimer=setInterval(update,1000);
 }
