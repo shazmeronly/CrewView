@@ -2587,6 +2587,10 @@ async function parsePDF(file){
   $("#viewSwitcher")?.classList.remove("hidden");
 
   // A newly uploaded roster always opens in Classic View first.
+  clearTimeout(crewViewTransitionTimer);
+  document.body.classList.remove("view-transitioning");
+  $("#classicView")?.classList.remove("view-entering","view-leaving");
+  $("#calendarView")?.classList.remove("view-entering","view-leaving");
   crewViewMode="classic";
   $("#classicView")?.classList.remove("hidden");
   $("#calendarView")?.classList.add("hidden");
@@ -2596,16 +2600,32 @@ async function parsePDF(file){
   );
   localStorage.setItem("crewview-roster-view","classic");
   updateCompactProfile();
-  const savedView=localStorage.getItem("crewview-roster-view");
-  if(savedView==="calendar") switchRosterView("calendar");
 
-  setTimeout(()=>{
-    applyOnePageFit();
-    document.querySelector("#nextDutyCard")?.scrollIntoView({
-      behavior:"smooth",
-      block:"start"
-    });
-  },80);
+  // Treat every successful upload as a fresh roster opening.
+  // Do not preserve the user's previous Classic or Calendar scroll position.
+  crewViewScrollPositions.classic=0;
+  crewViewScrollPositions.calendar=0;
+
+  // Reset every scroll root used by Safari / Home Screen web apps.
+  const resetUploadScrollPosition=()=>{
+    window.scrollTo({top:0,left:0,behavior:"auto"});
+    document.documentElement.scrollTop=0;
+    document.body.scrollTop=0;
+    $("#classicView")?.scrollTo?.({top:0,left:0,behavior:"auto"});
+    $("#calendarView")?.scrollTo?.({top:0,left:0,behavior:"auto"});
+  };
+
+  // Run after layout fitting and again after the browser paints the
+  // collapsed upload panel, so iOS cannot restore the previous position.
+  applyOnePageFit();
+  resetUploadScrollPosition();
+
+  requestAnimationFrame(()=>{
+    resetUploadScrollPosition();
+    requestAnimationFrame(resetUploadScrollPosition);
+  });
+
+  setTimeout(resetUploadScrollPosition,120);
 }
 
 

@@ -1,4 +1,4 @@
-const CACHE = "crewview-classic-first-theme-toggle-v80";
+const CACHE = "crewview-upload-scroll-top-fix-v81";
 const ASSETS = [
   "./",
   "./index.html",
