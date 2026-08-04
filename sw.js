@@ -1,4 +1,4 @@
-const CACHE = "crewview-calendar-overnight-continuation-v71";
+const CACHE = "crewview-calendar-continuation-priority-v72";
 const ASSETS = [
   "./",
   "./index.html",

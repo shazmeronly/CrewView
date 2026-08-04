@@ -2694,6 +2694,17 @@ function calendarEntries(){
     const complete=completeCalendarDuty(rows,index);
     if(!complete) return;
 
+    const hasVisibleContent=Boolean(
+      complete._overnightContinuation ||
+      String(complete.item||"").trim() ||
+      String(complete.arr||complete._arrival||"").trim() ||
+      String(complete.dutyStart||"").trim() ||
+      String(complete.dutyEnd||complete._finalDutyEnd||"").trim() ||
+      String(complete.work||"").trim()
+    );
+
+    if(!hasVisibleContent) return;
+
     if(!byDate.has(key)) byDate.set(key,[]);
     byDate.get(key).push(complete);
   });
@@ -2995,8 +3006,21 @@ function renderCalendarView(options={}){
     const duties=(entries.get(key)||[])
       .filter(item=>calendarFiltersEnabled.has(item._calendarCategory));
 
+    const categoryPriority=[
+      "flight",
+      "continuation",
+      "training",
+      "standby",
+      "simulator",
+      "leave",
+      "off",
+      "admin"
+    ];
+
     const primary=
-      duties.find(item=>item._calendarCategory!=="off")||
+      categoryPriority
+        .map(category=>duties.find(item=>item._calendarCategory===category))
+        .find(Boolean)||
       duties[0]||
       null;
 
@@ -3054,8 +3078,21 @@ function renderCalendarView(options={}){
       const duties=(entries.get(button.dataset.calendarKey)||[])
         .filter(item=>calendarFiltersEnabled.has(item._calendarCategory));
 
+      const categoryPriority=[
+        "flight",
+        "continuation",
+        "training",
+        "standby",
+        "simulator",
+        "leave",
+        "off",
+        "admin"
+      ];
+
       const duty=
-        duties.find(item=>item._calendarCategory!=="off")||
+        categoryPriority
+          .map(category=>duties.find(item=>item._calendarCategory===category))
+          .find(Boolean)||
         duties[0];
 
       if(!duty) return;
