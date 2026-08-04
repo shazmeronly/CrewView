@@ -156,27 +156,33 @@ function updateStats(){
   const rows=getRows();
   let fh=0;
   let dh=0;
-  const genuineOffDates=new Set();
+  const offDates=new Set();
 
   rows.forEach(row=>{
     fh+=toMinutes(row.block);
     dh+=toMinutes(row.duty);
 
     const item=String(row.item||"").trim().toUpperCase();
+    const date=String(row.date||"").trim();
 
+    /*
+     * Count every calendar date displayed as D / DO / OFF, including a blank
+     * non-duty date that CrewView correctly filled as D (such as 05-Aug).
+     *
+     * Do not count overnight arrival-only continuation rows.
+     */
     if(
+      date &&
       !row._overnightContinuation &&
-      !row._syntheticCalendarRow &&
-      ["D","DO","OFF"].includes(item) &&
-      String(row.date||"").trim()
+      ["D","DO","OFF"].includes(item)
     ){
-      genuineOffDates.add(row.date);
+      offDates.add(date);
     }
   });
 
   $("#fh").textContent=officialFH || hhmm(fh);
   $("#dh").textContent=officialDH || hhmm(dh);
-  $("#off").textContent=genuineOffDates.size;
+  $("#off").textContent=offDates.size;
 }
 tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty()});
 
