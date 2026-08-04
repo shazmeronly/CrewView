@@ -623,6 +623,93 @@ function applyClassicOvernightTiming(rows,pdfText){
 }
 
 
+
+function moveExplicitNextDayTimings(rows){
+  const source=rows.map(row=>({...row}));
+  const additions=new Map();
+
+  const nextDateString=dateText=>{
+    const date=parseRosterDate(dateText);
+    if(!date) return "";
+    date.setDate(date.getDate()+1);
+    return fmtDate(date);
+  };
+
+  const hasPlusOne=value=>
+    /\(\+1\)/.test(String(value||""));
+
+  source.forEach((row,index)=>{
+    const arrival=String(row.arr||"").trim();
+    const dutyEnd=String(row.dutyEnd||"").trim();
+
+    if(!hasPlusOne(arrival) && !hasPlusOne(dutyEnd)) return;
+
+    const nextDate=nextDateString(row.date);
+    if(!nextDate) return;
+
+    const continuation={
+      date:nextDate,
+      day:dayName(nextDate),
+      dutyStart:"",
+      item:"",
+      dep:"",
+      arr:arrival,
+      dutyEnd:dutyEnd,
+      work:"",
+      block:"",
+      duty:"",
+      ac:"",
+      _overnightContinuation:true,
+      _sourceDutyGroup:row._dutyGroup||"",
+      _sourceIndex:index
+    };
+
+    // Remove next-day values from the departure-date row.
+    row.arr="";
+    row.dutyEnd="";
+
+    if(!additions.has(nextDate)) additions.set(nextDate,[]);
+    additions.get(nextDate).push(continuation);
+  });
+
+  const result=[];
+  const insertedDates=new Set();
+
+  source.forEach(row=>{
+    const date=row.date;
+    const continuations=additions.get(date)||[];
+
+    if(continuations.length && !insertedDates.has(date)){
+      // Continuation information appears first on the next calendar date.
+      continuations.forEach((continuation,index)=>{
+        result.push({
+          ...continuation,
+          date:index===0 ? date : "",
+          day:index===0 ? dayName(date) : ""
+        });
+      });
+      insertedDates.add(date);
+    }
+
+    result.push(row);
+  });
+
+  // Handle a continuation whose next date was absent from the original month rows.
+  for(const [date,continuations] of additions.entries()){
+    if(insertedDates.has(date)) continue;
+
+    continuations.forEach((continuation,index)=>{
+      result.push({
+        ...continuation,
+        date:index===0 ? date : "",
+        day:index===0 ? dayName(date) : ""
+      });
+    });
+  }
+
+  return result;
+}
+
 function markRemainingBlankDaysAsOff(rows){
   return rows.map(row=>{
     if(row._overnightContinuation) return row;
@@ -1576,13 +1663,9 @@ async function parsePDF(file){
 
   allRows=fillEveryDay(allRows);
 
-  // Keep classic next-day rows for (+1) arrivals while preserving all sectors.
-  if(!pairingMode){
-    allRows=applyClassicOvernightTiming(
-      allRows,
-      combinedText
-    );
-  }
+  // Move only values explicitly marked (+1) onto the following calendar date.
+  // This is deterministic and applies to both pilot and cabin-crew rosters.
+  allRows=moveExplicitNextDayTimings(allRows);
 
   const dutyDates=new Map();
   allRows.forEach(row=>{
@@ -1618,6 +1701,9 @@ async function parsePDF(file){
     const bd=parseRosterDate(b.date);
     const dateDiff=(ad?.getTime()||0)-(bd?.getTime()||0);
     if(dateDiff!==0) return dateDiff;
+
+    if(a._overnightContinuation && !b._overnightContinuation) return -1;
+    if(!a._overnightContinuation && b._overnightContinuation) return 1;
 
     return Number(a._displayOrder||0)-Number(b._displayOrder||0);
   });

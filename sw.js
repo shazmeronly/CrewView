@@ -1,4 +1,4 @@
-const CACHE = "crewview-adaptive-coordinate-parser-v41";
+const CACHE = "crewview-universal-explicit-overnight-v42";
 const ASSETS = [
   "./",
   "./index.html",
