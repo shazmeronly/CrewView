@@ -3098,3 +3098,155 @@ html[data-theme="light"] body.calendar-mode .view-sheet-size > span{
   0%,100%{ opacity:1; transform:scale(1); }
   40%{ opacity:.72; transform:scale(1.04); text-shadow:0 0 18px rgba(70,155,255,.75); }
 }
+
+
+/* =========================================================
+   CrewView Calendar v1.2 — squarer tiles + cleaner layout
+   ========================================================= */
+
+/* Remove the inactive bottom navigation completely. */
+.calendar-bottom-nav{
+  display:none !important;
+}
+
+/* Allow the calendar to use the freed space. */
+.calendar-app-shell{
+  padding-bottom:max(10px, env(safe-area-inset-bottom));
+}
+
+/* Make tiles more square-like and less vertically stretched. */
+.calendar-grid{
+  grid-auto-rows:1fr;
+  align-items:stretch;
+}
+
+.calendar-day{
+  aspect-ratio:1 / 1.08;
+  min-height:0 !important;
+  height:auto !important;
+  padding:8px 7px !important;
+  border-radius:16px !important;
+}
+
+/* Keep content compact enough to fit the squarer shape. */
+.calendar-day strong{
+  margin-top:14px !important;
+  font-size:10px !important;
+  line-height:1.05;
+}
+
+.calendar-day-route{
+  margin-top:3px !important;
+  font-size:7.5px !important;
+  line-height:1.05;
+  min-height:2.1em;
+}
+
+.calendar-report-time,
+.calendar-departure-time{
+  margin-top:2px !important;
+  font-size:7px !important;
+  line-height:1.05;
+}
+
+.calendar-day-footer{
+  margin-top:auto;
+  padding-top:3px;
+  font-size:5.5px;
+}
+
+.calendar-day-number{
+  font-size:12px !important;
+}
+
+.calendar-plane{
+  top:26px !important;
+  right:7px !important;
+  font-size:11px !important;
+}
+
+/* Make the month grid itself feel more balanced. */
+.calendar-grid{
+  gap:6px !important;
+}
+
+.calendar-content{
+  padding-bottom:18px !important;
+}
+
+/* Slightly reduce top chrome so more of the month is visible. */
+.calendar-app-header{
+  min-height:68px !important;
+}
+
+.calendar-profile{
+  min-height:58px !important;
+}
+
+@media(min-width:821px){
+  .calendar-day{
+    aspect-ratio:1 / 1;
+  }
+
+  .calendar-day strong{
+    font-size:12px !important;
+  }
+
+  .calendar-day-route,
+  .calendar-report-time,
+  .calendar-departure-time{
+    font-size:9px !important;
+  }
+
+  .calendar-day-footer{
+    font-size:7px;
+  }
+}
+
+@media(max-width:540px){
+  .calendar-content{
+    padding-inline:7px !important;
+  }
+
+  .calendar-grid{
+    gap:5px !important;
+  }
+
+  .calendar-day{
+    aspect-ratio:1 / 1.18;
+    border-radius:14px !important;
+    padding:7px 5px !important;
+  }
+
+  .calendar-day strong{
+    margin-top:13px !important;
+    font-size:9px !important;
+  }
+
+  .calendar-day-route{
+    font-size:7px !important;
+  }
+
+  .calendar-report-time,
+  .calendar-departure-time{
+    font-size:6.5px !important;
+  }
+
+  .calendar-day-footer{
+    font-size:5px;
+  }
+}
+
+/* Compact mode becomes genuinely compact rather than tall. */
+body.calendar-compact .calendar-day{
+  aspect-ratio:1 / 1.02;
+  min-height:0 !important;
+}
+
+body.calendar-compact .calendar-day strong{
+  margin-top:8px !important;
+}
+
+body.calendar-compact .calendar-day-route{
+  min-height:auto;
+}
