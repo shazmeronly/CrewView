@@ -3060,7 +3060,14 @@ function selectCalendarDuty(row){
 
   selectedCalendarDuty=row;
   const panel=$("#calendarSelected");
+  const backdrop=$("#calendarDetailBackdrop");
   panel?.classList.remove("hidden");
+  backdrop?.classList.remove("hidden");
+  requestAnimationFrame(()=>{
+    panel?.classList.add("open");
+    backdrop?.classList.add("open");
+  });
+  document.body.classList.add("calendar-detail-open");
 
   const date=parseRosterDate(row.date);
   const departure=splitStationTime(row.dep);
@@ -3097,7 +3104,32 @@ function selectCalendarDuty(row){
   $("#selectedWork").textContent=row.work||"—";
 }
 
+
+function closeCalendarDutyOverlay(){
+  const panel=$("#calendarSelected");
+  const backdrop=$("#calendarDetailBackdrop");
+
+  panel?.classList.remove("open");
+  backdrop?.classList.remove("open");
+  document.body.classList.remove("calendar-detail-open");
+
+  setTimeout(()=>{
+    panel?.classList.add("hidden");
+    backdrop?.classList.add("hidden");
+  },220);
+}
+
+$("#calendarDetailClose")?.addEventListener("click",closeCalendarDutyOverlay);
+$("#calendarDetailBackdrop")?.addEventListener("click",closeCalendarDutyOverlay);
+
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape" && document.body.classList.contains("calendar-detail-open")){
+    closeCalendarDutyOverlay();
+  }
+});
+
 function switchRosterView(view){
+  closeCalendarDutyOverlay();
   crewViewMode=view;
   const calendar=view==="calendar";
 

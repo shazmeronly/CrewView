@@ -235,7 +235,9 @@
       </div>
       <div class="calendar-grid" id="calendarGrid"></div>
 
-      <section class="calendar-selected hidden" id="calendarSelected">
+      <div class="calendar-detail-backdrop hidden" id="calendarDetailBackdrop"></div>
+      <section class="calendar-selected hidden" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Selected duty details">
+        <button type="button" class="calendar-detail-close" id="calendarDetailClose" aria-label="Close duty details">×</button>
         <div class="selected-drag" aria-hidden="true"></div>
 
         <div class="selected-layout">
