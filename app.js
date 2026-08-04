@@ -478,17 +478,7 @@ function closest(items, xMin,xMax, y, tol=9){
               .sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").trim();
 }
 function cleanTime(v){return v.replace(/\s+/g,"").replace("(+ 1)","(+1)")}
-function buildRows(items,w,h){
-  /*
-   * Malaysia Airlines pilot rosters use blank Date cells for continuation
-   * sectors. Example:
-   *
-   * 03-Jun-2026  MH782
-   *               MH783
-   *
-   * The old parser created rows only from Date anchors, so MH783 disappeared.
-   * This parser builds physical rows from BOTH Date and MH-flight anchors.
-   */
+function buildRows(items,w,h,pageNumber=1){
   const X={
     date:[0.02,0.09],
     activity:[0.09,0.18],
@@ -507,7 +497,7 @@ function buildRows(items,w,h){
     item.x>=w*X[name][0] &&
     item.x<w*X[name][1];
 
-  const col=(name,y,tolerance=8)=>
+  const col=(name,y,tolerance=7)=>
     items
       .filter(item=>
         inColumn(item,name) &&
@@ -519,10 +509,18 @@ function buildRows(items,w,h){
       .replace(/\s+/g," ")
       .trim();
 
-  const anchors=items
+  /*
+   * Critical rule:
+   * Use the PDF's original content sequence to decide which printed date a
+   * flight belongs to. The PDF text stream lists:
+   *
+   * 03-Jun date → MH782 → MH783 → 04-Jun date
+   *
+   * even though MH783 and the 04-Jun date can be very close vertically.
+   * Y-coordinate clustering alone therefore attached MH783 to 04-Jun.
+   */
+  const structuralItems=items
     .filter(item=>{
-      if(item.y<=h*0.10) return false;
-
       const isDate=
         inColumn(item,"date") &&
         /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s);
@@ -533,92 +531,110 @@ function buildRows(items,w,h){
 
       return isDate || isFlight;
     })
-    .sort((a,b)=>a.y-b.y);
-
-  /*
-   * Date and flight number from one printed line can differ by a few PDF
-   * pixels. Cluster nearby anchors into one physical roster row.
-   */
-  const clusters=[];
-
-  anchors.forEach(anchor=>{
-    const previous=clusters[clusters.length-1];
-
-    if(previous && Math.abs(anchor.y-previous.meanY)<=5){
-      previous.items.push(anchor);
-      previous.meanY=
-        previous.items.reduce((sum,item)=>sum+item.y,0) /
-        previous.items.length;
-    }else{
-      clusters.push({
-        items:[anchor],
-        meanY:anchor.y
-      });
-    }
-  });
+    .sort((a,b)=>
+      Number(a.sourceIndex??0)-Number(b.sourceIndex??0)
+    );
 
   const rows=[];
   let currentDate="";
+  let lastDateSourceIndex=-1;
+  let visualOrder=0;
 
-  clusters.forEach((cluster,visualOrder)=>{
-    const dateAnchor=cluster.items.find(item=>
-      /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s)
-    );
-    const flightAnchor=cluster.items.find(item=>
-      /^MH\d{2,4}$/i.test(item.s)
-    );
+  structuralItems.forEach(anchor=>{
+    const isDate=/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(anchor.s);
+    const isFlight=/^MH\d{2,4}$/i.test(anchor.s);
 
-    if(dateAnchor) currentDate=dateAnchor.s;
-    if(!currentDate) return;
+    if(isDate){
+      currentDate=anchor.s;
+      lastDateSourceIndex=Number(anchor.sourceIndex??lastDateSourceIndex);
 
-    /*
-     * Prefer the flight baseline for flight rows. This prevents the parser
-     * borrowing data from an adjacent line when the date and item baselines
-     * are slightly offset.
-     */
-    const y=flightAnchor?.y ?? dateAnchor?.y ?? cluster.meanY;
+      /*
+       * Create date-only rows (D, DO, training/ground duty) here. Flight rows
+       * are created when their MH anchor is reached later in the source stream.
+       */
+      const y=anchor.y;
+      const activity=col("activity",y,7);
+      const dutyStart=cleanTime(col("dutyStart",y,7));
+      const flightOnSameLine=col("item",y,4).match(/^MH\d{2,4}$/i);
 
-    const activity=col("activity",y,7);
-    let dutyStart=cleanTime(col("dutyStart",y,7));
-    let item=col("item",y,7).trim();
-    let work=col("work",y,7).trim();
-    let dep=col("dep",y,9).replace(/\s+/g," ").trim();
-    let arr=cleanNextDayMarker(
-      col("arr",y,12).replace(/\s+/g," ").trim()
-    );
-    let dutyEnd=cleanNextDayMarker(
-      cleanTime(col("dutyEnd",y,12))
-    );
-    let block=cleanTime(col("block",y,7));
-    let duty=cleanTime(col("duty",y,7));
-    let ac=col("ac",y,7).trim();
+      if(!flightOnSameLine){
+        let item="";
+        const activityCode=activity.trim().split(/\s+/)[0]||"";
 
-    if(!item && activity){
-      const activityCode=activity.trim().split(/\s+/)[0];
+        if(
+          /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*)$/i
+            .test(activityCode)
+        ){
+          item=activityCode;
+        }
 
-      if(
-        /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*)$/i
-          .test(activityCode)
-      ){
-        item=activityCode;
+        if(item){
+          let dep=col("dep",y,9).replace(/\s+/g," ").trim();
+          let arr=cleanNextDayMarker(
+            col("arr",y,11).replace(/\s+/g," ").trim()
+          );
+          let dutyEnd=cleanNextDayMarker(
+            cleanTime(col("dutyEnd",y,11))
+          );
+          let block=cleanTime(col("block",y,7));
+          let duty=cleanTime(col("duty",y,7));
+          let ac=col("ac",y,7).trim();
+
+          if(/^(D|DO|DO1|OFF)$/i.test(item)){
+            dep="";
+            arr="";
+            dutyEnd="";
+            block="";
+            duty="";
+            ac="";
+          }
+
+          rows.push({
+            date:currentDate,
+            day:dayName(currentDate),
+            dutyStart:/^(D|DO|DO1|OFF)$/i.test(item) ? "" : dutyStart,
+            item,
+            dep,
+            arr,
+            dutyEnd,
+            work:"",
+            block,
+            duty,
+            ac,
+            _printedDate:true,
+            _pageNumber:pageNumber,
+            _visualOrder:visualOrder++
+          });
+        }
       }
+
+      return;
     }
 
-    // OFF rows display only the code.
-    if(/^(D|DO|DO1|OFF)$/i.test(item)){
-      dutyStart="";
-      dep="";
-      arr="";
-      dutyEnd="";
-      work="";
-      block="";
-      duty="";
-      ac="";
-    }
+    if(!isFlight || !currentDate) return;
 
-    const isContinuation=
-      Boolean(flightAnchor) &&
-      !Boolean(dateAnchor);
+    const y=anchor.y;
+    const item=anchor.s.trim();
+    const dutyStart=cleanTime(col("dutyStart",y,7));
+    const work=col("work",y,7).trim();
+    const dep=col("dep",y,9).replace(/\s+/g," ").trim();
+    const arr=cleanNextDayMarker(
+      col("arr",y,11).replace(/\s+/g," ").trim()
+    );
+    const dutyEnd=cleanNextDayMarker(
+      cleanTime(col("dutyEnd",y,11))
+    );
+    const block=cleanTime(col("block",y,7));
+    const duty=cleanTime(col("duty",y,7));
+    const ac=col("ac",y,7).trim();
+
+    const printedDateOnLine=items.some(itemCandidate=>
+      inColumn(itemCandidate,"date") &&
+      /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(itemCandidate.s) &&
+      Math.abs(itemCandidate.y-y)<=4
+    );
+
+    const isContinuation=!printedDateOnLine;
 
     rows.push({
       date:currentDate,
@@ -633,9 +649,12 @@ function buildRows(items,w,h){
       duty:isContinuation ? "" : duty,
       ac,
       _pilotContinuation:isContinuation,
+      _printedDate:printedDateOnLine,
+      _pageNumber:pageNumber,
+      _sourceIndex:Number(anchor.sourceIndex??lastDateSourceIndex),
       _dutyGroup:`PILOT|${currentDate}`,
-      _sectorIndex:isContinuation ? visualOrder : 0,
-      _visualOrder:visualOrder
+      _sectorIndex:visualOrder,
+      _visualOrder:visualOrder++
     });
   });
 
@@ -1569,6 +1588,27 @@ function restoreMissingPilotDates(rows,pdfText){
   recovered.forEach(recoveredRow=>{
     const item=String(recoveredRow.item||"").trim().toUpperCase();
 
+    const visualMatch=output.find(current=>
+      String(current.item||"").trim().toUpperCase()===item &&
+      current._recoveredFromText!==true
+    );
+
+    if(visualMatch){
+      // The physical parser is authoritative for date assignment.
+      // Fill only missing values and never add or relocate another copy.
+      visualMatch.dutyStart=
+        visualMatch.dutyStart || recoveredRow.dutyStart || "";
+      visualMatch.dep=visualMatch.dep || recoveredRow.dep || "";
+      visualMatch.arr=visualMatch.arr || recoveredRow.arr || "";
+      visualMatch.dutyEnd=
+        visualMatch.dutyEnd || recoveredRow.dutyEnd || "";
+      visualMatch.work=visualMatch.work || recoveredRow.work || "";
+      visualMatch.block=visualMatch.block || recoveredRow.block || "";
+      visualMatch.duty=visualMatch.duty || recoveredRow.duty || "";
+      visualMatch.ac=visualMatch.ac || recoveredRow.ac || "";
+      return;
+    }
+
     /*
      * If the visual parser placed a continuation sector on the following date,
      * remove that misplaced copy before restoring the text-derived row.
@@ -2224,7 +2264,7 @@ async function parsePDF(file){
     const textContent=await page.getTextContent();
 
     const viewportItems=textContent.items
-      .map(item=>{
+      .map((item,sourceIndex)=>{
         const transformed=pdfjsLib.Util.transform(
           viewport.transform,
           item.transform
@@ -2232,7 +2272,8 @@ async function parsePDF(file){
         return {
           s:item.str.trim(),
           x:transformed[4],
-          y:viewport.height-transformed[5]
+          y:viewport.height-transformed[5],
+          sourceIndex
         };
       })
       .filter(item=>item.s);
@@ -2278,7 +2319,8 @@ async function parsePDF(file){
       const pilotRows=buildRows(
         viewportItems,
         viewport.width,
-        viewport.height
+        viewport.height,
+        pageNumber
       );
 
       console.info(
@@ -2340,25 +2382,27 @@ async function parsePDF(file){
   // This is deterministic and applies to both pilot and cabin-crew rosters.
   allRows=moveExplicitNextDayTimings(allRows);
 
-  const dutyDates=new Map();
-  allRows.forEach(row=>{
-    if(
-      row._dutyGroup &&
-      Number(row._sectorIndex||0)===0
-    ){
-      dutyDates.set(row._dutyGroup,row.date);
-    }
-  });
-  allRows.forEach(row=>{
-    if(
-      row._dutyGroup &&
-      dutyDates.has(row._dutyGroup) &&
-      !row._overnightContinuation
-    ){
-      row.date=dutyDates.get(row._dutyGroup);
-      row.day=dayName(row.date);
-    }
-  });
+  if(pairingMode){
+    const dutyDates=new Map();
+    allRows.forEach(row=>{
+      if(
+        row._dutyGroup &&
+        Number(row._sectorIndex||0)===0
+      ){
+        dutyDates.set(row._dutyGroup,row.date);
+      }
+    });
+    allRows.forEach(row=>{
+      if(
+        row._dutyGroup &&
+        dutyDates.has(row._dutyGroup) &&
+        !row._overnightContinuation
+      ){
+        row.date=dutyDates.get(row._dutyGroup);
+        row.day=dayName(row.date);
+      }
+    });
+  }
 
   allRows=markLayoverCalendarRows(
     allRows,
