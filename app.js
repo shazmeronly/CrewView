@@ -455,9 +455,9 @@ function updateRosterSourceNote(){
     )
   );
 
-  note.textContent=historical
-    ? "Hours and duties are from the uploaded roster PDF snapshot, not the live iFlight Actual Roster."
-    : "Hours and duties are taken from the uploaded roster PDF.";
+  note.textContent=
+    "Roster Block Hours and Roster Duty Hours come from the uploaded PDF. " +
+    "Live iFlight Actual Roster totals can differ after operational updates.";
 }
 
 function renderValidation(result){
@@ -1948,10 +1948,6 @@ function getUpcomingDuty(rows){
     if(
       row._overnightContinuation ||
       (
-        row._dutyGroup &&
-        Number(row._sectorIndex||0)>0
-      ) ||
-      (
         !String(row.item||"").trim() &&
         !String(row.dutyStart||"").trim() &&
         (
@@ -1959,6 +1955,10 @@ function getUpcomingDuty(rows){
           String(row.dutyEnd||"").trim()
         )
       ) ||
+      /*
+       * A flight row without a report time is a continuation sector.
+       * Do not use _sectorIndex here: pilot rows may carry a page-wide index.
+       */
       (
         !String(row.dutyStart||"").trim() &&
         /^MH\d+/i.test(String(row.item||"").trim())
