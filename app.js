@@ -2606,11 +2606,9 @@ const calendarFiltersEnabled=new Set([
 ]);
 
 const calendarViewOptions={
-  report:true,
-  departure:true,
-  aircraft:true,
-  workType:true,
   outsideDays:true,
+  highlightToday:true,
+  animations:true,
   density:"comfortable"
 };
 
@@ -2997,7 +2995,7 @@ function renderCalendarView(options={}){
     cells.push(`
       <button
         type="button"
-        class="calendar-day ${category} ${outside?"outside":""} ${outside&&!calendarViewOptions.outsideDays?"outside-hidden":""} ${isToday?"today":""} ${isSelected?"selected":""}"
+        class="calendar-day ${category} ${outside?"outside":""} ${outside&&!calendarViewOptions.outsideDays?"outside-hidden":""} ${isToday&&calendarViewOptions.highlightToday?"today":""} ${isSelected?"selected":""}"
         data-calendar-key="${key}"
         ${primary?"":"disabled"}
         aria-label="${esc([d.getDate(),tile.title,tile.route,tile.report,tile.departure].filter(Boolean).join(" "))}"
@@ -3272,15 +3270,25 @@ function closeCalendarViewSheet(){
 }
 
 function applyCalendarViewOptions(){
-  calendarViewOptions.report=$("#optReport")?.checked??true;
-  calendarViewOptions.departure=$("#optDeparture")?.checked??true;
-  calendarViewOptions.aircraft=$("#optAircraft")?.checked??true;
-  calendarViewOptions.workType=$("#optWorkType")?.checked??true;
   calendarViewOptions.outsideDays=$("#optOutsideDays")?.checked??true;
+  calendarViewOptions.highlightToday=$("#optHighlightToday")?.checked??true;
+  calendarViewOptions.animations=$("#optAnimations")?.checked??true;
 
   document.body.classList.toggle(
     "calendar-compact",
     calendarViewOptions.density==="compact"
+  );
+  document.body.classList.toggle(
+    "calendar-large-text",
+    calendarViewOptions.density==="large"
+  );
+  document.body.classList.toggle(
+    "calendar-no-animations",
+    !calendarViewOptions.animations
+  );
+  document.body.classList.toggle(
+    "calendar-no-today-highlight",
+    !calendarViewOptions.highlightToday
   );
 
   localStorage.setItem(
@@ -3327,11 +3335,9 @@ calendarViewOptions.report=true;
 calendarViewOptions.departure=true;
 calendarViewOptions.density="comfortable";
 
-$("#optReport")&&( $("#optReport").checked=calendarViewOptions.report );
-$("#optDeparture")&&( $("#optDeparture").checked=calendarViewOptions.departure );
-$("#optAircraft")&&( $("#optAircraft").checked=calendarViewOptions.aircraft );
-$("#optWorkType")&&( $("#optWorkType").checked=calendarViewOptions.workType );
 $("#optOutsideDays")&&( $("#optOutsideDays").checked=calendarViewOptions.outsideDays );
+$("#optHighlightToday")&&( $("#optHighlightToday").checked=calendarViewOptions.highlightToday );
+$("#optAnimations")&&( $("#optAnimations").checked=calendarViewOptions.animations );
 
 document.querySelectorAll("[data-calendar-density]").forEach(button=>
   button.classList.toggle(
@@ -3343,6 +3349,18 @@ document.querySelectorAll("[data-calendar-density]").forEach(button=>
 document.body.classList.toggle(
   "calendar-compact",
   calendarViewOptions.density==="compact"
+);
+document.body.classList.toggle(
+  "calendar-large-text",
+  calendarViewOptions.density==="large"
+);
+document.body.classList.toggle(
+  "calendar-no-animations",
+  !calendarViewOptions.animations
+);
+document.body.classList.toggle(
+  "calendar-no-today-highlight",
+  !calendarViewOptions.highlightToday
 );
 
 document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{

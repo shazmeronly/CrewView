@@ -216,7 +216,7 @@
 
       <div class="calendar-tools">
         <button type="button" class="calendar-tool" id="calendarToday">▣&nbsp; Today</button>
-        <button type="button" class="calendar-tool" id="calendarFilters">⚙&nbsp; View</button>
+        <button type="button" class="calendar-tool" id="calendarFilters">⚙&nbsp; Settings</button>
       </div>
 
       <div class="calendar-legend">
@@ -237,28 +237,41 @@
 
       <div class="calendar-detail-backdrop hidden" id="calendarDetailBackdrop"></div>
       <div class="calendar-view-backdrop hidden" id="calendarViewBackdrop"></div>
-      <section class="calendar-view-sheet hidden" id="calendarViewSheet" role="dialog" aria-modal="true" aria-label="Calendar view options">
-        <div class="view-sheet-handle"></div>
-        <button type="button" class="view-sheet-close" id="calendarViewClose" aria-label="Close view options">×</button>
-        <h3>View Options</h3>
-        <p>Choose what appears inside each calendar tile.</p>
+      
+<section class="calendar-view-sheet hidden" id="calendarViewSheet" role="dialog" aria-modal="true" aria-label="Calendar settings">
+  <div class="view-sheet-handle"></div>
+  <button type="button" class="view-sheet-close" id="calendarViewClose" aria-label="Close calendar settings">×</button>
 
-        <label><span>Show report time</span><input type="checkbox" id="optReport" checked></label>
-        <label><span>Show departure time</span><input type="checkbox" id="optDeparture" checked></label>
-        <label><span>Show aircraft</span><input type="checkbox" id="optAircraft" checked></label>
-        <label><span>Show work type</span><input type="checkbox" id="optWorkType" checked></label>
-        <label><span>Show previous/next month days</span><input type="checkbox" id="optOutsideDays" checked></label>
+  <h3>Calendar Settings</h3>
+  <p>Adjust how the monthly calendar is displayed.</p>
 
-        <div class="view-sheet-size">
-          <span>Calendar size</span>
-          <div>
-            <button type="button" data-calendar-density="compact">Compact</button>
-            <button type="button" class="active" data-calendar-density="comfortable">Comfortable</button>
-          </div>
-        </div>
+  <label>
+    <span>Show previous/next month days</span>
+    <input type="checkbox" id="optOutsideDays" checked>
+  </label>
 
-        <button type="button" class="view-sheet-done" id="calendarViewDone">Done</button>
-      </section>
+  <label>
+    <span>Highlight today</span>
+    <input type="checkbox" id="optHighlightToday" checked>
+  </label>
+
+  <label>
+    <span>Animations</span>
+    <input type="checkbox" id="optAnimations" checked>
+  </label>
+
+  <div class="view-sheet-size">
+    <span>Calendar size</span>
+    <div>
+      <button type="button" data-calendar-density="compact">Compact</button>
+      <button type="button" class="active" data-calendar-density="comfortable">Comfortable</button>
+      <button type="button" data-calendar-density="large">Large Text</button>
+    </div>
+  </div>
+
+  <button type="button" class="view-sheet-done" id="calendarViewDone">Done</button>
+</section>
+
 
       <section class="calendar-selected hidden" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Selected duty details">
         <button type="button" class="calendar-detail-close" id="calendarDetailClose" aria-label="Close duty details">×</button>

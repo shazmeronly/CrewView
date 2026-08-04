@@ -3574,3 +3574,89 @@ body.calendar-compact{
     align-items:flex-start;
   }
 }
+
+
+/* =========================================================
+   CrewView Calendar v1.6 — simplified Calendar Settings
+   ========================================================= */
+
+.view-sheet-size > div{
+  grid-template-columns:repeat(3,1fr) !important;
+}
+
+.view-sheet-size button{
+  padding-inline:8px;
+  font-size:13px;
+}
+
+/* Comfortable: default balanced layout */
+body:not(.calendar-compact):not(.calendar-large-text) .calendar-day{
+  aspect-ratio:1 / 1.40 !important;
+}
+
+/* Compact: noticeably shorter tiles */
+body.calendar-compact .calendar-day{
+  aspect-ratio:1 / 1.12 !important;
+}
+
+body.calendar-compact .calendar-flight-info{
+  margin-top:10px !important;
+}
+
+body.calendar-compact .calendar-flight-report,
+body.calendar-compact .calendar-flight-departure{
+  font-size:5.3px !important;
+}
+
+/* Large Text: larger type and taller cells */
+body.calendar-large-text .calendar-day{
+  aspect-ratio:1 / 1.58 !important;
+}
+
+body.calendar-large-text .calendar-flight-number{
+  font-size:10px !important;
+}
+
+body.calendar-large-text .calendar-flight-route{
+  font-size:7px !important;
+}
+
+body.calendar-large-text .calendar-flight-report,
+body.calendar-large-text .calendar-flight-departure{
+  font-size:6.6px !important;
+}
+
+/* Disable calendar transitions when animations are off. */
+body.calendar-no-animations .calendar-day,
+body.calendar-no-animations .calendar-selected,
+body.calendar-no-animations .calendar-detail-backdrop,
+body.calendar-no-animations .calendar-view-sheet,
+body.calendar-no-animations .calendar-view-backdrop{
+  transition:none !important;
+  animation:none !important;
+}
+
+/* Remove today-specific styling when disabled. */
+body.calendar-no-today-highlight .calendar-day.today::after,
+body.calendar-no-today-highlight .calendar-today-dot{
+  display:none !important;
+}
+
+@media(max-width:540px){
+  .view-sheet-size > div{
+    gap:6px;
+  }
+
+  .view-sheet-size button{
+    font-size:11px;
+    min-height:40px;
+  }
+
+  body.calendar-compact .calendar-day{
+    aspect-ratio:1 / 1.08 !important;
+  }
+
+  body.calendar-large-text .calendar-day{
+    aspect-ratio:1 / 1.62 !important;
+  }
+}
