@@ -27,6 +27,11 @@
   </div>
 </header>
 <main>
+<nav class="view-switcher hidden" id="viewSwitcher" aria-label="Roster view">
+  <button class="view-tab active" type="button" data-view="classic">Classic</button>
+  <button class="view-tab" type="button" data-view="calendar">Calendar</button>
+  <button class="view-tab timeline-tab" type="button" disabled>Timeline <small>SOON</small></button>
+</nav>
 <section class="card upload-card" id="uploadCard">
   <div class="drop">
     <div style="font-size:36px">📄</div>
@@ -113,6 +118,7 @@
   <strong id="compactName">—</strong>
   <span id="compactMeta">—</span>
 </section>
+<div id="classicView">
 <section class="card" id="resultCard">
   <div class="meta" id="profileForm">
     <div class="name-field"><label>Name</label><input id="name" value="" readonly></div>
@@ -152,6 +158,78 @@
     <div class="stat"><small>Off Days</small><strong id="off">0</strong></div>
   </div>
   <p class="help"><span id="rosterSourceNote">Hours and duties are taken from the uploaded roster PDF.</span><br><br>Tap “Save PDF”. In the iPhone preview, use Share and choose “Save to Files”.</p>
+</section>
+</div>
+
+<section class="calendar-view hidden" id="calendarView" aria-label="Calendar roster view">
+  <div class="calendar-profile">
+    <div class="calendar-avatar" id="calendarAvatar">CV</div>
+    <div class="calendar-profile-copy">
+      <strong id="calendarName">—</strong>
+      <span id="calendarMeta">—</span>
+    </div>
+    <div class="calendar-stats">
+      <span><strong id="calendarFH">00:00</strong><small>Block Hrs</small></span>
+      <span><strong id="calendarDH">00:00</strong><small>Duty Hrs</small></span>
+      <span><strong id="calendarOff">0</strong><small>Off Days</small></span>
+    </div>
+  </div>
+
+  <div class="calendar-card">
+    <div class="calendar-toolbar">
+      <button type="button" class="calendar-nav" id="calendarPrev" aria-label="Previous month">‹</button>
+      <div>
+        <small id="calendarPrevLabel">Previous</small>
+      </div>
+      <h2 id="calendarMonthTitle">Month</h2>
+      <div class="calendar-next-label"><small id="calendarNextLabel">Next</small></div>
+      <button type="button" class="calendar-nav" id="calendarNext" aria-label="Next month">›</button>
+    </div>
+    <div class="calendar-actions">
+      <button type="button" class="calendar-today" id="calendarToday">▣ Today</button>
+      <span class="calendar-help">Tap any duty to view details</span>
+    </div>
+    <div class="calendar-legend">
+      <span><i class="cal-dot flight"></i>Flight Duty</span>
+      <span><i class="cal-dot off"></i>Day Off</span>
+      <span><i class="cal-dot standby"></i>Standby</span>
+      <span><i class="cal-dot leave"></i>Leave</span>
+      <span><i class="cal-dot training"></i>DSA / Training</span>
+      <span><i class="cal-dot simulator"></i>Simulator</span>
+      <span><i class="cal-dot admin"></i>Office / Admin</span>
+    </div>
+    <div class="calendar-weekdays" aria-hidden="true">
+      <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+  </div>
+
+  <section class="calendar-selected hidden" id="calendarSelected">
+    <div class="selected-date">
+      <small id="selectedWeekday">—</small>
+      <strong id="selectedDay">—</strong>
+      <span id="selectedMonthYear">—</span>
+    </div>
+    <div class="selected-main">
+      <div>
+        <h3 id="selectedItem">—</h3>
+        <p id="selectedRoute">—</p>
+        <small id="selectedAircraft">—</small>
+      </div>
+      <div class="selected-times">
+        <span><small>Report</small><strong id="selectedReport">—</strong></span>
+        <span><small>Departure</small><strong id="selectedDeparture">—</strong></span>
+        <span><small>Arrival</small><strong id="selectedArrival">—</strong></span>
+        <span><small>Duty End</small><strong id="selectedDutyEnd">—</strong></span>
+      </div>
+    </div>
+    <div class="selected-metrics">
+      <span><small>Block Time</small><strong id="selectedBlock">—</strong></span>
+      <span><small>Duty Time</small><strong id="selectedDuty">—</strong></span>
+      <span><small>Work Type</small><strong id="selectedWork">—</strong></span>
+    </div>
+    <button type="button" class="btn primary selected-details-btn" id="selectedDetailsBtn">View Duty Details ›</button>
+  </section>
 </section>
 </main>
 <footer>
