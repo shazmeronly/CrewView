@@ -263,100 +263,110 @@ function buildRows(items,w,h){
 
 
 function buildPairingRows(items,w,h,pageNumber=1){
-  const X={
-    date:[0.02,0.09],
-    activity:[0.09,0.185],
-    report:[0.185,0.23],
-    item:[0.23,0.31],
-    work:[0.33,0.37],
-    dep:[0.40,0.465],
-    arr:[0.465,0.55],
-    dutyEnd:[0.55,0.61],
-    block:[0.61,0.645],
-    duty:[0.645,0.69],
-    ac:[0.72,0.76]
-  };
+  const inRange=(item,left,right)=>
+    item.x>=w*left && item.x<w*right;
 
-  const exact=(name,y,tol=3)=>
-    closest(items,w*X[name][0],w*X[name][1],y,tol);
-
-  const near=(name,y,tol=10)=>
-    closest(items,w*X[name][0],w*X[name][1],y,tol);
+  const textAt=(left,right,y,tolerance=7)=>
+    items
+      .filter(item=>
+        inRange(item,left,right) &&
+        Math.abs(item.y-y)<=tolerance
+      )
+      .sort((a,b)=>a.x-b.x)
+      .map(item=>item.s)
+      .join(" ")
+      .replace(/\s+/g," ")
+      .trim();
 
   /*
-   * IMPORTANT:
-   * Pairing/activity references such as "2634-50/01082026/C" sit several
-   * pixels above the actual flight row. They must never be used as row anchors.
+   * PDF.js may place the date and flight number from the SAME printed row
+   * on slightly different baselines. Treating them as separate anchors caused:
+   * - the second sector to move to the next date;
+   * - duplicated dates;
+   * - MH604 / MH2614 / MH2594 / MH2593 to appear out of sequence.
    *
-   * A real displayed row is anchored only by:
-   *   1. an explicit date, or
-   *   2. an MH flight number.
-   *
-   * This preserves the exact visual order:
-   * 01 Aug MH2634
-   *        MH2635
-   * 02 Aug MH2634
-   *        MH2635
+   * We therefore cluster nearby date/flight anchors into one physical row.
    */
-  const anchors=items.filter(item=>{
-    if(item.y<h*0.075) return false;
+  const rawAnchors=items
+    .filter(item=>{
+      if(item.y<h*0.075) return false;
 
-    const isDate=
-      /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s) &&
-      item.x<w*0.09;
+      const isDate=
+        /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s) &&
+        item.x<w*0.09;
 
-    const isFlight=
-      /^MH\d{2,4}$/i.test(item.s) &&
-      item.x>=w*0.23 &&
-      item.x<w*0.31;
+      const isFlight=
+        /^MH\d{2,4}$/i.test(item.s) &&
+        inRange(item,0.22,0.34);
 
-    return isDate || isFlight;
+      return isDate || isFlight;
+    })
+    .sort((a,b)=>a.y-b.y);
+
+  const clusters=[];
+
+  rawAnchors.forEach(anchor=>{
+    const last=clusters[clusters.length-1];
+
+    if(last && Math.abs(anchor.y-last.meanY)<=10){
+      last.items.push(anchor);
+      last.meanY=
+        last.items.reduce((sum,item)=>sum+item.y,0) /
+        last.items.length;
+    }else{
+      clusters.push({
+        items:[anchor],
+        meanY:anchor.y
+      });
+    }
   });
 
-  const rowYs=[];
-  anchors
-    .sort((a,b)=>a.y-b.y)
-    .forEach(anchor=>{
-      if(!rowYs.some(y=>Math.abs(y-anchor.y)<3)){
-        rowYs.push(anchor.y);
-      }
-    });
+  const physicalRows=clusters.map((cluster,index)=>{
+    const flightAnchor=cluster.items.find(item=>/^MH\d{2,4}$/i.test(item.s));
+    const dateAnchor=cluster.items.find(item=>/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s));
+
+    return {
+      y:flightAnchor?.y ?? dateAnchor?.y ?? cluster.meanY,
+      explicitDate:dateAnchor?.s || "",
+      visualOrder:index
+    };
+  });
 
   const rows=[];
   let currentDate="";
   let currentDuty=null;
   let sectorIndex=0;
 
-  rowYs.forEach((y,visualIndex)=>{
-    // Use a tight tolerance here. A wide tolerance was incorrectly borrowing
-    // the following date for the previous flight sector.
-    const explicitDate=exact("date",y,3);
-    if(explicitDate) currentDate=explicitDate;
+  physicalRows.forEach(({y,explicitDate,visualOrder})=>{
+    if(explicitDate && explicitDate!==currentDate){
+      currentDate=explicitDate;
+
+      // A newly printed date starts a new roster date. Continuation sectors
+      // have no printed date, so resetting here is safe and deterministic.
+      currentDuty=null;
+      sectorIndex=0;
+    }
+
     if(!currentDate) return;
 
-    const activity=exact("activity",y,3).trim();
-    const report=cleanTime(exact("report",y,3));
-    const item=exact("item",y,3).trim();
-    const work=exact("work",y,3).trim();
-    const dep=exact("dep",y,4).replace(/\s+/g," ").trim();
-
-    // (+1) cells can be printed on two close baselines, so only these two
-    // columns use a wider vertical search.
-    const arr=cleanNextDayMarker(
-      near("arr",y,10).replace(/\s+/g," ").trim()
-    );
+    // Correct visual column boundaries for this Roster Report.
+    const activity=textAt(0.09,0.225,y,8);
+    const report=cleanTime(textAt(0.18,0.255,y,8));
+    const item=textAt(0.225,0.34,y,8);
+    const work=textAt(0.315,0.385,y,8);
+    const dep=textAt(0.385,0.455,y,8);
+    const arr=cleanNextDayMarker(textAt(0.45,0.545,y,12));
     const dutyEnd=cleanNextDayMarker(
-      cleanTime(near("dutyEnd",y,10))
+      cleanTime(textAt(0.54,0.595,y,12))
     );
-
-    const block=cleanTime(exact("block",y,4));
-    const duty=cleanTime(exact("duty",y,4));
-    const ac=exact("ac",y,4).trim();
+    const block=cleanTime(textAt(0.585,0.63,y,8));
+    const duty=cleanTime(textAt(0.62,0.685,y,8));
+    const ac=textAt(0.695,0.75,y,8);
 
     const isFlight=/^MH\d{2,4}$/i.test(item);
-    const isOff=/^(D|DO)$/i.test(activity);
+    const offCode=/^(D|DO)$/i.test(activity);
 
-    if(isOff){
+    if(offCode){
       rows.push({
         date:currentDate,
         day:dayName(currentDate),
@@ -369,32 +379,29 @@ function buildPairingRows(items,w,h,pageNumber=1){
         block:"",
         duty:"",
         ac:"",
-        _visualOrder:visualIndex
+        _visualOrder:visualOrder
       });
-
-      currentDuty=null;
-      sectorIndex=0;
       return;
     }
 
     if(isFlight){
       if(report){
-        // Report time = first sector of a new duty.
         currentDuty={
           date:currentDate,
           day:dayName(currentDate),
-          group:`${currentDate}|${report}|${item}|P${pageNumber}|${visualIndex}`
+          group:
+            `${currentDate}|${report}|${item}|P${pageNumber}|${visualOrder}`
         };
         sectorIndex=0;
       }else if(currentDuty){
-        // No report time = next sector in the same duty.
         sectorIndex+=1;
       }else{
-        // Defensive fallback for a continuation sector at a page boundary.
+        // Page-boundary fallback. It remains on the latest explicitly printed date.
         currentDuty={
           date:currentDate,
           day:dayName(currentDate),
-          group:`${currentDate}|CONT|${item}|P${pageNumber}|${visualIndex}`
+          group:
+            `${currentDate}|CONT|${item}|P${pageNumber}|${visualOrder}`
         };
         sectorIndex=0;
       }
@@ -413,10 +420,9 @@ function buildPairingRows(items,w,h,pageNumber=1){
         ac,
         _dutyGroup:currentDuty.group,
         _sectorIndex:sectorIndex,
-        _visualOrder:visualIndex
+        _visualOrder:visualOrder
       });
 
-      // A printed duty end closes the current duty after this sector.
       if(dutyEnd){
         currentDuty=null;
         sectorIndex=0;
@@ -424,10 +430,7 @@ function buildPairingRows(items,w,h,pageNumber=1){
       return;
     }
 
-    /*
-     * A dated line without an MH number may be OFF, standby, training or
-     * another ground duty. Read the activity from its actual baseline.
-     */
+    // Date-only OFF/ground/standby/training row.
     if(explicitDate){
       const groundItem=activity || "DUTY";
 
@@ -443,11 +446,8 @@ function buildPairingRows(items,w,h,pageNumber=1){
         block,
         duty,
         ac,
-        _visualOrder:visualIndex
+        _visualOrder:visualOrder
       });
-
-      currentDuty=null;
-      sectorIndex=0;
     }
   });
 
@@ -460,7 +460,6 @@ function buildPairingRows(items,w,h,pageNumber=1){
       );
     }
   });
-
   rows.forEach(row=>{
     if(row._dutyGroup){
       row._sectorCount=counts.get(row._dutyGroup)||1;
@@ -1403,13 +1402,13 @@ async function parsePDF(file){
   allRows=fillEveryDay(allRows);
 
   // Keep classic next-day rows for (+1) arrivals while preserving all sectors.
-  allRows=applyClassicOvernightTiming(
-    allRows,
-    combinedText
-  );
+  if(!pairingMode){
+    allRows=applyClassicOvernightTiming(
+      allRows,
+      combinedText
+    );
+  }
 
-  // Re-normalize grouped sectors after overnight processing. A normal return
-  // sector without (+1) remains on the original duty date.
   const dutyDates=new Map();
   allRows.forEach(row=>{
     if(
@@ -1444,9 +1443,6 @@ async function parsePDF(file){
     const bd=parseRosterDate(b.date);
     const dateDiff=(ad?.getTime()||0)-(bd?.getTime()||0);
     if(dateDiff!==0) return dateDiff;
-
-    if(a._overnightContinuation && !b._overnightContinuation) return -1;
-    if(!a._overnightContinuation && b._overnightContinuation) return 1;
 
     return Number(a._displayOrder||0)-Number(b._displayOrder||0);
   });

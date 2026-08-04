@@ -1,4 +1,4 @@
-const CACHE = "crewview-exact-visual-rows-v37";
+const CACHE = "crewview-clustered-physical-rows-v38";
 const ASSETS = [
   "./",
   "./index.html",
