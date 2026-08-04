@@ -4128,3 +4128,63 @@ html[data-theme="light"] .header-icon-btn.danger-icon{
     font-size:5.2px !important;
   }
 }
+
+
+/* =========================================================
+   CrewView v2.4 — Classic-first upload + Calendar theme toggle
+   ========================================================= */
+
+.calendar-header-actions{
+  display:flex !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+}
+
+.calendar-theme-toggle{
+  width:auto !important;
+  min-width:96px !important;
+  height:42px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:7px !important;
+  padding:0 14px !important;
+  border:1px solid rgba(190,216,238,.28) !important;
+  border-radius:14px !important;
+  color:#eef7ff !important;
+  background:rgba(8,25,41,.42) !important;
+  backdrop-filter:blur(16px) saturate(130%);
+  -webkit-backdrop-filter:blur(16px) saturate(130%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.10),
+    0 8px 20px rgba(0,0,0,.12);
+  font:inherit !important;
+  font-size:14px !important;
+  font-weight:750 !important;
+}
+
+.calendar-theme-toggle span:first-child{
+  font-size:18px;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-theme-toggle{
+  color:#17314a !important;
+  background:rgba(255,255,255,.58) !important;
+  border-color:rgba(81,118,151,.28) !important;
+}
+
+@media(max-width:540px){
+  .calendar-app-header{
+    grid-template-columns:auto 1fr auto !important;
+  }
+
+  .calendar-theme-toggle{
+    min-width:42px !important;
+    width:42px !important;
+    padding:0 !important;
+  }
+
+  .calendar-theme-toggle #calendarThemeText{
+    display:none !important;
+  }
+}

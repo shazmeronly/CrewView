@@ -19,6 +19,7 @@ themeToggle?.addEventListener("click",()=>{
   const next=document.documentElement.dataset.theme==="dark"?"light":"dark";
   localStorage.setItem("crewview-theme",next);
   applyTheme(next);
+  requestAnimationFrame(syncCalendarThemeButton);
 });
 
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
@@ -2584,6 +2585,16 @@ async function parsePDF(file){
   $("#uploadCard")?.setAttribute("aria-hidden","true");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
+
+  // A newly uploaded roster always opens in Classic View first.
+  crewViewMode="classic";
+  $("#classicView")?.classList.remove("hidden");
+  $("#calendarView")?.classList.add("hidden");
+  document.body.classList.remove("calendar-mode");
+  document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+    tab.classList.toggle("active",tab.dataset.view==="classic")
+  );
+  localStorage.setItem("crewview-roster-view","classic");
   updateCompactProfile();
   const savedView=localStorage.getItem("crewview-roster-view");
   if(savedView==="calendar") switchRosterView("calendar");
@@ -2972,6 +2983,7 @@ function bestCalendarDefaultDuty(entries,year,month){
 }
 
 function renderCalendarView(options={}){
+  syncCalendarThemeButton();
   if(!options.keepOverlay){
     document.body.classList.remove("calendar-detail-open");
   }
@@ -3359,7 +3371,20 @@ $("#calendarToday")?.addEventListener("click",()=>{
   });
 });
 
-$("#calendarThemeButton")?.addEventListener("click",()=>themeToggle?.click());
+function syncCalendarThemeButton(){
+  const isLight=document.documentElement.dataset.theme==="light";
+  $("#calendarThemeIcon").textContent=isLight?"🌙":"☀";
+  $("#calendarThemeText").textContent=isLight?"Dark":"Light";
+  $("#calendarThemeButton")?.setAttribute(
+    "aria-label",
+    isLight?"Switch to dark mode":"Switch to light mode"
+  );
+}
+
+$("#calendarThemeButton")?.addEventListener("click",()=>{
+  themeToggle?.click();
+  requestAnimationFrame(syncCalendarThemeButton);
+});
 
 function openCalendarViewSheet(){
   const sheet=$("#calendarViewSheet");
@@ -3583,3 +3608,5 @@ window.addEventListener("afterprint",()=>{
 
 
 window.addEventListener("load",()=>{document.body.classList.add("fit-mode");applyOnePageFit()});
+
+requestAnimationFrame(syncCalendarThemeButton);

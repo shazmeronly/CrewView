@@ -1,4 +1,4 @@
-const CACHE = "crewview-calendar-grid-overflow-fix-v78";
+const CACHE = "crewview-classic-first-theme-toggle-v80";
 const ASSETS = [
   "./",
   "./index.html",
