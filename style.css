@@ -4032,3 +4032,99 @@ html[data-theme="light"] .header-icon-btn.danger-icon{
     transition:none !important;
   }
 }
+
+
+/* =========================================================
+   CrewView v2.3 — prevent long June/July duties overflowing
+   ========================================================= */
+
+/*
+ * Some June/July duties contain multiple flight numbers or longer duty codes.
+ * CSS Grid items default to min-width:auto, so those long strings could force
+ * a calendar tile wider than its column and overlap neighbouring dates.
+ */
+.calendar-grid{
+  grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+  width:100% !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+}
+
+.calendar-day{
+  min-width:0 !important;
+  max-width:100% !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+}
+
+.calendar-flight-info,
+.calendar-flight-info > div,
+.calendar-day > strong,
+.calendar-day-route,
+.calendar-report-time,
+.calendar-departure-time{
+  min-width:0 !important;
+  max-width:100% !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+}
+
+.calendar-flight-number,
+.calendar-flight-route,
+.calendar-flight-report,
+.calendar-flight-departure{
+  display:block !important;
+  overflow:hidden !important;
+  white-space:nowrap !important;
+  text-overflow:ellipsis !important;
+}
+
+.calendar-day strong,
+.calendar-day-route,
+.calendar-report-time,
+.calendar-departure-time{
+  overflow:hidden !important;
+  white-space:nowrap !important;
+  text-overflow:ellipsis !important;
+}
+
+/* Keep multi-sector labels inside the tile rather than expanding the column. */
+.calendar-flight-number{
+  font-size:clamp(6.5px,1.7vw,9px) !important;
+}
+
+.calendar-flight-route{
+  font-size:clamp(5.3px,1.35vw,6.5px) !important;
+}
+
+.calendar-flight-report,
+.calendar-flight-departure{
+  font-size:clamp(5.2px,1.3vw,6.2px) !important;
+}
+
+/* Ensure all six calendar rows stay aligned on every roster month. */
+.calendar-grid > *{
+  justify-self:stretch !important;
+  align-self:stretch !important;
+}
+
+@media(max-width:540px){
+  .calendar-grid{
+    gap:4px !important;
+  }
+
+  .calendar-day{
+    padding-inline:4px !important;
+  }
+
+  .calendar-flight-number{
+    font-size:7px !important;
+  }
+
+  .calendar-flight-route,
+  .calendar-flight-report,
+  .calendar-flight-departure{
+    font-size:5.2px !important;
+  }
+}
