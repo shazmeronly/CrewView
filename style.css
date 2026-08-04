@@ -3436,3 +3436,141 @@ body.calendar-compact{
     display:block !important;
   }
 }
+
+
+/* =========================================================
+   CrewView Calendar v1.5 — dedicated flight information stack
+   ========================================================= */
+
+/*
+ * Flight details now use DIV elements instead of the older shared
+ * strong/span/small rules. This prevents the legacy iPhone CSS rule
+ * from hiding the flight number and route.
+ */
+.calendar-flight-info{
+  width:100%;
+  min-width:0;
+  display:flex !important;
+  flex-direction:column;
+  align-items:flex-start;
+  margin-top:17px;
+  overflow:visible !important;
+}
+
+.calendar-flight-number,
+.calendar-flight-route,
+.calendar-flight-report,
+.calendar-flight-departure{
+  display:block !important;
+  width:100%;
+  max-width:100%;
+  visibility:visible !important;
+  opacity:1 !important;
+  position:static !important;
+  transform:none !important;
+  color:#fff;
+  text-align:left;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-shadow:0 1px 2px rgba(0,0,0,.26);
+}
+
+.calendar-flight-number{
+  font-size:9px;
+  line-height:1.08;
+  font-weight:900;
+  letter-spacing:.01em;
+}
+
+.calendar-flight-route{
+  margin-top:3px;
+  font-size:6.5px;
+  line-height:1.08;
+  font-weight:720;
+}
+
+.calendar-flight-report,
+.calendar-flight-departure{
+  margin-top:4px;
+  font-size:6.2px;
+  line-height:1.05;
+  font-weight:760;
+}
+
+.calendar-flight-departure{
+  margin-top:2px;
+  color:rgba(255,255,255,.82);
+}
+
+/* The dedicated stack replaces the older flight text elements. */
+.calendar-day.flight > strong,
+.calendar-day.flight > .calendar-day-route,
+.calendar-day.flight > .calendar-report-time,
+.calendar-day.flight > .calendar-departure-time{
+  display:none !important;
+}
+
+/* Keep adequate room while retaining the compact rounded appearance. */
+.calendar-day{
+  aspect-ratio:1 / 1.40 !important;
+}
+
+@media(min-width:821px){
+  .calendar-day{
+    aspect-ratio:1 / 1.18 !important;
+  }
+
+  .calendar-flight-info{
+    margin-top:21px;
+  }
+
+  .calendar-flight-number{
+    font-size:12px;
+  }
+
+  .calendar-flight-route{
+    font-size:9px;
+  }
+
+  .calendar-flight-report,
+  .calendar-flight-departure{
+    font-size:8px;
+  }
+}
+
+@media(max-width:540px){
+  .calendar-day{
+    aspect-ratio:1 / 1.42 !important;
+    padding:6px 5px !important;
+  }
+
+  .calendar-flight-info{
+    margin-top:15px;
+  }
+
+  .calendar-flight-number{
+    font-size:8px;
+  }
+
+  .calendar-flight-route{
+    font-size:5.8px;
+  }
+
+  .calendar-flight-report,
+  .calendar-flight-departure{
+    font-size:5.7px;
+  }
+}
+
+@media(max-width:430px){
+  .calendar-flight-info,
+  .calendar-flight-info div{
+    display:flex !important;
+  }
+
+  .calendar-flight-info div{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}

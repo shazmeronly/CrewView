@@ -3004,10 +3004,19 @@ function renderCalendarView(options={}){
       >
         <span class="calendar-day-number">${d.getDate()}</span>
         ${tile.icon?`<i class="calendar-plane">${esc(tile.icon)}</i>`:""}
-        ${tile.title?`<strong>${esc(tile.title)}</strong>`:""}
-        ${tile.route?`<span class="calendar-day-route">${esc(tile.route)}</span>`:""}
-        ${tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
-        ${tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
+        ${category==="flight" ? `
+          <div class="calendar-flight-info">
+            <div class="calendar-flight-number">${esc(tile.title||"")}</div>
+            <div class="calendar-flight-route">${esc(tile.route||"")}</div>
+            <div class="calendar-flight-report">${esc(tile.report||"")}</div>
+            <div class="calendar-flight-departure">${esc(tile.departure||"")}</div>
+          </div>
+        ` : `
+          ${tile.title?`<strong>${esc(tile.title)}</strong>`:""}
+          ${tile.route?`<span class="calendar-day-route">${esc(tile.route)}</span>`:""}
+          ${tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
+          ${tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
+        `}
         ${(
           (calendarViewOptions.workType&&tile.footerLeft)||
           (calendarViewOptions.aircraft&&tile.footerRight)
