@@ -3006,8 +3006,8 @@ function renderCalendarView(options={}){
         ${tile.icon?`<i class="calendar-plane">${esc(tile.icon)}</i>`:""}
         ${tile.title?`<strong>${esc(tile.title)}</strong>`:""}
         ${tile.route?`<span class="calendar-day-route">${esc(tile.route)}</span>`:""}
-        ${calendarViewOptions.report&&tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
-        ${calendarViewOptions.departure&&tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
+        ${tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
+        ${tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
         ${(
           (calendarViewOptions.workType&&tile.footerLeft)||
           (calendarViewOptions.aircraft&&tile.footerRight)
@@ -3299,6 +3299,12 @@ document.querySelectorAll("[data-calendar-density]").forEach(button=>{
   });
 });
 
+const calendarLayoutVersion="v1.4";
+if(localStorage.getItem("crewview-calendar-layout-version")!==calendarLayoutVersion){
+  localStorage.removeItem("crewview-calendar-options");
+  localStorage.setItem("crewview-calendar-layout-version",calendarLayoutVersion);
+}
+
 try{
   const saved=JSON.parse(
     localStorage.getItem("crewview-calendar-options")||"null"
@@ -3307,6 +3313,10 @@ try{
     Object.assign(calendarViewOptions,saved);
   }
 }catch{}
+
+calendarViewOptions.report=true;
+calendarViewOptions.departure=true;
+calendarViewOptions.density="comfortable";
 
 $("#optReport")&&( $("#optReport").checked=calendarViewOptions.report );
 $("#optDeparture")&&( $("#optDeparture").checked=calendarViewOptions.departure );

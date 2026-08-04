@@ -3335,3 +3335,104 @@ body.calendar-compact .calendar-day.flight .calendar-departure-time{
 body.calendar-compact .calendar-day.flight .calendar-day-footer{
   display:none !important;
 }
+
+
+/* =========================================================
+   CrewView Calendar v1.4 — force flight title and times visible
+   ========================================================= */
+
+body.calendar-compact{
+  /* Old saved compact mode is intentionally neutralised in v1.4. */
+}
+
+.calendar-day.flight strong,
+.calendar-day.flight .calendar-day-route,
+.calendar-day.flight .calendar-report-time,
+.calendar-day.flight .calendar-departure-time{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  position:static !important;
+  transform:none !important;
+  max-width:100% !important;
+  width:100% !important;
+}
+
+.calendar-day.flight strong{
+  margin:7px 0 0 !important;
+  font-size:9px !important;
+  line-height:1.05 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.calendar-day.flight .calendar-day-route{
+  margin:3px 0 0 !important;
+  min-height:0 !important;
+  font-size:6.7px !important;
+  line-height:1.08 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  -webkit-line-clamp:unset !important;
+}
+
+.calendar-day.flight .calendar-report-time,
+.calendar-day.flight .calendar-departure-time{
+  margin:3px 0 0 !important;
+  font-size:6.4px !important;
+  line-height:1.05 !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+  font-weight:750 !important;
+}
+
+/* Keep enough vertical room for all four information lines. */
+.calendar-day{
+  aspect-ratio:1 / 1.34 !important;
+}
+
+@media(min-width:821px){
+  .calendar-day{
+    aspect-ratio:1 / 1.16 !important;
+  }
+
+  .calendar-day.flight strong{
+    font-size:11px !important;
+  }
+
+  .calendar-day.flight .calendar-day-route,
+  .calendar-day.flight .calendar-report-time,
+  .calendar-day.flight .calendar-departure-time{
+    font-size:8px !important;
+  }
+}
+
+@media(max-width:540px){
+  .calendar-day{
+    aspect-ratio:1 / 1.38 !important;
+    padding:6px 5px !important;
+  }
+
+  .calendar-day.flight strong{
+    font-size:8px !important;
+  }
+
+  .calendar-day.flight .calendar-day-route{
+    font-size:6px !important;
+  }
+
+  .calendar-day.flight .calendar-report-time,
+  .calendar-day.flight .calendar-departure-time{
+    font-size:5.9px !important;
+  }
+}
+
+/* Override the original mobile rule that hides non-date spans. */
+@media(max-width:430px){
+  .calendar-day.flight span.calendar-day-route{
+    display:block !important;
+  }
+}
