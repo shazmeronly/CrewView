@@ -167,26 +167,46 @@ function updateStats(){
   const rows=getRows();
   let fh=0;
   let dh=0;
-  const offDates=new Set();
+  const rowsByDate=new Map();
 
   rows.forEach(row=>{
     fh+=toMinutes(row.block);
     dh+=toMinutes(row.duty);
 
-    const item=String(row.item||"").trim().toUpperCase();
     const date=String(row.date||"").trim();
+    if(!date) return;
+
+    if(!rowsByDate.has(date)) rowsByDate.set(date,[]);
+    rowsByDate.get(date).push(row);
+  });
+
+  const offDates=new Set();
+
+  rowsByDate.forEach((dateRows,date)=>{
+    const hasRealDuty=dateRows.some(row=>{
+      const item=String(row.item||"").trim().toUpperCase();
+
+      return (
+        !row._overnightContinuation &&
+        item &&
+        !["D","DO","DO1","OFF"].includes(item)
+      );
+    });
+
+    const hasOffCode=dateRows.some(row=>{
+      const item=String(row.item||"").trim().toUpperCase();
+
+      return (
+        !row._overnightContinuation &&
+        ["D","DO","DO1","OFF"].includes(item)
+      );
+    });
 
     /*
-     * Count every calendar date displayed as D / DO / OFF, including a blank
-     * non-duty date that CrewView correctly filled as D (such as 05-Aug).
-     *
-     * Do not count overnight arrival-only continuation rows.
+     * A duplicated D placeholder must not count when the same date also has a
+     * flight, training or other real duty. Layover dates remain blank.
      */
-    if(
-      date &&
-      !row._overnightContinuation &&
-      ["D","DO","OFF"].includes(item)
-    ){
+    if(hasOffCode && !hasRealDuty){
       offDates.add(date);
     }
   });
@@ -1110,6 +1130,31 @@ function moveExplicitNextDayTimings(rows){
   return result;
 }
 
+
+
+function removeOffPlaceholdersOnDutyDates(rows){
+  const dutyDates=new Set(
+    rows
+      .filter(row=>{
+        const item=String(row.item||"").trim().toUpperCase();
+
+        return (
+          row.date &&
+          !row._overnightContinuation &&
+          item &&
+          !["D","DO","DO1","OFF"].includes(item)
+        );
+      })
+      .map(row=>row.date)
+  );
+
+  return rows.filter(row=>{
+    if(!dutyDates.has(row.date)) return true;
+
+    const item=String(row.item||"").trim().toUpperCase();
+    return !["D","DO","DO1","OFF"].includes(item);
+  });
+}
 
 function removeSyntheticOffRowsOnOvernightDates(rows){
   const overnightDates=new Set(
@@ -2378,8 +2423,17 @@ async function parsePDF(file){
     officialRosterPeriod
   );
 
+  /*
+   * Mark layover days while the outbound flight still contains its original
+   * (+1) arrival station. This must happen before overnight values are split
+   * onto arrival-only continuation rows.
+   */
+  allRows=markLayoverCalendarRows(
+    allRows,
+    ($("#base")?.value||"KUL").trim().toUpperCase()
+  );
+
   // Move only values explicitly marked (+1) onto the following calendar date.
-  // This is deterministic and applies to both pilot and cabin-crew rosters.
   allRows=moveExplicitNextDayTimings(allRows);
 
   if(pairingMode){
@@ -2404,11 +2458,6 @@ async function parsePDF(file){
     });
   }
 
-  allRows=markLayoverCalendarRows(
-    allRows,
-    ($("#base")?.value||"KUL").trim().toUpperCase()
-  );
-
   allRows=markRemainingBlankDaysAsOff(allRows);
 
   // Restore blank display for inferred layover calendar dates.
@@ -2419,6 +2468,9 @@ async function parsePDF(file){
   // A next-day arrival row already represents that calendar date. Remove only
   // the automatically generated blank D row for the same date.
   allRows=removeSyntheticOffRowsOnOvernightDates(allRows);
+
+  // Remove any D/DO placeholder that shares a date with an actual duty.
+  allRows=removeOffPlaceholdersOnDutyDates(allRows);
 
   allRows.forEach((row,index)=>{
     row._displayOrder=
