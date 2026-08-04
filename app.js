@@ -63,6 +63,9 @@ function rowHTML(r={}){
   const continuation=r._overnightContinuation ? "1" : "";
   const syntheticCalendarRow=r._syntheticCalendarRow ? "1" : "";
   const layoverDay=r._layoverDay ? "1" : "";
+  const visualOrder=Number.isFinite(r._visualOrder)
+    ? String(r._visualOrder)
+    : "";
   const dutyGroup=esc(r._dutyGroup||"");
   const sectorIndex=Number.isFinite(r._sectorIndex) ? String(r._sectorIndex) : "";
   const sectorCount=Number.isFinite(r._sectorCount) ? String(r._sectorCount) : "";
@@ -71,6 +74,7 @@ function rowHTML(r={}){
     data-overnight-continuation="${continuation}"
     data-synthetic-calendar-row="${syntheticCalendarRow}"
     data-layover-day="${layoverDay}"
+    data-visual-order="${visualOrder}"
     data-duty-group="${dutyGroup}"
     data-sector-index="${sectorIndex}"
     data-sector-count="${sectorCount}"
@@ -142,6 +146,9 @@ function getRows(){
     row._syntheticCalendarRow=
       tr.dataset.syntheticCalendarRow==="1";
     row._layoverDay=tr.dataset.layoverDay==="1";
+    if(tr.dataset.visualOrder!==""){
+      row._visualOrder=Number(tr.dataset.visualOrder);
+    }
     row._dutyGroup=tr.dataset.dutyGroup||"";
 
     if(tr.dataset.sectorIndex!==""){
@@ -472,56 +479,162 @@ function closest(items, xMin,xMax, y, tol=9){
 }
 function cleanTime(v){return v.replace(/\s+/g,"").replace("(+ 1)","(+1)")}
 function buildRows(items,w,h){
-  // Current Malaysia Airlines Roster Report uses a fixed landscape grid.
-  // These boundaries are based on the actual PDF columns and scale with page width.
+  /*
+   * Malaysia Airlines pilot rosters use blank Date cells for continuation
+   * sectors. Example:
+   *
+   * 03-Jun-2026  MH782
+   *               MH783
+   *
+   * The old parser created rows only from Date anchors, so MH783 disappeared.
+   * This parser builds physical rows from BOTH Date and MH-flight anchors.
+   */
   const X={
-    date:[0.02,0.09], activity:[0.09,0.18], dutyStart:[0.185,0.225],
-    item:[0.235,0.285], work:[0.33,0.36], dep:[0.40,0.46],
-    arr:[0.465,0.52], dutyEnd:[0.56,0.61], block:[0.61,0.64],
-    duty:[0.64,0.68], ac:[0.72,0.755]
+    date:[0.02,0.09],
+    activity:[0.09,0.18],
+    dutyStart:[0.185,0.225],
+    item:[0.235,0.285],
+    work:[0.33,0.36],
+    dep:[0.40,0.46],
+    arr:[0.465,0.52],
+    dutyEnd:[0.56,0.61],
+    block:[0.61,0.64],
+    duty:[0.64,0.68],
+    ac:[0.72,0.755]
   };
-  const col=(name,y,tol=10)=>closest(items,w*X[name][0],w*X[name][1],y,tol);
 
-  const dates=items.filter(i=>/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(i.s) && i.x<w*0.09 && i.y>h*0.10);
-  const unique=[];
-  dates.sort((a,b)=>a.y-b.y).forEach(d=>{if(!unique.some(x=>Math.abs(x.y-d.y)<4))unique.push(d)});
+  const inColumn=(item,name)=>
+    item.x>=w*X[name][0] &&
+    item.x<w*X[name][1];
 
-  return unique.map(d=>{
-    const y=d.y;
-    const activity=col('activity',y,10);
-    let dutyStart=col('dutyStart',y,8);
-    let item=col('item',y,8);
-    let work=col('work',y,8);
-    let dep=col('dep',y,10);
-    let arr=col('arr',y,12);
-    let dutyEnd=col('dutyEnd',y,12);
-    let block=col('block',y,8);
-    let duty=col('duty',y,8);
-    let ac=col('ac',y,8);
+  const col=(name,y,tolerance=8)=>
+    items
+      .filter(item=>
+        inColumn(item,name) &&
+        Math.abs(item.y-y)<=tolerance
+      )
+      .sort((a,b)=>a.x-b.x)
+      .map(item=>item.s)
+      .join(" ")
+      .replace(/\s+/g," ")
+      .trim();
 
-    if(!item && /^(D|DO\d|DSA|OFF|AL|SL)$/i.test(activity)) item=activity;
+  const anchors=items
+    .filter(item=>{
+      if(item.y<=h*0.10) return false;
 
-    // The old layout should show only the duty code for an OFF day.
-    if(/^(D|OFF)$/i.test(item)){
-      dutyStart=''; dep=''; arr=''; dutyEnd=''; work=''; block=''; duty=''; ac='';
+      const isDate=
+        inColumn(item,"date") &&
+        /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s);
+
+      const isFlight=
+        inColumn(item,"item") &&
+        /^MH\d{2,4}$/i.test(item.s);
+
+      return isDate || isFlight;
+    })
+    .sort((a,b)=>a.y-b.y);
+
+  /*
+   * Date and flight number from one printed line can differ by a few PDF
+   * pixels. Cluster nearby anchors into one physical roster row.
+   */
+  const clusters=[];
+
+  anchors.forEach(anchor=>{
+    const previous=clusters[clusters.length-1];
+
+    if(previous && Math.abs(anchor.y-previous.meanY)<=5){
+      previous.items.push(anchor);
+      previous.meanY=
+        previous.items.reduce((sum,item)=>sum+item.y,0) /
+        previous.items.length;
+    }else{
+      clusters.push({
+        items:[anchor],
+        meanY:anchor.y
+      });
+    }
+  });
+
+  const rows=[];
+  let currentDate="";
+
+  clusters.forEach((cluster,visualOrder)=>{
+    const dateAnchor=cluster.items.find(item=>
+      /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s)
+    );
+    const flightAnchor=cluster.items.find(item=>
+      /^MH\d{2,4}$/i.test(item.s)
+    );
+
+    if(dateAnchor) currentDate=dateAnchor.s;
+    if(!currentDate) return;
+
+    /*
+     * Prefer the flight baseline for flight rows. This prevents the parser
+     * borrowing data from an adjacent line when the date and item baselines
+     * are slightly offset.
+     */
+    const y=flightAnchor?.y ?? dateAnchor?.y ?? cluster.meanY;
+
+    const activity=col("activity",y,7);
+    let dutyStart=cleanTime(col("dutyStart",y,7));
+    let item=col("item",y,7).trim();
+    let work=col("work",y,7).trim();
+    let dep=col("dep",y,9).replace(/\s+/g," ").trim();
+    let arr=cleanNextDayMarker(
+      col("arr",y,12).replace(/\s+/g," ").trim()
+    );
+    let dutyEnd=cleanNextDayMarker(
+      cleanTime(col("dutyEnd",y,12))
+    );
+    let block=cleanTime(col("block",y,7));
+    let duty=cleanTime(col("duty",y,7));
+    let ac=col("ac",y,7).trim();
+
+    if(
+      !item &&
+      /^(D|DO\d?|DSA|OFF|AL|SL)$/i.test(activity)
+    ){
+      item=activity.trim();
     }
 
-    return {
-      date:d.s,
-      day:dayName(d.s),
-      dutyStart:cleanTime(dutyStart),
-      item:item.trim(),
-      dep:dep.replace(/\s+/g,' ').trim(),
-      arr:arr.replace(/\s+/g,' ').trim(),
-      dutyEnd:cleanTime(dutyEnd),
-      work:work.trim(),
-      block:cleanTime(block),
-      duty:cleanTime(duty),
-      ac:ac.trim()
-    };
-  });
-}
+    // OFF rows display only the code.
+    if(/^(D|DO|DO1|OFF)$/i.test(item)){
+      dutyStart="";
+      dep="";
+      arr="";
+      dutyEnd="";
+      work="";
+      block="";
+      duty="";
+      ac="";
+    }
 
+    const isContinuation=
+      Boolean(flightAnchor) &&
+      !Boolean(dateAnchor);
+
+    rows.push({
+      date:currentDate,
+      day:dayName(currentDate),
+      dutyStart:isContinuation ? "" : dutyStart,
+      item,
+      dep,
+      arr,
+      dutyEnd,
+      work,
+      block,
+      duty:isContinuation ? "" : duty,
+      ac,
+      _pilotContinuation:isContinuation,
+      _visualOrder:visualOrder
+    });
+  });
+
+  return rows;
+}
 
 
 function buildPairingRows(items,w,h,pageNumber=1){
@@ -1479,16 +1592,20 @@ function restoreMissingPilotDates(rows,pdfText){
     if(existingIndex>=0){
       const current=output[existingIndex];
 
-      // Keep richer visual values, but fill every missing or incorrect field
-      // from the dated text section.
+      /*
+       * Preserve clean coordinate-derived values. Text recovery fills only
+       * genuinely empty fields because PDF text order may not reflect columns.
+       */
       output[existingIndex]={
         ...current,
-        ...recoveredRow,
-        dutyStart:recoveredRow.dutyStart || current.dutyStart || "",
-        dutyEnd:recoveredRow.dutyEnd || current.dutyEnd || "",
-        duty:recoveredRow.duty || current.duty || "",
-        block:recoveredRow.block || current.block || "",
-        ac:recoveredRow.ac || current.ac || ""
+        dutyStart:current.dutyStart || recoveredRow.dutyStart || "",
+        dep:current.dep || recoveredRow.dep || "",
+        arr:current.arr || recoveredRow.arr || "",
+        dutyEnd:current.dutyEnd || recoveredRow.dutyEnd || "",
+        work:current.work || recoveredRow.work || "",
+        block:current.block || recoveredRow.block || "",
+        duty:current.duty || recoveredRow.duty || "",
+        ac:current.ac || recoveredRow.ac || ""
       };
       return;
     }
@@ -2234,7 +2351,14 @@ async function parsePDF(file){
     if(a._overnightContinuation && !b._overnightContinuation) return -1;
     if(!a._overnightContinuation && b._overnightContinuation) return 1;
 
-    return Number(a._displayOrder||0)-Number(b._displayOrder||0);
+    const aOrder=Number.isFinite(a._visualOrder)
+      ? a._visualOrder
+      : Number(a._displayOrder||0);
+    const bOrder=Number.isFinite(b._visualOrder)
+      ? b._visualOrder
+      : Number(b._displayOrder||0);
+
+    return aOrder-bOrder;
   });
 
   setRows(allRows);
