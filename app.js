@@ -2617,6 +2617,8 @@ const monthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric
 const shortMonthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"});
 
 function calendarCategory(row){
+  if(row?._overnightContinuation) return "continuation";
+
   const item=String(row?.item||"").trim().toUpperCase();
   const work=String(row?.work||"").trim().toUpperCase();
 
@@ -2686,8 +2688,6 @@ function calendarEntries(){
   const byDate=new Map();
 
   rows.forEach((row,index)=>{
-    if(row._overnightContinuation) return;
-
     const key=calendarDateKey(row);
     if(!key) return;
 
@@ -2717,6 +2717,23 @@ function calendarTileMeta(row){
 
   const category=row._calendarCategory||calendarCategory(row);
   const item=calendarDisplayItem(row);
+
+  if(category==="continuation"){
+    const arrText=String(row._arrival||row.arr||"").trim();
+    const arrStation=airportCode(arrText);
+    const arrTime=(arrText.match(/\b\d{2}:\d{2}(?:\(\+1\))?/)||[])[0]||"";
+    const endTime=String(row._finalDutyEnd||row.dutyEnd||"").trim();
+
+    return {
+      title:"ARRIVAL",
+      route:arrStation||"",
+      report:arrTime ? `Arr ${arrTime}` : "",
+      departure:endTime ? `End ${endTime}` : "",
+      footerLeft:"",
+      footerRight:"",
+      icon:"↘"
+    };
+  }
   const work=String(row.work||"").trim().toUpperCase();
   const ac=String(row.ac||"").trim();
 

@@ -3660,3 +3660,42 @@ body.calendar-no-today-highlight .calendar-today-dot{
     aspect-ratio:1 / 1.62 !important;
   }
 }
+
+
+/* =========================================================
+   CrewView Calendar v1.7 — overnight continuation days
+   ========================================================= */
+
+.calendar-day.continuation{
+  background:
+    linear-gradient(145deg,rgba(25,94,154,.94),rgba(10,45,83,.98));
+  border-color:rgba(101,174,237,.34) !important;
+}
+
+.calendar-day.continuation strong,
+.calendar-day.continuation .calendar-day-route,
+.calendar-day.continuation .calendar-report-time,
+.calendar-day.continuation .calendar-departure-time{
+  color:#eef8ff !important;
+}
+
+.calendar-day.continuation .calendar-plane{
+  color:#9fd1ff;
+}
+
+/* Keep continuation details readable in the compact monthly grid. */
+@media(max-width:540px){
+  .calendar-day.continuation strong{
+    margin-top:8px !important;
+    font-size:8px !important;
+  }
+
+  .calendar-day.continuation .calendar-day-route{
+    font-size:6px !important;
+  }
+
+  .calendar-day.continuation .calendar-report-time,
+  .calendar-day.continuation .calendar-departure-time{
+    font-size:5.8px !important;
+  }
+}
