@@ -1,4 +1,4 @@
-const CACHE = "crewview-three-month-validation-v47";
+const CACHE = "crewview-june-continuation-training-v48";
 const ASSETS = [
   "./",
   "./index.html",

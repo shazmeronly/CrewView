@@ -1349,7 +1349,7 @@ function parseMultiSectorRosterText(pdfText){
 }
 
 
-function recoverPilotFlightsByDateSegments(pdfText){
+function recoverPilotRowsByDateSegments(pdfText){
   const text=String(pdfText||"")
     .replace(/\s+/g," ")
     .trim();
@@ -1360,76 +1360,152 @@ function recoverPilotFlightsByDateSegments(pdfText){
 
   const recovered=[];
 
-  for(let index=0;index<dateMatches.length;index++){
-    const date=dateMatches[index][0];
-    const start=dateMatches[index].index+date.length;
-    const end=index+1<dateMatches.length
-      ? dateMatches[index+1].index
+  for(let dateIndex=0;dateIndex<dateMatches.length;dateIndex++){
+    const date=dateMatches[dateIndex][0];
+    const start=dateMatches[dateIndex].index+date.length;
+    const end=dateIndex+1<dateMatches.length
+      ? dateMatches[dateIndex+1].index
       : text.length;
 
     const chunk=text.slice(start,end);
 
     /*
-     * Flexible pilot-flight pattern. It deliberately ignores pairing/activity
-     * references and hotel/system text, and looks only for the operational
-     * sequence:
-     *
-     * report → flight → work type → departure → arrival → duty end
-     * → block hours → duty hours → aircraft.
+     * Recover every flight inside the dated section—not only the first one.
+     * Continuation sectors such as MH783 have no second date or report time,
+     * so they inherit the section date.
      */
-    const flight=chunk.match(
-      /(\d{1,2}:\d{2})\s+(MH\d{2,4})\s+(OP|PS)\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2}(?:\(\+1\))?)\s+(\d{1,2}:\d{2}(?:\(\+1\))?)\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s+([A-Z0-9]{3})/
-    );
+    const flightPattern=
+      /(?:(\d{1,2}:\d{2})\s+)?(MH\d{2,4})\s+(OP|PS|SFP)\s+([A-Z]{3})\s+(\d{1,2}:\d{2}(?:\(\+1\))?)\s+([A-Z]{3})\s+(\d{1,2}:\d{2}(?:\(\+1\))?)\s+(?:(\d{1,2}:\d{2}(?:\(\+1\))?)\s+)?(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s+(?:(?:SFP|M)\s+)?([A-Z0-9]{3})/g;
 
-    if(!flight) continue;
+    let flightMatch;
+    let sectorIndex=0;
+    let firstReport="";
 
-    recovered.push({
-      date,
-      day:dayName(date),
-      dutyStart:flight[1],
-      item:flight[2],
-      work:flight[3],
-      dep:`${flight[4]} ${flight[5]}`,
-      arr:`${flight[6]} ${flight[7]}`,
-      dutyEnd:flight[8],
-      block:flight[9],
-      duty:flight[10],
-      ac:flight[11],
-      _recoveredFromText:true
-    });
+    while((flightMatch=flightPattern.exec(chunk))!==null){
+      const report=flightMatch[1]||"";
+      if(report) firstReport=report;
+
+      recovered.push({
+        date,
+        day:dayName(date),
+        dutyStart:sectorIndex===0 ? (report||firstReport) : "",
+        item:flightMatch[2],
+        work:flightMatch[3],
+        dep:`${flightMatch[4]} ${flightMatch[5]}`,
+        arr:`${flightMatch[6]} ${flightMatch[7]}`,
+        dutyEnd:flightMatch[8]||"",
+        block:flightMatch[9],
+        duty:sectorIndex===0 ? flightMatch[10] : "",
+        ac:flightMatch[11],
+        _recoveredFromText:true,
+        _sectorIndex:sectorIndex
+      });
+
+      sectorIndex+=1;
+    }
+
+    /*
+     * Recover non-flight duties such as 330BLP1Z, S2-330 and DSA.
+     * These rows have no MH flight number but still contain a complete
+     * report/departure/arrival/duty-end sequence.
+     */
+    const groundPattern=
+      /\b([A-Z0-9-]{3,})\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})/g;
+
+    let groundMatch;
+    while((groundMatch=groundPattern.exec(chunk))!==null){
+      const code=groundMatch[1].toUpperCase();
+
+      if(
+        /^MH\d+$/i.test(code) ||
+        ["D","DO","DO1","OFF"].includes(code)
+      ) continue;
+
+      recovered.push({
+        date,
+        day:dayName(date),
+        dutyStart:groundMatch[2],
+        item:code,
+        dep:`${groundMatch[3]} ${groundMatch[4]}`,
+        arr:`${groundMatch[5]} ${groundMatch[6]}`,
+        dutyEnd:groundMatch[7],
+        work:"",
+        block:"",
+        duty:groundMatch[8],
+        ac:"",
+        _recoveredFromText:true
+      });
+    }
   }
 
   return recovered;
 }
 
 function restoreMissingPilotDates(rows,pdfText){
-  const recovered=recoverPilotFlightsByDateSegments(pdfText);
+  const recovered=recoverPilotRowsByDateSegments(pdfText);
   if(!recovered.length) return rows;
 
   const output=[...rows];
 
-  recovered.forEach(flight=>{
-    const alreadyPresent=output.some(row=>
-      row.date===flight.date &&
-      String(row.item||"").trim().toUpperCase()===
-        flight.item.toUpperCase()
-    );
+  recovered.forEach(recoveredRow=>{
+    const item=String(recoveredRow.item||"").trim().toUpperCase();
 
-    if(alreadyPresent) return;
-
-    // Remove only the automatically generated placeholder for that date.
+    /*
+     * If the visual parser placed a continuation sector on the following date,
+     * remove that misplaced copy before restoring the text-derived row.
+     */
     for(let index=output.length-1;index>=0;index--){
-      const row=output[index];
+      const current=output[index];
+      const currentItem=String(current.item||"").trim().toUpperCase();
 
       if(
-        row.date===flight.date &&
-        row._syntheticCalendarRow
+        currentItem===item &&
+        current.date!==recoveredRow.date &&
+        (
+          /^MH\d+$/i.test(item) ||
+          /^330BLP/i.test(item) ||
+          /^S2-330$/i.test(item)
+        )
       ){
         output.splice(index,1);
       }
     }
 
-    output.push(flight);
+    const existingIndex=output.findIndex(current=>
+      current.date===recoveredRow.date &&
+      String(current.item||"").trim().toUpperCase()===item
+    );
+
+    if(existingIndex>=0){
+      const current=output[existingIndex];
+
+      // Keep richer visual values, but fill every missing or incorrect field
+      // from the dated text section.
+      output[existingIndex]={
+        ...current,
+        ...recoveredRow,
+        dutyStart:recoveredRow.dutyStart || current.dutyStart || "",
+        dutyEnd:recoveredRow.dutyEnd || current.dutyEnd || "",
+        duty:recoveredRow.duty || current.duty || "",
+        block:recoveredRow.block || current.block || "",
+        ac:recoveredRow.ac || current.ac || ""
+      };
+      return;
+    }
+
+    // Remove a synthetic placeholder for the recovered date.
+    for(let index=output.length-1;index>=0;index--){
+      const current=output[index];
+
+      if(
+        current.date===recoveredRow.date &&
+        current._syntheticCalendarRow
+      ){
+        output.splice(index,1);
+      }
+    }
+
+    output.push(recoveredRow);
   });
 
   return output;
