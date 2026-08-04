@@ -3250,3 +3250,88 @@ body.calendar-compact .calendar-day strong{
 body.calendar-compact .calendar-day-route{
   min-height:auto;
 }
+
+
+/* =========================================================
+   CrewView Calendar v1.3 — preserve square tiles + show times
+   ========================================================= */
+
+/* Give flight tiles a compact but complete information stack. */
+.calendar-day.flight strong{
+  margin-top:10px !important;
+}
+
+.calendar-day.flight .calendar-day-route{
+  min-height:1.9em !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  white-space:normal !important;
+}
+
+.calendar-day.flight .calendar-report-time,
+.calendar-day.flight .calendar-departure-time{
+  display:block !important;
+  width:100%;
+  opacity:1 !important;
+  visibility:visible !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Remove the footer from square flight tiles so times have enough room. */
+.calendar-day.flight .calendar-day-footer{
+  display:none !important;
+}
+
+/* Slightly taller square ratio while keeping the visual shape. */
+.calendar-day{
+  aspect-ratio:1 / 1.16 !important;
+}
+
+@media(min-width:821px){
+  .calendar-day{
+    aspect-ratio:1 / 1.08 !important;
+  }
+}
+
+@media(max-width:540px){
+  .calendar-day{
+    aspect-ratio:1 / 1.26 !important;
+  }
+
+  .calendar-day.flight strong{
+    margin-top:8px !important;
+    font-size:8.5px !important;
+  }
+
+  .calendar-day.flight .calendar-day-route{
+    font-size:6.5px !important;
+    line-height:1.05 !important;
+    min-height:2em !important;
+    margin-top:2px !important;
+  }
+
+  .calendar-day.flight .calendar-report-time,
+  .calendar-day.flight .calendar-departure-time{
+    font-size:6.3px !important;
+    line-height:1.05 !important;
+    margin-top:2px !important;
+  }
+
+  .calendar-day.flight .calendar-departure-time{
+    color:rgba(255,255,255,.78) !important;
+  }
+}
+
+/* In compact mode, keep report and departure visible too. */
+body.calendar-compact .calendar-day.flight .calendar-report-time,
+body.calendar-compact .calendar-day.flight .calendar-departure-time{
+  display:block !important;
+}
+
+body.calendar-compact .calendar-day.flight .calendar-day-footer{
+  display:none !important;
+}
