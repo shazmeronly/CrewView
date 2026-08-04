@@ -2626,6 +2626,11 @@ async function parsePDF(file){
   });
 
   setTimeout(resetUploadScrollPosition,120);
+
+  const validationMessage=($("#validationResult")?.textContent||"").trim();
+  showValidationToast(
+    validationMessage || `${loadedRosterMonth()?.toLocaleString("en-US",{month:"long",year:"numeric"})||"Roster"} validation passed.`
+  );
 }
 
 
@@ -3266,6 +3271,32 @@ document.addEventListener("keydown",event=>{
   }
 });
 
+
+let validationToastTimer=null;
+
+function showValidationToast(message){
+  const toast=$("#validationToast");
+  const text=$("#validationToastText");
+
+  if(!toast||!text) return;
+
+  clearTimeout(validationToastTimer);
+  text.textContent=message||"Roster validation passed.";
+
+  toast.classList.remove("hidden","leaving");
+  requestAnimationFrame(()=>toast.classList.add("show"));
+
+  validationToastTimer=setTimeout(()=>{
+    toast.classList.remove("show");
+    toast.classList.add("leaving");
+
+    setTimeout(()=>{
+      toast.classList.add("hidden");
+      toast.classList.remove("leaving");
+    },260);
+  },3000);
+}
+
 function switchRosterView(view){
   if(view===crewViewMode) return;
 
@@ -3599,6 +3630,10 @@ $("#clearBtn")?.addEventListener("click",event=>{
   if(fileInput) fileInput.value="";
 
   status.textContent="No roster loaded.";
+
+  clearTimeout(validationToastTimer);
+  $("#validationToast")?.classList.remove("show","leaving");
+  $("#validationToast")?.classList.add("hidden");
 
   requestAnimationFrame(()=>{
     $("#uploadCard")?.scrollIntoView({
