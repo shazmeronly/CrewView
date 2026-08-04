@@ -354,8 +354,8 @@ const VALIDATION_FIXTURES={
   },
   "2026-08":{
     label:"August 2026",
-    fh:"65:57",
-    dh:"111:22",
+    fh:"65:39",
+    dh:"111:04",
     required:[
       ["01-Aug-2026","MH147","KUL 20:34","",""],
       ["06-Aug-2026","MH127","KUL 19:30","",""],
@@ -1660,18 +1660,22 @@ function restoreMissingPilotDates(rows,pdfText){
     );
 
     if(visualMatch){
-      // The physical parser is authoritative for date assignment.
-      // Fill only missing values and never add or relocate another copy.
+      /*
+       * Keep the physical parser authoritative for DATE assignment, but use
+       * the dated text row as authoritative for operational numeric values.
+       * This corrects cases where close PDF columns cause block/duty values
+       * to be read from the neighbouring field.
+       */
       visualMatch.dutyStart=
-        visualMatch.dutyStart || recoveredRow.dutyStart || "";
-      visualMatch.dep=visualMatch.dep || recoveredRow.dep || "";
-      visualMatch.arr=visualMatch.arr || recoveredRow.arr || "";
+        recoveredRow.dutyStart || visualMatch.dutyStart || "";
+      visualMatch.dep=recoveredRow.dep || visualMatch.dep || "";
+      visualMatch.arr=recoveredRow.arr || visualMatch.arr || "";
       visualMatch.dutyEnd=
-        visualMatch.dutyEnd || recoveredRow.dutyEnd || "";
-      visualMatch.work=visualMatch.work || recoveredRow.work || "";
-      visualMatch.block=visualMatch.block || recoveredRow.block || "";
-      visualMatch.duty=visualMatch.duty || recoveredRow.duty || "";
-      visualMatch.ac=visualMatch.ac || recoveredRow.ac || "";
+        recoveredRow.dutyEnd || visualMatch.dutyEnd || "";
+      visualMatch.work=recoveredRow.work || visualMatch.work || "";
+      visualMatch.block=recoveredRow.block || visualMatch.block || "";
+      visualMatch.duty=recoveredRow.duty || visualMatch.duty || "";
+      visualMatch.ac=recoveredRow.ac || visualMatch.ac || "";
       return;
     }
 
@@ -1706,14 +1710,14 @@ function restoreMissingPilotDates(rows,pdfText){
        */
       output[existingIndex]={
         ...current,
-        dutyStart:current.dutyStart || recoveredRow.dutyStart || "",
-        dep:current.dep || recoveredRow.dep || "",
-        arr:current.arr || recoveredRow.arr || "",
-        dutyEnd:current.dutyEnd || recoveredRow.dutyEnd || "",
-        work:current.work || recoveredRow.work || "",
-        block:current.block || recoveredRow.block || "",
-        duty:current.duty || recoveredRow.duty || "",
-        ac:current.ac || recoveredRow.ac || ""
+        dutyStart:recoveredRow.dutyStart || current.dutyStart || "",
+        dep:recoveredRow.dep || current.dep || "",
+        arr:recoveredRow.arr || current.arr || "",
+        dutyEnd:recoveredRow.dutyEnd || current.dutyEnd || "",
+        work:recoveredRow.work || current.work || "",
+        block:recoveredRow.block || current.block || "",
+        duty:recoveredRow.duty || current.duty || "",
+        ac:recoveredRow.ac || current.ac || ""
       };
       return;
     }
@@ -2534,6 +2538,13 @@ async function parsePDF(file){
 
     return aOrder-bOrder;
   });
+
+  // Re-read the official monthly totals from the complete PDF text after all
+  // pages have been combined. These values are authoritative for the revision.
+  const finalFH=combinedText.match(/\bFH\s*:\s*(\d+:\d{2})/i);
+  const finalDH=combinedText.match(/\bDH\s*:\s*(\d+:\d{2})/i);
+  if(finalFH) officialFH=finalFH[1];
+  if(finalDH) officialDH=finalDH[1];
 
   setRows(allRows);
   updateRosterSourceNote();
