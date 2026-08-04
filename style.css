@@ -3699,3 +3699,121 @@ body.calendar-no-today-highlight .calendar-today-dot{
     font-size:5.8px !important;
   }
 }
+
+
+/* =========================================================
+   CrewView Calendar v2.0 — full crew name + all three totals
+   ========================================================= */
+
+/*
+ * Mobile header now uses two clear rows:
+ * Row 1: avatar, complete crew name and crew details
+ * Row 2: Block Hours, Duty Hours and Off Days
+ */
+@media(max-width:540px){
+  .calendar-profile{
+    display:grid !important;
+    grid-template-columns:auto minmax(0,1fr) !important;
+    grid-template-areas:
+      "avatar profile"
+      "stats stats" !important;
+    align-items:center !important;
+    gap:8px 10px !important;
+    min-height:auto !important;
+    padding:11px 12px 10px !important;
+  }
+
+  .calendar-avatar{
+    grid-area:avatar !important;
+    width:42px !important;
+    height:42px !important;
+    border-radius:13px !important;
+  }
+
+  .calendar-profile-copy{
+    grid-area:profile !important;
+    min-width:0 !important;
+    width:100% !important;
+  }
+
+  .calendar-profile-copy strong{
+    display:block !important;
+    width:100% !important;
+    max-width:none !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+    white-space:normal !important;
+    word-break:normal !important;
+    line-height:1.16 !important;
+    font-size:13px !important;
+  }
+
+  .calendar-profile-copy span{
+    display:block !important;
+    margin-top:3px !important;
+    white-space:normal !important;
+    font-size:9px !important;
+    line-height:1.15 !important;
+  }
+
+  .calendar-stats{
+    grid-area:stats !important;
+    display:grid !important;
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    width:100% !important;
+    margin:2px 0 0 !important;
+    gap:7px !important;
+  }
+
+  .calendar-stats span,
+  .calendar-stats span:nth-child(2){
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-width:0 !important;
+    min-height:47px !important;
+    padding:6px 4px !important;
+    border:1px solid rgba(173,207,235,.16) !important;
+    border-radius:12px !important;
+    background:rgba(2,18,34,.16) !important;
+    text-align:center !important;
+  }
+
+  .calendar-stats b{
+    display:none !important;
+  }
+
+  .calendar-stats strong{
+    display:block !important;
+    font-size:14px !important;
+    line-height:1.05 !important;
+    white-space:nowrap !important;
+  }
+
+  .calendar-stats small{
+    display:block !important;
+    margin-top:4px !important;
+    font-size:8px !important;
+    line-height:1.05 !important;
+    white-space:nowrap !important;
+  }
+}
+
+@media(max-width:360px){
+  .calendar-profile-copy strong{
+    font-size:12px !important;
+  }
+
+  .calendar-stats{
+    gap:5px !important;
+  }
+
+  .calendar-stats strong{
+    font-size:13px !important;
+  }
+
+  .calendar-stats small{
+    font-size:7px !important;
+  }
+}

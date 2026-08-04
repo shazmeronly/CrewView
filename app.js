@@ -2916,9 +2916,13 @@ function syncCalendarProfile(){
     .map(part=>part[0])
     .join("")||"CV";
 
-  $("#calendarFH").textContent=$("#fh")?.textContent||"00:00";
-  $("#calendarDH").textContent=$("#dh")?.textContent||"00:00";
-  $("#calendarOff").textContent=$("#off")?.textContent||"0";
+  const actualBlockHours=($("#fh")?.textContent||"00:00").trim();
+  const actualDutyHours=($("#dh")?.textContent||"00:00").trim();
+  const actualOffDays=($("#off")?.textContent||"0").trim();
+
+  $("#calendarFH").textContent=actualBlockHours;
+  $("#calendarDH").textContent=actualDutyHours;
+  $("#calendarOff").textContent=actualOffDays;
 }
 
 function bestCalendarDefaultDuty(entries,year,month){
