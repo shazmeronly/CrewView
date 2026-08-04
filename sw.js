@@ -1,4 +1,4 @@
-const CACHE = "crewview-seamless-view-transition-v76";
+const CACHE = "crewview-loaded-header-actions-v77";
 const ASSETS = [
   "./",
   "./index.html",

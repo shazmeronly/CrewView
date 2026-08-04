@@ -2581,6 +2581,8 @@ async function parsePDF(file){
     `Converted the roster and displayed all ${calendarDays} calendar days.`;
 
   document.body.classList.add("roster-loaded");
+  $("#uploadCard")?.setAttribute("aria-hidden","true");
+  $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
   updateCompactProfile();
   const savedView=localStorage.getItem("crewview-roster-view");
@@ -3508,6 +3510,8 @@ $("#pdfInput").addEventListener("change",async e=>{
   try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
 });
 $("#loadAnotherBtn")?.addEventListener("click",()=>$("#pdfInput")?.click());
+$("#replaceRosterBtn")?.addEventListener("click",()=>$("#pdfInput")?.click());
+$("#headerClearBtn")?.addEventListener("click",()=>$("#clearBtn")?.click());
 $("#clearBtn")?.addEventListener("click",event=>{
   event.preventDefault();
 
@@ -3539,6 +3543,8 @@ $("#clearBtn")?.addEventListener("click",event=>{
   if(compactProfile) compactProfile.classList.add("hidden");
 
   document.body.classList.remove("roster-loaded");
+  $("#uploadCard")?.removeAttribute("aria-hidden");
+  $("#loadedRosterActions")?.setAttribute("aria-hidden","true");
   $("#viewSwitcher")?.classList.add("hidden");
   switchRosterView("classic");
   calendarCursor=null;
@@ -3548,7 +3554,13 @@ $("#clearBtn")?.addEventListener("click",event=>{
   if(fileInput) fileInput.value="";
 
   status.textContent="No roster loaded.";
-  
+
+  requestAnimationFrame(()=>{
+    $("#uploadCard")?.scrollIntoView({
+      behavior:"smooth",
+      block:"start"
+    });
+  });
 });
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
 $("#printBtn").onclick=()=>{

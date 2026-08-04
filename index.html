@@ -20,10 +20,20 @@
       <h1>CrewView</h1>
       <p>Upload your current roster and view it in the classic one-page layout</p>
     </div>
-    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch appearance">
-      <span id="themeIcon">🌙</span>
-      <span id="themeText">Dark</span>
-    </button>
+    <div class="header-actions">
+      <div class="loaded-roster-actions" id="loadedRosterActions" aria-label="Roster actions" aria-hidden="true">
+        <button id="replaceRosterBtn" class="header-icon-btn" type="button" aria-label="Replace roster" title="Replace roster">
+          <span aria-hidden="true">↻</span>
+        </button>
+        <button id="headerClearBtn" class="header-icon-btn danger-icon" type="button" aria-label="Clear current roster" title="Clear current roster">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch appearance">
+        <span id="themeIcon">🌙</span>
+        <span id="themeText">Dark</span>
+      </button>
+    </div>
   </div>
 </header>
 <main>
@@ -42,7 +52,7 @@
   </div>
   <div class="actions clean-actions">
     <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
-    <button class="btn danger" id="clearBtn" type="button" onclick="window.location.reload()">Clear</button>
+    <button class="btn danger" id="clearBtn" type="button">Clear</button>
   </div>
   <div class="status" id="status">No roster loaded.</div>
   <div class="validation-result hidden" id="validationResult" aria-live="polite"></div>

@@ -3898,3 +3898,137 @@ body.calendar-no-animations.view-transitioning::after{
     animation:none !important;
   }
 }
+
+
+/* =========================================================
+   CrewView v2.2 — compact roster actions after upload
+   ========================================================= */
+
+.header-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+}
+
+.loaded-roster-actions{
+  display:none;
+  align-items:center;
+  gap:8px;
+}
+
+body.roster-loaded .loaded-roster-actions{
+  display:flex;
+}
+
+.header-icon-btn{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid rgba(191,216,237,.26);
+  border-radius:14px;
+  color:#eef7ff;
+  background:rgba(7,25,42,.34);
+  backdrop-filter:blur(16px) saturate(130%);
+  -webkit-backdrop-filter:blur(16px) saturate(130%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.10),
+    0 8px 20px rgba(0,0,0,.12);
+  font:inherit;
+  font-size:27px;
+  line-height:1;
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    border-color .18s ease;
+}
+
+.header-icon-btn:active{
+  transform:scale(.94);
+}
+
+.header-icon-btn.danger-icon{
+  color:#ffc5cd;
+}
+
+/* Collapse the upload panel once a roster is successfully loaded. */
+#uploadCard{
+  max-height:900px;
+  opacity:1;
+  transform:translateY(0);
+  overflow:hidden;
+  transition:
+    max-height .38s cubic-bezier(.22,.8,.28,1),
+    opacity .24s ease,
+    transform .32s ease,
+    margin .32s ease,
+    padding .32s ease,
+    border-width .32s ease;
+}
+
+body.roster-loaded #uploadCard{
+  max-height:0 !important;
+  min-height:0 !important;
+  margin-top:0 !important;
+  margin-bottom:0 !important;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  border-width:0 !important;
+  opacity:0;
+  transform:translateY(-18px);
+  pointer-events:none;
+}
+
+body.roster-loaded #uploadCard > *{
+  visibility:hidden;
+}
+
+body.roster-loaded header .header-row > div:first-child p{
+  display:none;
+}
+
+body.roster-loaded header{
+  padding-bottom:14px;
+}
+
+html[data-theme="light"] .header-icon-btn{
+  color:#17314a;
+  background:rgba(255,255,255,.52);
+  border-color:rgba(81,118,151,.26);
+}
+
+html[data-theme="light"] .header-icon-btn.danger-icon{
+  color:#a72e42;
+}
+
+@media(max-width:540px){
+  .header-actions{
+    gap:6px;
+  }
+
+  .header-icon-btn{
+    width:38px;
+    height:38px;
+    border-radius:12px;
+    font-size:23px;
+  }
+
+  body.roster-loaded .theme-toggle{
+    width:38px;
+    min-width:38px;
+    padding-inline:0;
+  }
+
+  body.roster-loaded .theme-toggle #themeText{
+    display:none;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #uploadCard,
+  .header-icon-btn{
+    transition:none !important;
+  }
+}
