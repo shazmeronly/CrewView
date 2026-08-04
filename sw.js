@@ -1,4 +1,4 @@
-const CACHE = "crewview-rotated-pdf-coordinates-v40";
+const CACHE = "crewview-adaptive-coordinate-parser-v41";
 const ASSETS = [
   "./",
   "./index.html",

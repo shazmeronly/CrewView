@@ -1316,6 +1316,144 @@ document.addEventListener("keydown",event=>{
 });
 
 
+
+function airportCode(value){
+  return String(value||"").trim().split(/\s+/)[0]||"";
+}
+
+function scorePairingRows(rows){
+  if(!rows.length) return -Infinity;
+
+  let score=0;
+  const flights=rows.filter(row=>/^MH\d{2,4}$/i.test(String(row.item||"").trim()));
+  const dates=new Set(rows.map(row=>row.date).filter(Boolean));
+
+  score+=flights.length*20;
+  score+=dates.size*4;
+
+  // Reward clean field separation.
+  rows.forEach(row=>{
+    if(/^\d{2}:\d{2}$/.test(String(row.dutyStart||""))) score+=2;
+    if(/^MH\d{2,4}$/i.test(String(row.item||""))) score+=5;
+    if(/^[A-Z]{3}\s+\d{2}:\d{2}/.test(String(row.dep||""))) score+=3;
+    if(/^[A-Z]{3}\s+\d{2}:\d{2}/.test(String(row.arr||""))) score+=3;
+
+    if(/MH\d+/i.test(String(row.dutyStart||""))) score-=30;
+    if(/\d{2}:\d{2}/.test(String(row.item||""))) score-=25;
+    if(/\//.test(String(row.item||""))) score-=25;
+  });
+
+  // Reward correct sector continuity within each duty:
+  // KUL→SIN followed by SIN→KUL, etc.
+  const groups=new Map();
+  rows.forEach(row=>{
+    if(!row._dutyGroup) return;
+    if(!groups.has(row._dutyGroup)) groups.set(row._dutyGroup,[]);
+    groups.get(row._dutyGroup).push(row);
+  });
+
+  groups.forEach(group=>{
+    group.sort((a,b)=>Number(a._sectorIndex||0)-Number(b._sectorIndex||0));
+
+    for(let i=1;i<group.length;i++){
+      const previousArrival=airportCode(group[i-1].arr);
+      const currentDeparture=airportCode(group[i].dep);
+
+      if(previousArrival && currentDeparture){
+        score+=previousArrival===currentDeparture ? 35 : -20;
+      }
+    }
+
+    if(group.length>1) score+=group.length*8;
+  });
+
+  // Penalize duplicate flight/date combinations.
+  const seen=new Set();
+  flights.forEach(row=>{
+    const key=`${row.date}|${row.item}|${row.dep}|${row.arr}`;
+    if(seen.has(key)) score-=40;
+    seen.add(key);
+  });
+
+  return score;
+}
+
+function pairingCoordinateCandidates(textContent,viewport,page){
+  const rawWidth=Math.abs((page.view?.[2]||0)-(page.view?.[0]||0))||viewport.height;
+  const rawHeight=Math.abs((page.view?.[3]||0)-(page.view?.[1]||0))||viewport.width;
+
+  const base=textContent.items
+    .map(item=>{
+      const transformed=pdfjsLib.Util.transform(
+        viewport.transform,
+        item.transform
+      );
+
+      return {
+        s:item.str.trim(),
+        rawX:item.transform[4],
+        rawY:item.transform[5],
+        transformedX:transformed[4],
+        transformedY:transformed[5]
+      };
+    })
+    .filter(item=>item.s);
+
+  const make=(name,width,height,mapper)=>({
+    name,
+    width,
+    height,
+    items:base.map(item=>({
+      s:item.s,
+      ...mapper(item)
+    }))
+  });
+
+  return [
+    make(
+      "viewport",
+      viewport.width,
+      viewport.height,
+      item=>({
+        x:item.transformedX,
+        y:viewport.height-item.transformedY
+      })
+    ),
+
+    // Correct mapping for PDFs physically stored in portrait and displayed
+    // with a 90-degree page rotation.
+    make(
+      "raw-90-clockwise",
+      rawHeight,
+      rawWidth,
+      item=>({
+        x:rawHeight-item.rawY,
+        y:item.rawX
+      })
+    ),
+
+    make(
+      "raw-90-counterclockwise",
+      rawHeight,
+      rawWidth,
+      item=>({
+        x:item.rawY,
+        y:rawWidth-item.rawX
+      })
+    ),
+
+    make(
+      "raw-unrotated",
+      rawWidth,
+      rawHeight,
+      item=>({
+        x:item.rawX,
+        y:rawHeight-item.rawY
+      })
+    )
+  ];
+}
+
 async function parsePDF(file){
   status.textContent="Reading PDF…";
   officialFH=null;
@@ -1334,46 +1472,21 @@ async function parsePDF(file){
     const viewport=page.getViewport({scale:1});
     const textContent=await page.getTextContent();
 
-    const pageRotation=((page.rotate||0)%360+360)%360;
-
-    const items=textContent.items
+    const viewportItems=textContent.items
       .map(item=>{
-        const rawX=item.transform[4];
-        const rawY=item.transform[5];
-
-        /*
-         * The cabin-crew Roster Report is physically stored as a portrait PDF
-         * rotated 90 degrees for display. Its visual row position is therefore
-         * the raw PDF X coordinate—not the transformed Y value previously used.
-         *
-         * Explicitly map the raw coordinates into visual page coordinates.
-         */
-        let x;
-        let y;
-
-        if(pageRotation===90){
-          x=viewport.width-rawY;
-          y=rawX;
-        }else if(pageRotation===180){
-          x=viewport.width-rawX;
-          y=viewport.height-rawY;
-        }else if(pageRotation===270){
-          x=rawY;
-          y=viewport.height-rawX;
-        }else{
-          x=rawX;
-          y=viewport.height-rawY;
-        }
-
+        const transformed=pdfjsLib.Util.transform(
+          viewport.transform,
+          item.transform
+        );
         return {
           s:item.str.trim(),
-          x,
-          y
+          x:transformed[4],
+          y:viewport.height-transformed[5]
         };
       })
       .filter(item=>item.s);
 
-    const pageText=items.map(item=>item.s).join(" ");
+    const pageText=viewportItems.map(item=>item.s).join(" ");
     allText.push(pageText);
 
     const isPairingPage=
@@ -1382,18 +1495,45 @@ async function parsePDF(file){
 
     if(isPairingPage){
       pairingMode=true;
-      allRows.push(
-        ...buildPairingRows(
-          items,
-          viewport.width,
-          viewport.height,
+
+      const attempts=pairingCoordinateCandidates(
+        textContent,
+        viewport,
+        page
+      ).map(candidate=>{
+        const rows=buildPairingRows(
+          candidate.items,
+          candidate.width,
+          candidate.height,
           pageNumber
-        )
+        );
+
+        return {
+          ...candidate,
+          rows,
+          score:scorePairingRows(rows)
+        };
+      });
+
+      attempts.sort((a,b)=>b.score-a.score);
+      const selected=attempts[0];
+
+      console.info(
+        "CrewView pairing parser:",
+        selected.name,
+        selected.score,
+        attempts.map(attempt=>({
+          name:attempt.name,
+          score:attempt.score,
+          rows:attempt.rows.length
+        }))
       );
+
+      allRows.push(...selected.rows);
     }else{
       allRows.push(
         ...buildRows(
-          items,
+          viewportItems,
           viewport.width,
           viewport.height
         )
