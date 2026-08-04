@@ -710,6 +710,34 @@ function moveExplicitNextDayTimings(rows){
   return result;
 }
 
+
+function removeSyntheticOffRowsOnOvernightDates(rows){
+  const overnightDates=new Set(
+    rows
+      .filter(row=>row._overnightContinuation && row.date)
+      .map(row=>row.date)
+  );
+
+  return rows.filter(row=>{
+    if(!overnightDates.has(row.date)) return true;
+    if(row._overnightContinuation) return true;
+
+    const item=String(row.item||"").trim().toUpperCase();
+    const looksLikeSyntheticOff=
+      item==="D" &&
+      !String(row.dutyStart||"").trim() &&
+      !String(row.dep||"").trim() &&
+      !String(row.arr||"").trim() &&
+      !String(row.dutyEnd||"").trim() &&
+      !String(row.work||"").trim() &&
+      !String(row.block||"").trim() &&
+      !String(row.duty||"").trim() &&
+      !String(row.ac||"").trim();
+
+    return !looksLikeSyntheticOff;
+  });
+}
+
 function markRemainingBlankDaysAsOff(rows){
   return rows.map(row=>{
     if(row._overnightContinuation) return row;
@@ -1688,6 +1716,10 @@ async function parsePDF(file){
   });
 
   allRows=markRemainingBlankDaysAsOff(allRows);
+
+  // A next-day arrival row already represents that calendar date. Remove only
+  // the automatically generated blank D row for the same date.
+  allRows=removeSyntheticOffRowsOnOvernightDates(allRows);
 
   allRows.forEach((row,index)=>{
     row._displayOrder=
