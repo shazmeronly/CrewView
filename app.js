@@ -1068,6 +1068,93 @@ function parseMultiSectorRosterText(pdfText){
   return rows;
 }
 
+
+function recoverPilotFlightsByDateSegments(pdfText){
+  const text=String(pdfText||"")
+    .replace(/\s+/g," ")
+    .trim();
+
+  const dateMatches=[
+    ...text.matchAll(/\b\d{2}-[A-Za-z]{3}-\d{4}\b/g)
+  ];
+
+  const recovered=[];
+
+  for(let index=0;index<dateMatches.length;index++){
+    const date=dateMatches[index][0];
+    const start=dateMatches[index].index+date.length;
+    const end=index+1<dateMatches.length
+      ? dateMatches[index+1].index
+      : text.length;
+
+    const chunk=text.slice(start,end);
+
+    /*
+     * Flexible pilot-flight pattern. It deliberately ignores pairing/activity
+     * references and hotel/system text, and looks only for the operational
+     * sequence:
+     *
+     * report → flight → work type → departure → arrival → duty end
+     * → block hours → duty hours → aircraft.
+     */
+    const flight=chunk.match(
+      /(\d{1,2}:\d{2})\s+(MH\d{2,4})\s+(OP|PS)\s+([A-Z]{3})\s+(\d{1,2}:\d{2})\s+([A-Z]{3})\s+(\d{1,2}:\d{2}(?:\(\+1\))?)\s+(\d{1,2}:\d{2}(?:\(\+1\))?)\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s+([A-Z0-9]{3})/
+    );
+
+    if(!flight) continue;
+
+    recovered.push({
+      date,
+      day:dayName(date),
+      dutyStart:flight[1],
+      item:flight[2],
+      work:flight[3],
+      dep:`${flight[4]} ${flight[5]}`,
+      arr:`${flight[6]} ${flight[7]}`,
+      dutyEnd:flight[8],
+      block:flight[9],
+      duty:flight[10],
+      ac:flight[11],
+      _recoveredFromText:true
+    });
+  }
+
+  return recovered;
+}
+
+function restoreMissingPilotDates(rows,pdfText){
+  const recovered=recoverPilotFlightsByDateSegments(pdfText);
+  if(!recovered.length) return rows;
+
+  const output=[...rows];
+
+  recovered.forEach(flight=>{
+    const alreadyPresent=output.some(row=>
+      row.date===flight.date &&
+      String(row.item||"").trim().toUpperCase()===
+        flight.item.toUpperCase()
+    );
+
+    if(alreadyPresent) return;
+
+    // Remove only the automatically generated placeholder for that date.
+    for(let index=output.length-1;index>=0;index--){
+      const row=output[index];
+
+      if(
+        row.date===flight.date &&
+        row._syntheticCalendarRow
+      ){
+        output.splice(index,1);
+      }
+    }
+
+    output.push(flight);
+  });
+
+  return output;
+}
+
 function recoverMissingFlightRows(text, existingRows){
   const recovered=[];
   const normalized=String(text||"").replace(/\s+/g," ").trim();
@@ -1722,6 +1809,13 @@ async function parsePDF(file){
   }
 
   allRows=fillEveryDay(allRows);
+
+  // Restore any valid pilot flight omitted by the visual parser, especially a
+  // final row close to the lower edge of the PDF such as 31-Aug MH191.
+  allRows=restoreMissingPilotDates(
+    allRows,
+    combinedText
+  );
 
   // Move only values explicitly marked (+1) onto the following calendar date.
   // This is deterministic and applies to both pilot and cabin-crew rosters.
