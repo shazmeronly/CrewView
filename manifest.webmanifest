@@ -1,7 +1,7 @@
 {
-  "name": "CrewView Pilot Roster",
+  "name": "CrewView",
   "short_name": "CrewView",
-  "description": "Mobile roster viewer and classic roster converter for pilots.",
+  "description": "Classic roster viewer and converter for airline crew.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
