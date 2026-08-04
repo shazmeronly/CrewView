@@ -593,11 +593,15 @@ function buildRows(items,w,h){
     let duty=cleanTime(col("duty",y,7));
     let ac=col("ac",y,7).trim();
 
-    if(
-      !item &&
-      /^(D|DO\d?|DSA|OFF|AL|SL)$/i.test(activity)
-    ){
-      item=activity.trim();
+    if(!item && activity){
+      const activityCode=activity.trim().split(/\s+/)[0];
+
+      if(
+        /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*)$/i
+          .test(activityCode)
+      ){
+        item=activityCode;
+      }
     }
 
     // OFF rows display only the code.
@@ -629,6 +633,8 @@ function buildRows(items,w,h){
       duty:isContinuation ? "" : duty,
       ac,
       _pilotContinuation:isContinuation,
+      _dutyGroup:`PILOT|${currentDate}`,
+      _sectorIndex:isContinuation ? visualOrder : 0,
       _visualOrder:visualOrder
     });
   });
@@ -1574,11 +1580,7 @@ function restoreMissingPilotDates(rows,pdfText){
       if(
         currentItem===item &&
         current.date!==recoveredRow.date &&
-        (
-          /^MH\d+$/i.test(item) ||
-          /^330BLP/i.test(item) ||
-          /^S2-330$/i.test(item)
-        )
+        current._recoveredFromText===true
       ){
         output.splice(index,1);
       }
@@ -2161,6 +2163,46 @@ function pairingCoordinateCandidates(textContent,viewport,page){
   ];
 }
 
+
+function detectRosterType(text){
+  const normalized=String(text||"")
+    .replace(/\s+/g," ")
+    .trim();
+
+  /*
+   * The crew profile appears in the PDF header:
+   * NAME | STAFF | FLEET | BASE | RANK
+   *
+   * Pilot ranks are routed to the dedicated physical-row parser.
+   * Cabin ranks continue using the pairing parser.
+   */
+  const profile=normalized.match(
+    /\|\s*\d{5,}\s*\|\s*[A-Z0-9]{2,5}\s*\|\s*[A-Z]{3}\s*\|\s*([A-Z0-9]{2,5})\b/i
+  );
+
+  const rank=(profile?.[1]||"").toUpperCase();
+
+  if(
+    ["FO","SO","CPT","CAPT","CMDR","SFO"].includes(rank)
+  ){
+    return "pilot";
+  }
+
+  if(
+    ["FS","FSS","LS","CSS","IFM","CCM"].includes(rank)
+  ){
+    return "cabin";
+  }
+
+  // Pilot reports expose official FH and DH totals in the header.
+  if(/\bFH\s*:\s*\d+:\d{2}\b/i.test(normalized) &&
+     /\bDH\s*:\s*\d+:\d{2}\b/i.test(normalized)){
+    return "pilot";
+  }
+
+  return "cabin";
+}
+
 async function parsePDF(file){
   status.textContent="Reading PDF…";
   officialFH=null;
@@ -2198,11 +2240,9 @@ async function parsePDF(file){
     const pageText=viewportItems.map(item=>item.s).join(" ");
     allText.push(pageText);
 
-    const isPairingPage=
-      /Pairing\/Activity/i.test(pageText) &&
-      /Duty\s*Report/i.test(pageText);
+    const rosterType=detectRosterType(pageText);
 
-    if(isPairingPage){
+    if(rosterType==="cabin"){
       pairingMode=true;
 
       const attempts=pairingCoordinateCandidates(
@@ -2228,25 +2268,26 @@ async function parsePDF(file){
       const selected=attempts[0];
 
       console.info(
-        "CrewView pairing parser:",
+        "CrewView cabin parser:",
         selected.name,
-        selected.score,
-        attempts.map(attempt=>({
-          name:attempt.name,
-          score:attempt.score,
-          rows:attempt.rows.length
-        }))
+        selected.score
       );
 
       allRows.push(...selected.rows);
     }else{
-      allRows.push(
-        ...buildRows(
-          viewportItems,
-          viewport.width,
-          viewport.height
-        )
+      const pilotRows=buildRows(
+        viewportItems,
+        viewport.width,
+        viewport.height
       );
+
+      console.info(
+        "CrewView pilot parser:",
+        `page ${pageNumber}`,
+        `${pilotRows.length} rows`
+      );
+
+      allRows.push(...pilotRows);
     }
   }
 
