@@ -297,7 +297,7 @@ function buildPairingRows(items,w,h,pageNumber=1){
 
       const isFlight=
         /^MH\d{2,4}$/i.test(item.s) &&
-        inRange(item,0.22,0.34);
+        inRange(item,0.238,0.285);
 
       return isDate || isFlight;
     })
@@ -349,22 +349,32 @@ function buildPairingRows(items,w,h,pageNumber=1){
 
     if(!currentDate) return;
 
-    // Correct visual column boundaries for this Roster Report.
-    const activity=textAt(0.09,0.225,y,8);
-    const report=cleanTime(textAt(0.18,0.255,y,8));
-    const item=textAt(0.225,0.34,y,8);
-    const work=textAt(0.315,0.385,y,8);
-    const dep=textAt(0.385,0.455,y,8);
-    const arr=cleanNextDayMarker(textAt(0.45,0.545,y,12));
-    const dutyEnd=cleanNextDayMarker(
-      cleanTime(textAt(0.54,0.595,y,12))
+    /*
+     * Exact column boundaries measured from the supplied 1200-point roster PDF.
+     * The previous ranges overlapped several columns, causing values such as
+     * "13:35MH2634" and pairing references to be merged into the wrong cells.
+     */
+    const activity=textAt(0.095,0.185,y,7);
+    const report=cleanTime(textAt(0.190,0.222,y,7));
+    const item=textAt(0.238,0.285,y,7);
+    const work=textAt(0.330,0.365,y,7);
+
+    const dep=textAt(0.400,0.455,y,7);
+    const arr=cleanNextDayMarker(
+      textAt(0.465,0.520,y,11)
     );
-    const block=cleanTime(textAt(0.585,0.63,y,8));
-    const duty=cleanTime(textAt(0.62,0.685,y,8));
-    const ac=textAt(0.695,0.75,y,8);
+
+    const dutyEnd=cleanNextDayMarker(
+      cleanTime(textAt(0.555,0.600,y,11))
+    );
+
+    const block=cleanTime(textAt(0.600,0.642,y,7));
+    const duty=cleanTime(textAt(0.640,0.690,y,7));
+    const ac=textAt(0.720,0.765,y,7);
 
     const isFlight=/^MH\d{2,4}$/i.test(item);
-    const offCode=/^(D|DO)$/i.test(activity);
+    const cleanActivity=activity.split(/\s+/)[0]||"";
+    const offCode=/^(D|DO)$/i.test(cleanActivity);
 
     if(offCode){
       rows.push({
@@ -432,7 +442,7 @@ function buildPairingRows(items,w,h,pageNumber=1){
 
     // Date-only OFF/ground/standby/training row.
     if(explicitDate){
-      const groundItem=activity || "DUTY";
+      const groundItem=cleanActivity || "DUTY";
 
       rows.push({
         date:currentDate,
