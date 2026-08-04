@@ -2605,6 +2605,16 @@ const calendarFiltersEnabled=new Set([
   "flight","off","standby","leave","training","simulator","admin"
 ]);
 
+const calendarViewOptions={
+  report:true,
+  departure:true,
+  aircraft:true,
+  workType:true,
+  outsideDays:true,
+  density:"comfortable"
+};
+
+
 const monthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"});
 const shortMonthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"});
 
@@ -2987,7 +2997,7 @@ function renderCalendarView(){
     cells.push(`
       <button
         type="button"
-        class="calendar-day ${category} ${outside?"outside":""} ${isToday?"today":""} ${isSelected?"selected":""}"
+        class="calendar-day ${category} ${outside?"outside":""} ${outside&&!calendarViewOptions.outsideDays?"outside-hidden":""} ${isToday?"today":""} ${isSelected?"selected":""}"
         data-calendar-key="${key}"
         ${primary?"":"disabled"}
         aria-label="${esc([d.getDate(),tile.title,tile.route,tile.report,tile.departure].filter(Boolean).join(" "))}"
@@ -2996,12 +3006,15 @@ function renderCalendarView(){
         ${tile.icon?`<i class="calendar-plane">${esc(tile.icon)}</i>`:""}
         ${tile.title?`<strong>${esc(tile.title)}</strong>`:""}
         ${tile.route?`<span class="calendar-day-route">${esc(tile.route)}</span>`:""}
-        ${tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
-        ${tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
-        ${(tile.footerLeft||tile.footerRight)?`
+        ${calendarViewOptions.report&&tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
+        ${calendarViewOptions.departure&&tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
+        ${(
+          (calendarViewOptions.workType&&tile.footerLeft)||
+          (calendarViewOptions.aircraft&&tile.footerRight)
+        )?`
           <span class="calendar-day-footer">
-            <b>${esc(tile.footerLeft)}</b>
-            <b>${esc(tile.footerRight)}</b>
+            <b>${calendarViewOptions.workType?esc(tile.footerLeft):""}</b>
+            <b>${calendarViewOptions.aircraft?esc(tile.footerRight):""}</b>
           </span>
         `:""}
         ${isToday?`<span class="calendar-today-dot" title="Today"></span>`:""}
@@ -3184,17 +3197,124 @@ $("#calendarNext")?.addEventListener("click",()=>{
 });
 
 $("#calendarToday")?.addEventListener("click",()=>{
-  const loaded=loadedRosterMonth()||new Date();
-  calendarCursor=new Date(loaded.getFullYear(),loaded.getMonth(),1);
+  closeCalendarDutyOverlay();
+
+  const today=new Date();
+  const loaded=loadedRosterMonth();
+
+  // If the uploaded roster is for another month, remain on its month.
+  const target=loaded &&
+    loaded.getFullYear()===today.getFullYear() &&
+    loaded.getMonth()===today.getMonth()
+      ? today
+      : (loaded||today);
+
+  calendarCursor=new Date(target.getFullYear(),target.getMonth(),1);
   selectedCalendarDuty=null;
   renderCalendarView();
+
+  requestAnimationFrame(()=>{
+    const todayCell=document.querySelector(".calendar-day.today");
+    todayCell?.classList.add("today-flash");
+    todayCell?.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
+    setTimeout(()=>todayCell?.classList.remove("today-flash"),1100);
+  });
 });
 
 $("#calendarThemeButton")?.addEventListener("click",()=>themeToggle?.click());
 
-$("#calendarFilters")?.addEventListener("click",()=>{
-  document.querySelector(".calendar-legend")?.classList.toggle("filters-open");
+function openCalendarViewSheet(){
+  const sheet=$("#calendarViewSheet");
+  const backdrop=$("#calendarViewBackdrop");
+
+  sheet?.classList.remove("hidden");
+  backdrop?.classList.remove("hidden");
+
+  requestAnimationFrame(()=>{
+    sheet?.classList.add("open");
+    backdrop?.classList.add("open");
+  });
+
+  document.body.classList.add("calendar-view-open");
+}
+
+function closeCalendarViewSheet(){
+  const sheet=$("#calendarViewSheet");
+  const backdrop=$("#calendarViewBackdrop");
+
+  sheet?.classList.remove("open");
+  backdrop?.classList.remove("open");
+  document.body.classList.remove("calendar-view-open");
+
+  setTimeout(()=>{
+    sheet?.classList.add("hidden");
+    backdrop?.classList.add("hidden");
+  },220);
+}
+
+function applyCalendarViewOptions(){
+  calendarViewOptions.report=$("#optReport")?.checked??true;
+  calendarViewOptions.departure=$("#optDeparture")?.checked??true;
+  calendarViewOptions.aircraft=$("#optAircraft")?.checked??true;
+  calendarViewOptions.workType=$("#optWorkType")?.checked??true;
+  calendarViewOptions.outsideDays=$("#optOutsideDays")?.checked??true;
+
+  document.body.classList.toggle(
+    "calendar-compact",
+    calendarViewOptions.density==="compact"
+  );
+
+  localStorage.setItem(
+    "crewview-calendar-options",
+    JSON.stringify(calendarViewOptions)
+  );
+
+  renderCalendarView();
+}
+
+$("#calendarFilters")?.addEventListener("click",openCalendarViewSheet);
+$("#calendarViewClose")?.addEventListener("click",closeCalendarViewSheet);
+$("#calendarViewDone")?.addEventListener("click",()=>{
+  applyCalendarViewOptions();
+  closeCalendarViewSheet();
 });
+$("#calendarViewBackdrop")?.addEventListener("click",closeCalendarViewSheet);
+
+document.querySelectorAll("[data-calendar-density]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    document.querySelectorAll("[data-calendar-density]").forEach(item=>
+      item.classList.toggle("active",item===button)
+    );
+    calendarViewOptions.density=button.dataset.calendarDensity;
+  });
+});
+
+try{
+  const saved=JSON.parse(
+    localStorage.getItem("crewview-calendar-options")||"null"
+  );
+  if(saved&&typeof saved==="object"){
+    Object.assign(calendarViewOptions,saved);
+  }
+}catch{}
+
+$("#optReport")&&( $("#optReport").checked=calendarViewOptions.report );
+$("#optDeparture")&&( $("#optDeparture").checked=calendarViewOptions.departure );
+$("#optAircraft")&&( $("#optAircraft").checked=calendarViewOptions.aircraft );
+$("#optWorkType")&&( $("#optWorkType").checked=calendarViewOptions.workType );
+$("#optOutsideDays")&&( $("#optOutsideDays").checked=calendarViewOptions.outsideDays );
+
+document.querySelectorAll("[data-calendar-density]").forEach(button=>
+  button.classList.toggle(
+    "active",
+    button.dataset.calendarDensity===calendarViewOptions.density
+  )
+);
+
+document.body.classList.toggle(
+  "calendar-compact",
+  calendarViewOptions.density==="compact"
+);
 
 document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{
   button.addEventListener("click",()=>{
