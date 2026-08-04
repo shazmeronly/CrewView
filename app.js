@@ -2961,6 +2961,9 @@ function bestCalendarDefaultDuty(entries,year,month){
 }
 
 function renderCalendarView(options={}){
+  if(!options.keepOverlay){
+    document.body.classList.remove("calendar-detail-open");
+  }
   const grid=$("#calendarGrid");
   if(!grid) return;
 
@@ -3097,7 +3100,7 @@ function renderCalendarView(options={}){
 
       if(!duty) return;
 
-      selectCalendarDuty(duty);
+      selectCalendarDuty(duty,{openOverlay:true});
 
       grid.querySelectorAll(".selected").forEach(cell=>
         cell.classList.remove("selected")
@@ -3111,7 +3114,7 @@ function renderCalendarView(options={}){
   if(!options.suppressAutoSelect){
     if(!selectedCalendarDuty || selectedMonth!==month){
       const defaultDuty=bestCalendarDefaultDuty(entries,year,month);
-      if(defaultDuty) selectCalendarDuty(defaultDuty);
+      if(defaultDuty) selectCalendarDuty(defaultDuty,{openOverlay:false});
     }
   }else{
     selectedCalendarDuty=null;
@@ -3136,19 +3139,30 @@ function splitStationTime(value){
   return {station,time};
 }
 
-function selectCalendarDuty(row){
+function selectCalendarDuty(row,{openOverlay=true}={}){
   if(!row) return;
 
   selectedCalendarDuty=row;
   const panel=$("#calendarSelected");
   const backdrop=$("#calendarDetailBackdrop");
-  panel?.classList.remove("hidden");
-  backdrop?.classList.remove("hidden");
-  requestAnimationFrame(()=>{
-    panel?.classList.add("open");
-    backdrop?.classList.add("open");
-  });
-  document.body.classList.add("calendar-detail-open");
+
+  if(openOverlay){
+    panel?.classList.remove("hidden");
+    backdrop?.classList.remove("hidden");
+
+    requestAnimationFrame(()=>{
+      panel?.classList.add("open");
+      backdrop?.classList.add("open");
+    });
+
+    document.body.classList.add("calendar-detail-open");
+  }else{
+    panel?.classList.remove("open");
+    backdrop?.classList.remove("open");
+    panel?.classList.add("hidden");
+    backdrop?.classList.add("hidden");
+    document.body.classList.remove("calendar-detail-open");
+  }
 
   const date=parseRosterDate(row.date);
   const departure=splitStationTime(row.dep);
