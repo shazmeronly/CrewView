@@ -1334,16 +1334,41 @@ async function parsePDF(file){
     const viewport=page.getViewport({scale:1});
     const textContent=await page.getTextContent();
 
+    const pageRotation=((page.rotate||0)%360+360)%360;
+
     const items=textContent.items
       .map(item=>{
-        const transformed=pdfjsLib.Util.transform(
-          viewport.transform,
-          item.transform
-        );
+        const rawX=item.transform[4];
+        const rawY=item.transform[5];
+
+        /*
+         * The cabin-crew Roster Report is physically stored as a portrait PDF
+         * rotated 90 degrees for display. Its visual row position is therefore
+         * the raw PDF X coordinate—not the transformed Y value previously used.
+         *
+         * Explicitly map the raw coordinates into visual page coordinates.
+         */
+        let x;
+        let y;
+
+        if(pageRotation===90){
+          x=viewport.width-rawY;
+          y=rawX;
+        }else if(pageRotation===180){
+          x=viewport.width-rawX;
+          y=viewport.height-rawY;
+        }else if(pageRotation===270){
+          x=rawY;
+          y=viewport.height-rawX;
+        }else{
+          x=rawX;
+          y=viewport.height-rawY;
+        }
+
         return {
           s:item.str.trim(),
-          x:transformed[4],
-          y:viewport.height-transformed[5]
+          x,
+          y
         };
       })
       .filter(item=>item.s);
