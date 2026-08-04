@@ -2693,6 +2693,94 @@ function calendarEntries(){
   return byDate;
 }
 
+
+function calendarTileMeta(row){
+  if(!row) return {title:"",route:"",time:"",footerLeft:"",footerRight:"",icon:""};
+
+  const category=row._calendarCategory||calendarCategory(row);
+  const item=calendarDisplayItem(row);
+  const dep=airportCode(row.dep);
+  const arr=airportCode(row._arrival||row.arr);
+  const route=(dep&&arr)?`${dep} → ${arr}`:(dep||arr||"");
+  const report=row.dutyStart||"";
+  const work=String(row.work||"").trim().toUpperCase();
+  const ac=String(row.ac||"").trim();
+
+  if(category==="off"){
+    return {
+      title:"DAY OFF",
+      route:dep||"KUL",
+      time:"",
+      footerLeft:"",
+      footerRight:"",
+      icon:"⌂"
+    };
+  }
+
+  if(category==="training"){
+    return {
+      title:item||"TRAINING",
+      route:dep||"KUL",
+      time:report ? `Start ${report}` : "",
+      footerLeft:work||"TRG",
+      footerRight:"",
+      icon:"✦"
+    };
+  }
+
+  if(category==="standby"){
+    return {
+      title:item||"SBY",
+      route:dep||"KUL",
+      time:report ? `Start ${report}` : "",
+      footerLeft:work||"SBY",
+      footerRight:ac,
+      icon:"◷"
+    };
+  }
+
+  if(category==="leave"){
+    return {
+      title:item||"LEAVE",
+      route:dep||"KUL",
+      time:"",
+      footerLeft:work||"LEAVE",
+      footerRight:"",
+      icon:""
+    };
+  }
+
+  if(category==="simulator"){
+    return {
+      title:item||"SIM",
+      route:dep||"KUL",
+      time:report ? `Start ${report}` : "",
+      footerLeft:work||"SIM",
+      footerRight:ac,
+      icon:"✦"
+    };
+  }
+
+  if(category==="flight"){
+    return {
+      title:item,
+      route,
+      time:report ? `Rpt ${report}` : "",
+      footerLeft:work||"",
+      footerRight:ac ? `A${ac}` : "",
+      icon:"✈"
+    };
+  }
+
+  return {
+    title:item||"DUTY",
+    route:dep||"",
+    time:report ? `Start ${report}` : "",
+    footerLeft:work||"",
+    footerRight:ac
+  };
+}
+
 function calendarDisplayItem(row){
   if(!row) return "";
   if(row._calendarCategory==="off") return "D";
@@ -2859,10 +2947,7 @@ function renderCalendarView(){
       calendarDateKey(selectedCalendarDuty)===key;
 
     const category=primary?primary._calendarCategory:"empty";
-    const item=primary?calendarDisplayItem(primary):"";
-    const route=primary?calendarRoute(primary):"";
-    const time=primary?(primary.dutyStart||""):"";
-    const plane=category==="flight" ? `<i class="calendar-plane">✈</i>` : "";
+    const tile=calendarTileMeta(primary);
 
     cells.push(`
       <button
@@ -2870,13 +2955,20 @@ function renderCalendarView(){
         class="calendar-day ${category} ${outside?"outside":""} ${isToday?"today":""} ${isSelected?"selected":""}"
         data-calendar-key="${key}"
         ${primary?"":"disabled"}
-        aria-label="${esc([d.getDate(),item,route,time].filter(Boolean).join(" "))}"
+        aria-label="${esc([d.getDate(),tile.title,tile.route,tile.time].filter(Boolean).join(" "))}"
       >
         <span class="calendar-day-number">${d.getDate()}</span>
-        ${plane}
-        ${item?`<strong>${esc(item)}</strong>`:""}
-        ${route?`<span class="calendar-day-route">${esc(route)}</span>`:""}
-        ${time?`<small>${esc(time)}</small>`:""}
+        ${tile.icon?`<i class="calendar-plane">${esc(tile.icon)}</i>`:""}
+        ${tile.title?`<strong>${esc(tile.title)}</strong>`:""}
+        ${tile.route?`<span class="calendar-day-route">${esc(tile.route)}</span>`:""}
+        ${tile.time?`<small>${esc(tile.time)}</small>`:""}
+        ${(tile.footerLeft||tile.footerRight)?`
+          <span class="calendar-day-footer">
+            <b>${esc(tile.footerLeft)}</b>
+            <b>${esc(tile.footerRight)}</b>
+          </span>
+        `:""}
+        ${isToday?`<span class="calendar-today-dot" title="Today"></span>`:""}
         ${duties.length>1?`<em>+${duties.length-1}</em>`:""}
       </button>
     `);
