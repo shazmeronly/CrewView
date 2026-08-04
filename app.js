@@ -28,6 +28,7 @@ const $=s=>document.querySelector(s);
 const tbody=$("#rosterTable tbody"), status=$("#status");
 const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block","duty","ac"];
 let officialFH=null, officialDH=null;
+let officialRosterPeriod=null;
 
 function dayName(dateStr){
   const m=dateStr.match(/(\d{2})-([A-Za-z]{3})-(\d{4})/); if(!m)return "";
@@ -61,6 +62,7 @@ function applyOnePageFit(){
 function rowHTML(r={}){
   const continuation=r._overnightContinuation ? "1" : "";
   const syntheticCalendarRow=r._syntheticCalendarRow ? "1" : "";
+  const layoverDay=r._layoverDay ? "1" : "";
   const dutyGroup=esc(r._dutyGroup||"");
   const sectorIndex=Number.isFinite(r._sectorIndex) ? String(r._sectorIndex) : "";
   const sectorCount=Number.isFinite(r._sectorCount) ? String(r._sectorCount) : "";
@@ -68,6 +70,7 @@ function rowHTML(r={}){
   return `<tr
     data-overnight-continuation="${continuation}"
     data-synthetic-calendar-row="${syntheticCalendarRow}"
+    data-layover-day="${layoverDay}"
     data-duty-group="${dutyGroup}"
     data-sector-index="${sectorIndex}"
     data-sector-count="${sectorCount}"
@@ -138,6 +141,7 @@ function getRows(){
     row._overnightContinuation=tr.dataset.overnightContinuation==="1";
     row._syntheticCalendarRow=
       tr.dataset.syntheticCalendarRow==="1";
+    row._layoverDay=tr.dataset.layoverDay==="1";
     row._dutyGroup=tr.dataset.dutyGroup||"";
 
     if(tr.dataset.sectorIndex!==""){
@@ -202,8 +206,237 @@ function updateCompactProfile(){
   compact.classList.toggle("hidden",!name);
 }
 
+
+function parseOfficialRosterPeriod(text){
+  const match=String(text||"").match(
+    /Roster Report\s+(\d{2}-[A-Za-z]{3}-\d{4})\s+to\s+(\d{2}-[A-Za-z]{3}-\d{4})/i
+  );
+
+  if(!match) return null;
+
+  const start=parseRosterDate(match[1]);
+  const end=parseRosterDate(match[2]);
+
+  return start&&end
+    ? {
+        start,
+        end,
+        startText:fmtDate(start),
+        endText:fmtDate(end),
+        key:`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,"0")}`
+      }
+    : null;
+}
+
+function flightAirport(value){
+  return String(value||"").trim().split(/\s+/)[0]||"";
+}
+
+function dateKey(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+
+function markLayoverCalendarRows(rows,base){
+  const output=rows.map(row=>({...row}));
+  const flights=output
+    .filter(row=>
+      /^MH\d+/i.test(String(row.item||"").trim()) &&
+      parseRosterDate(row.date)
+    )
+    .sort((a,b)=>parseRosterDate(a.date)-parseRosterDate(b.date));
+
+  const layoverDates=new Set();
+
+  for(let index=0;index<flights.length-1;index++){
+    const outbound=flights[index];
+    const inbound=flights[index+1];
+
+    const outboundDate=parseRosterDate(outbound.date);
+    const inboundDate=parseRosterDate(inbound.date);
+    if(!outboundDate||!inboundDate) continue;
+
+    const awayStation=flightAirport(outbound.arr);
+    const nextDeparture=flightAirport(inbound.dep);
+
+    if(
+      !awayStation ||
+      awayStation===base ||
+      nextDeparture!==awayStation
+    ) continue;
+
+    const cursor=new Date(outboundDate);
+    cursor.setDate(cursor.getDate()+1);
+
+    while(cursor<inboundDate){
+      layoverDates.add(dateKey(cursor));
+      cursor.setDate(cursor.getDate()+1);
+    }
+  }
+
+  output.forEach(row=>{
+    const date=parseRosterDate(row.date);
+    if(!date || !layoverDates.has(dateKey(date))) return;
+
+    if(row._syntheticCalendarRow){
+      row._layoverDay=true;
+      row.item="";
+    }
+  });
+
+  return output;
+}
+
+function rosterFingerprint(rows){
+  return rows.map(row=>[
+    row.date,
+    row.dutyStart,
+    row.item,
+    row.dep,
+    row.arr,
+    row.dutyEnd,
+    row.block,
+    row.duty,
+    row.ac
+  ].map(value=>String(value||"").trim()).join("|"));
+}
+
+const VALIDATION_FIXTURES={
+  "2026-06":{
+    label:"June 2026",
+    fh:"86:16",
+    dh:"131:16",
+    required:[
+      ["31-May-2026","MH6244","KUL 12:53","BOM 17:46","18:31"],
+      ["02-Jun-2026","MH195","BOM 02:00","KUL 07:18","08:03"],
+      ["03-Jun-2026","MH782","KUL 15:06","BKK 17:20",""],
+      ["03-Jun-2026","MH783","BKK 18:20","KUL 20:36","21:21"],
+      ["30-Jun-2026","330BLP1Z","KUL 08:30","KUL 17:30","17:30"]
+    ]
+  },
+  "2026-07":{
+    label:"July 2026",
+    fh:"39:56",
+    dh:"103:39",
+    required:[
+      ["01-Jul-2026","330BLP23","KUL 13:00","KUL 17:00","17:30"],
+      ["11-Jul-2026","S2-330","KUL 06:00","KUL 07:45","07:45"],
+      ["11-Jul-2026","330BLP32","KUL 08:45","KUL 11:30","12:00"],
+      ["29-Jul-2026","MH318","KUL 23:45","",""],
+      ["31-Jul-2026","MH319","PKX 10:15","KUL 16:17","17:02"]
+    ]
+  },
+  "2026-08":{
+    label:"August 2026",
+    fh:"65:57",
+    dh:"111:22",
+    required:[
+      ["01-Aug-2026","MH147","KUL 20:34","",""],
+      ["06-Aug-2026","MH127","KUL 19:30","",""],
+      ["17-Aug-2026","DSA","KUL 08:30","KUL 17:30","17:30"],
+      ["31-Aug-2026","MH191","DEL 01:30","KUL 06:55","07:40"]
+    ]
+  }
+};
+
+function validateKnownRoster(rows){
+  const fixture=officialRosterPeriod
+    ? VALIDATION_FIXTURES[officialRosterPeriod.key]
+    : null;
+
+  if(!fixture){
+    return {
+      known:false,
+      passed:true,
+      message:"Roster converted. This month is not in the built-in validation set."
+    };
+  }
+
+  const issues=[];
+  const fingerprints=rosterFingerprint(rows);
+
+  if(officialFH!==fixture.fh){
+    issues.push(`Flying hours: expected ${fixture.fh}, found ${officialFH||"—"}`);
+  }
+  if(officialDH!==fixture.dh){
+    issues.push(`Duty hours: expected ${fixture.dh}, found ${officialDH||"—"}`);
+  }
+
+  fixture.required.forEach(([date,item,dep,arr,end])=>{
+    const found=fingerprints.some(line=>{
+      const fields=line.split("|");
+      return (
+        fields[0]===date &&
+        fields[2]===item &&
+        (!dep || fields[3]===dep) &&
+        (!arr || fields[4]===arr) &&
+        (!end || fields[5]===end)
+      );
+    });
+
+    if(!found){
+      issues.push(`${date}: missing or incorrect ${item}`);
+    }
+  });
+
+  const duplicateKeys=new Set();
+  const duplicates=[];
+
+  rows.forEach(row=>{
+    if(row._overnightContinuation) return;
+
+    const key=[
+      row.date,
+      row.dutyStart,
+      row.item,
+      row.dep,
+      row.arr
+    ].join("|");
+
+    if(duplicateKeys.has(key) && String(row.item||"").trim()){
+      duplicates.push(`${row.date} ${row.item}`);
+    }
+    duplicateKeys.add(key);
+  });
+
+  if(duplicates.length){
+    issues.push(`Duplicate rows: ${[...new Set(duplicates)].join(", ")}`);
+  }
+
+  return {
+    known:true,
+    passed:issues.length===0,
+    label:fixture.label,
+    issues,
+    message:issues.length
+      ? `${fixture.label} validation found ${issues.length} issue${issues.length===1?"":"s"}.`
+      : `${fixture.label} validation passed.`
+  };
+}
+
+function renderValidation(result){
+  const element=$("#validationResult");
+  if(!element) return;
+
+  element.classList.remove("hidden","pass","fail","neutral");
+  element.classList.add(
+    result.known
+      ? (result.passed?"pass":"fail")
+      : "neutral"
+  );
+
+  if(result.passed){
+    element.innerHTML=`<strong>✓ ${esc(result.message)}</strong>`;
+  }else{
+    element.innerHTML=`
+      <strong>⚠ ${esc(result.message)}</strong>
+      <ul>${result.issues.map(issue=>`<li>${esc(issue)}</li>`).join("")}</ul>
+    `;
+  }
+}
+
 function parseHeader(text){
   const head=String(text||"").replace(/\s+/g," ").trim();
+  officialRosterPeriod=parseOfficialRosterPeriod(head);
 
   // This roster PDF places the crew profile BEFORE "Roster Report" in its
   // internal text order, even though it is visually shown on the same header.
@@ -889,26 +1122,61 @@ function normalizePairingDutySequence(rows){
   return normalized;
 }
 
-function fillEveryDay(rows=getRows()){
-  const valid=rows.map(r=>({r,d:parseRosterDate(r.date)})).filter(x=>x.d);
-  if(!valid.length){status.textContent="Load a roster first.";return rows}
-  const first=valid.reduce((a,b)=>a.d<b.d?a:b).d;
-  const year=first.getFullYear(), month=first.getMonth();
-  const days=new Date(year,month+1,0).getDate();
+function fillEveryDay(rows=getRows(),period=officialRosterPeriod){
+  const valid=rows
+    .map(row=>({row,date:parseRosterDate(row.date)}))
+    .filter(entry=>entry.date);
+
+  if(!valid.length){
+    status.textContent="Load a roster first.";
+    return rows;
+  }
+
+  const mainStart=period?.start || valid.reduce(
+    (earliest,current)=>current.date<earliest?current.date:earliest,
+    valid[0].date
+  );
+  const mainEnd=period?.end || new Date(
+    mainStart.getFullYear(),
+    mainStart.getMonth()+1,
+    0
+  );
+
   const byDate=new Map();
-  valid.forEach(({r,d})=>{
-    if(d.getFullYear()===year && d.getMonth()===month){
-      const key=fmtDate(d);
-      if(!byDate.has(key))byDate.set(key,[]);
-      byDate.get(key).push(r);
+  const carryIn=[];
+  const carryOut=[];
+
+  valid.forEach(({row,date})=>{
+    if(date<mainStart){
+      carryIn.push({...row,date:fmtDate(date),day:dayName(fmtDate(date))});
+      return;
     }
+
+    if(date>mainEnd){
+      carryOut.push({...row,date:fmtDate(date),day:dayName(fmtDate(date))});
+      return;
+    }
+
+    const key=fmtDate(date);
+    if(!byDate.has(key)) byDate.set(key,[]);
+    byDate.get(key).push(row);
   });
-  const full=[];
-  for(let n=1;n<=days;n++){
-    const d=new Date(year,month,n), key=fmtDate(d);
-    const arr=byDate.get(key);
-    if(arr?.length){
-      arr.forEach(r=>full.push({...r,date:key,day:dayName(key)}));
+
+  const full=[...carryIn.sort(
+    (a,b)=>parseRosterDate(a.date)-parseRosterDate(b.date)
+  )];
+
+  const cursor=new Date(mainStart);
+  while(cursor<=mainEnd){
+    const key=fmtDate(cursor);
+    const entries=byDate.get(key);
+
+    if(entries?.length){
+      entries.forEach(row=>full.push({
+        ...row,
+        date:key,
+        day:dayName(key)
+      }));
     }else{
       full.push({
         date:key,
@@ -916,10 +1184,16 @@ function fillEveryDay(rows=getRows()){
         _syntheticCalendarRow:true
       });
     }
+
+    cursor.setDate(cursor.getDate()+1);
   }
+
+  carryOut
+    .sort((a,b)=>parseRosterDate(a.date)-parseRosterDate(b.date))
+    .forEach(row=>full.push(row));
+
   return full;
 }
-
 
 
 function allTimeTokens(text){
@@ -1698,6 +1972,8 @@ async function parsePDF(file){
   status.textContent="Reading PDF…";
   officialFH=null;
   officialDH=null;
+  officialRosterPeriod=null;
+  $("#validationResult")?.classList.add("hidden");
   ["name","staff","rank","fleet","base"].forEach(id=>$("#"+id).value="");
 
   const data=new Uint8Array(await file.arrayBuffer());
@@ -1814,13 +2090,16 @@ async function parsePDF(file){
     );
   }
 
-  allRows=fillEveryDay(allRows);
-
-  // Restore any valid pilot flight omitted by the visual parser, especially a
-  // final row close to the lower edge of the PDF such as 31-Aug MH191.
+  // Restore complete rows from the PDF text before creating the monthly calendar.
+  // This preserves previous-month carry-in rows and final rows on later pages.
   allRows=restoreMissingPilotDates(
     allRows,
     combinedText
+  );
+
+  allRows=fillEveryDay(
+    allRows,
+    officialRosterPeriod
   );
 
   // Move only values explicitly marked (+1) onto the following calendar date.
@@ -1847,7 +2126,17 @@ async function parsePDF(file){
     }
   });
 
+  allRows=markLayoverCalendarRows(
+    allRows,
+    ($("#base")?.value||"KUL").trim().toUpperCase()
+  );
+
   allRows=markRemainingBlankDaysAsOff(allRows);
+
+  // Restore blank display for inferred layover calendar dates.
+  allRows.forEach(row=>{
+    if(row._layoverDay) row.item="";
+  });
 
   // A next-day arrival row already represents that calendar date. Remove only
   // the automatically generated blank D row for the same date.
@@ -1874,17 +2163,26 @@ async function parsePDF(file){
 
   setRows(allRows);
 
+  const validation=validateKnownRoster(allRows);
+  renderValidation(validation);
+
   const firstDate=allRows
     .map(row=>parseRosterDate(row.date))
     .find(Boolean);
 
-  const calendarDays=firstDate
-    ? new Date(
-        firstDate.getFullYear(),
-        firstDate.getMonth()+1,
-        0
-      ).getDate()
-    : allRows.length;
+  const calendarDays=officialRosterPeriod
+    ? Math.round(
+        (officialRosterPeriod.end-officialRosterPeriod.start)/86400000
+      )+1
+    : (
+        firstDate
+          ? new Date(
+              firstDate.getFullYear(),
+              firstDate.getMonth()+1,
+              0
+            ).getDate()
+          : allRows.length
+      );
 
   status.textContent=
     `Converted the roster and displayed all ${calendarDays} calendar days.`;

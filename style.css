@@ -1177,3 +1177,42 @@ body.duty-details-open{
     display:none !important;
   }
 }
+
+
+.validation-result{
+  margin-top:12px;
+  padding:11px 13px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  font-size:.9rem;
+  line-height:1.4;
+}
+
+.validation-result.pass{
+  background:rgba(34,197,94,.12);
+  border-color:rgba(34,197,94,.45);
+}
+
+.validation-result.fail{
+  background:rgba(245,158,11,.13);
+  border-color:rgba(245,158,11,.5);
+}
+
+.validation-result.neutral{
+  background:var(--soft);
+}
+
+.validation-result ul{
+  margin:7px 0 0 18px;
+  padding:0;
+}
+
+.validation-result li{
+  margin:3px 0;
+}
+
+@media print{
+  #validationResult{
+    display:none !important;
+  }
+}
