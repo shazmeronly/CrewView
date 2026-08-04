@@ -2934,7 +2934,7 @@ function bestCalendarDefaultDuty(entries,year,month){
   ) || all[0] || null;
 }
 
-function renderCalendarView(){
+function renderCalendarView(options={}){
   const grid=$("#calendarGrid");
   if(!grid) return;
 
@@ -3046,9 +3046,16 @@ function renderCalendarView(){
   });
 
   const selectedMonth=parseRosterDate(selectedCalendarDuty?.date||"")?.getMonth();
-  if(!selectedCalendarDuty || selectedMonth!==month){
-    const defaultDuty=bestCalendarDefaultDuty(entries,year,month);
-    if(defaultDuty) selectCalendarDuty(defaultDuty);
+
+  if(!options.suppressAutoSelect){
+    if(!selectedCalendarDuty || selectedMonth!==month){
+      const defaultDuty=bestCalendarDefaultDuty(entries,year,month);
+      if(defaultDuty) selectCalendarDuty(defaultDuty);
+    }
+  }else{
+    selectedCalendarDuty=null;
+    closeCalendarDutyOverlay();
+    grid.querySelectorAll(".selected").forEach(cell=>cell.classList.remove("selected"));
   }
 
   // Ensure the selected cell visibly matches the information card.
@@ -3200,24 +3207,27 @@ $("#calendarToday")?.addEventListener("click",()=>{
   closeCalendarDutyOverlay();
 
   const today=new Date();
-  const loaded=loadedRosterMonth();
-
-  // If the uploaded roster is for another month, remain on its month.
-  const target=loaded &&
-    loaded.getFullYear()===today.getFullYear() &&
-    loaded.getMonth()===today.getMonth()
-      ? today
-      : (loaded||today);
-
-  calendarCursor=new Date(target.getFullYear(),target.getMonth(),1);
+  calendarCursor=new Date(today.getFullYear(),today.getMonth(),1);
   selectedCalendarDuty=null;
-  renderCalendarView();
+
+  renderCalendarView({suppressAutoSelect:true});
 
   requestAnimationFrame(()=>{
     const todayCell=document.querySelector(".calendar-day.today");
-    todayCell?.classList.add("today-flash");
-    todayCell?.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
-    setTimeout(()=>todayCell?.classList.remove("today-flash"),1100);
+
+    if(todayCell){
+      todayCell.classList.add("today-flash");
+      todayCell.scrollIntoView({
+        behavior:"smooth",
+        block:"center",
+        inline:"center"
+      });
+      setTimeout(()=>todayCell.classList.remove("today-flash"),1100);
+    }else{
+      const title=$("#calendarMonthTitle");
+      title?.classList.add("today-month-flash");
+      setTimeout(()=>title?.classList.remove("today-month-flash"),1100);
+    }
   });
 });
 

@@ -3087,3 +3087,14 @@ html[data-theme="light"] body.calendar-mode .calendar-view-sheet > p,
 html[data-theme="light"] body.calendar-mode .view-sheet-size > span{
   color:#53687b;
 }
+
+
+/* CrewView Calendar v1.1 — Today button feedback */
+.today-month-flash{
+  animation:todayMonthFlash 1.05s ease;
+}
+
+@keyframes todayMonthFlash{
+  0%,100%{ opacity:1; transform:scale(1); }
+  40%{ opacity:.72; transform:scale(1.04); text-shadow:0 0 18px rgba(70,155,255,.75); }
+}
