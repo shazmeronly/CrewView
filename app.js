@@ -222,7 +222,7 @@ function updateStats(){
   $("#dh").textContent=officialDH || hhmm(dh);
   $("#off").textContent=offDates.size;
 }
-tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty()});
+tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView()});
 
 
 function updateCompactProfile(){
@@ -2596,10 +2596,14 @@ async function parsePDF(file){
 }
 
 
-/* Calendar View: presentation-only layer using the existing parsed roster rows. */
+
+/* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";
 let calendarCursor=null;
 let selectedCalendarDuty=null;
+const calendarFiltersEnabled=new Set([
+  "flight","off","standby","leave","training","simulator","admin"
+]);
 
 const monthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"});
 const shortMonthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"});
@@ -2607,43 +2611,85 @@ const shortMonthFormatter=new Intl.DateTimeFormat("en-US",{month:"long",year:"nu
 function calendarCategory(row){
   const item=String(row?.item||"").trim().toUpperCase();
   const work=String(row?.work||"").trim().toUpperCase();
+
   if(item==="D"||item==="OFF"||item.startsWith("DO")) return "off";
   if(item==="AL"||item.includes("LEAVE")) return "leave";
-  if(item.includes("SBY")||item.startsWith("S1")||item.startsWith("S2")||item.startsWith("S3")||item.includes("STANDBY")) return "standby";
+  if(
+    item.includes("SBY")||
+    /^S[1-4](?:-|$)/.test(item)||
+    item.includes("STANDBY")
+  ) return "standby";
   if(item.includes("SIM")) return "simulator";
-  if(item==="DSA"||item.includes("TRAIN")||item.includes("LPC")||item.includes("OPC")||item.includes("CRM")||item.includes("GROUND")) return "training";
-  if(work==="OP"||work==="PS"||/^MH\d+/i.test(item)) return "flight";
+  if(
+    item==="DSA"||
+    item.includes("TRAIN")||
+    item.includes("LPC")||
+    item.includes("OPC")||
+    item.includes("CRM")||
+    item.includes("GROUND")
+  ) return "training";
+  if(work==="OP"||work==="PS"||work==="SFP"||/^MH\d+/i.test(item)) return "flight";
   return "admin";
 }
 
 function calendarDateKey(row){
   const d=parseRosterDate(row?.date||"");
   if(!d) return "";
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  return [
+    d.getFullYear(),
+    String(d.getMonth()+1).padStart(2,"0"),
+    String(d.getDate()).padStart(2,"0")
+  ].join("-");
+}
+
+function calendarDateKeyFromDate(d){
+  return [
+    d.getFullYear(),
+    String(d.getMonth()+1).padStart(2,"0"),
+    String(d.getDate()).padStart(2,"0")
+  ].join("-");
 }
 
 function completeCalendarDuty(rows,index){
   const row=rows[index];
   if(!row) return null;
   const category=calendarCategory(row);
+
   if(category==="flight"){
     const complete=buildCompleteDuty(rows,index);
-    const dt=dutyDateTime(row);
-    return {...complete,_dt:dt,_calendarCategory:category,_sourceIndex:index};
+    return {
+      ...complete,
+      _dt:dutyDateTime(row),
+      _calendarCategory:category,
+      _sourceIndex:index
+    };
   }
-  return {...row,_calendarCategory:category,_sourceIndex:index,_dt:dutyDateTime(row)};
+
+  return {
+    ...row,
+    _calendarCategory:category,
+    _sourceIndex:index,
+    _dt:dutyDateTime(row)
+  };
 }
 
 function calendarEntries(){
   const rows=getRows();
   const byDate=new Map();
+
   rows.forEach((row,index)=>{
     if(row._overnightContinuation) return;
+
     const key=calendarDateKey(row);
     if(!key) return;
+
+    const complete=completeCalendarDuty(rows,index);
+    if(!complete) return;
+
     if(!byDate.has(key)) byDate.set(key,[]);
-    byDate.get(key).push(completeCalendarDuty(rows,index));
+    byDate.get(key).push(complete);
   });
+
   return byDate;
 }
 
@@ -2655,112 +2701,269 @@ function calendarDisplayItem(row){
 
 function calendarRoute(row){
   if(!row) return "";
+
   const airports=(row._routeAirports||[]).filter(Boolean);
   if(airports.length>1) return airports.join(" → ");
+
   const dep=airportCode(row.dep);
   const arr=airportCode(row._arrival||row.arr);
-  return dep&&arr?`${dep} → ${arr}`:(dep||arr||"");
+  return dep&&arr ? `${dep} → ${arr}` : (dep||arr||"");
 }
 
 function loadedRosterMonth(){
+  if(officialRosterPeriod?.start){
+    return new Date(
+      officialRosterPeriod.start.getFullYear(),
+      officialRosterPeriod.start.getMonth(),
+      1
+    );
+  }
+
   const dates=getRows().map(row=>parseRosterDate(row.date)).filter(Boolean);
   if(!dates.length) return null;
+
   const counts=new Map();
   dates.forEach(d=>{
     const key=`${d.getFullYear()}-${d.getMonth()}`;
     counts.set(key,(counts.get(key)||0)+1);
   });
-  const [best]=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0]||[];
-  if(!best) return dates[0];
+
+  const best=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
+  if(!best) return new Date(dates[0].getFullYear(),dates[0].getMonth(),1);
+
   const [year,month]=best.split("-").map(Number);
   return new Date(year,month,1);
 }
 
 function syncCalendarProfile(){
-  const name=$("#name")?.value||"—";
-  const staff=$("#staff")?.value||"";
-  const rank=$("#rank")?.value||"";
-  const fleet=$("#fleet")?.value||"";
-  const base=$("#base")?.value||"";
+  const name=($("#name")?.value||"Crew Member").trim();
+  const staff=($("#staff")?.value||"").trim();
+  const rank=($("#rank")?.value||"").trim();
+  const fleet=($("#fleet")?.value||"").trim();
+  const base=($("#base")?.value||"").trim();
+
   $("#calendarName").textContent=name;
-  $("#calendarMeta").textContent=[staff,rank,fleet?`A${fleet}`:"",base].filter(Boolean).join(" · ")||"—";
-  $("#calendarAvatar").textContent=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("")||"CV";
+  $("#calendarMeta").textContent=[
+    staff,
+    rank,
+    fleet ? `A${fleet}` : "",
+    base
+  ].filter(Boolean).join("  •  ")||"—";
+
+  $("#calendarAvatar").textContent=name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0,2)
+    .map(part=>part[0])
+    .join("")||"CV";
+
   $("#calendarFH").textContent=$("#fh")?.textContent||"00:00";
   $("#calendarDH").textContent=$("#dh")?.textContent||"00:00";
   $("#calendarOff").textContent=$("#off")?.textContent||"0";
 }
 
+function bestCalendarDefaultDuty(entries,year,month){
+  const now=new Date();
+
+  const all=[...entries.values()]
+    .flat()
+    .filter(Boolean)
+    .filter(row=>parseRosterDate(row.date)?.getMonth()===month);
+
+  // Prefer the same duty used by the current Next Duty card.
+  if(activeNextDuty){
+    const match=all.find(row=>
+      row.date===activeNextDuty.date &&
+      calendarDisplayItem(row)===calendarDisplayItem(activeNextDuty)
+    );
+    if(match) return match;
+  }
+
+  // Otherwise select the nearest future working duty.
+  const future=all
+    .filter(row=>
+      row._calendarCategory!=="off" &&
+      row._calendarCategory!=="leave"
+    )
+    .map(row=>({
+      row,
+      dt:row._dt||parseRosterDate(row.date)
+    }))
+    .filter(item=>item.dt && item.dt>=now)
+    .sort((a,b)=>a.dt-b.dt);
+
+  if(future[0]) return future[0].row;
+
+  // Historical roster: choose the first real duty, not a blank/off day.
+  return all.find(row=>
+    row._calendarCategory!=="off" &&
+    row._calendarCategory!=="leave"
+  ) || all[0] || null;
+}
+
 function renderCalendarView(){
   const grid=$("#calendarGrid");
   if(!grid) return;
+
   const loaded=loadedRosterMonth();
   if(!loaded){
     grid.innerHTML="";
     $("#calendarSelected")?.classList.add("hidden");
     return;
   }
-  if(!calendarCursor) calendarCursor=new Date(loaded.getFullYear(),loaded.getMonth(),1);
+
+  if(!calendarCursor){
+    calendarCursor=new Date(loaded.getFullYear(),loaded.getMonth(),1);
+  }
+
   syncCalendarProfile();
+
   const year=calendarCursor.getFullYear();
   const month=calendarCursor.getMonth();
+
   $("#calendarMonthTitle").textContent=monthFormatter.format(calendarCursor);
-  $("#calendarPrevLabel").textContent=shortMonthFormatter.format(new Date(year,month-1,1));
-  $("#calendarNextLabel").textContent=shortMonthFormatter.format(new Date(year,month+1,1));
+  $("#calendarPrevLabel").textContent=shortMonthFormatter.format(
+    new Date(year,month-1,1)
+  );
+  $("#calendarNextLabel").textContent=shortMonthFormatter.format(
+    new Date(year,month+1,1)
+  );
+
   const entries=calendarEntries();
   const first=new Date(year,month,1);
   const mondayOffset=(first.getDay()+6)%7;
   const start=new Date(year,month,1-mondayOffset);
   const today=new Date();
   const cells=[];
+
   for(let index=0;index<42;index++){
-    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+index);
-    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    const duties=entries.get(key)||[];
-    const primary=duties.find(item=>item._calendarCategory!=="off")||duties[0]||null;
+    const d=new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate()+index
+    );
+
+    const key=calendarDateKeyFromDate(d);
+    const duties=(entries.get(key)||[])
+      .filter(item=>calendarFiltersEnabled.has(item._calendarCategory));
+
+    const primary=
+      duties.find(item=>item._calendarCategory!=="off")||
+      duties[0]||
+      null;
+
     const outside=d.getMonth()!==month;
     const isToday=d.toDateString()===today.toDateString();
+    const isSelected=
+      selectedCalendarDuty &&
+      calendarDateKey(selectedCalendarDuty)===key;
+
     const category=primary?primary._calendarCategory:"empty";
     const item=primary?calendarDisplayItem(primary):"";
     const route=primary?calendarRoute(primary):"";
     const time=primary?(primary.dutyStart||""):"";
-    cells.push(`<button type="button" class="calendar-day ${category} ${outside?"outside":""} ${isToday?"today":""}" data-calendar-key="${key}" ${primary?"":"disabled"}>
-      <span class="calendar-day-number">${d.getDate()}</span>
-      ${item?`<strong>${esc(item)}</strong>`:""}
-      ${route?`<span>${esc(route)}</span>`:""}
-      ${time?`<small>${esc(time)}</small>`:""}
-      ${duties.length>1?`<em>+${duties.length-1}</em>`:""}
-    </button>`);
+    const plane=category==="flight" ? `<i class="calendar-plane">✈</i>` : "";
+
+    cells.push(`
+      <button
+        type="button"
+        class="calendar-day ${category} ${outside?"outside":""} ${isToday?"today":""} ${isSelected?"selected":""}"
+        data-calendar-key="${key}"
+        ${primary?"":"disabled"}
+        aria-label="${esc([d.getDate(),item,route,time].filter(Boolean).join(" "))}"
+      >
+        <span class="calendar-day-number">${d.getDate()}</span>
+        ${plane}
+        ${item?`<strong>${esc(item)}</strong>`:""}
+        ${route?`<span class="calendar-day-route">${esc(route)}</span>`:""}
+        ${time?`<small>${esc(time)}</small>`:""}
+        ${duties.length>1?`<em>+${duties.length-1}</em>`:""}
+      </button>
+    `);
   }
+
   grid.innerHTML=cells.join("");
+
   grid.querySelectorAll("[data-calendar-key]").forEach(button=>{
     button.addEventListener("click",()=>{
-      const duties=entries.get(button.dataset.calendarKey)||[];
-      const duty=duties.find(item=>item._calendarCategory!=="off")||duties[0];
+      const duties=(entries.get(button.dataset.calendarKey)||[])
+        .filter(item=>calendarFiltersEnabled.has(item._calendarCategory));
+
+      const duty=
+        duties.find(item=>item._calendarCategory!=="off")||
+        duties[0];
+
+      if(!duty) return;
+
       selectCalendarDuty(duty);
-      grid.querySelectorAll(".selected").forEach(cell=>cell.classList.remove("selected"));
+
+      grid.querySelectorAll(".selected").forEach(cell=>
+        cell.classList.remove("selected")
+      );
       button.classList.add("selected");
     });
   });
-  const firstDuty=[...entries.values()].flat().find(item=>item&&item._calendarCategory!=="off");
-  if(firstDuty && (!selectedCalendarDuty || parseRosterDate(selectedCalendarDuty.date)?.getMonth()!==month)) selectCalendarDuty(firstDuty);
+
+  const selectedMonth=parseRosterDate(selectedCalendarDuty?.date||"")?.getMonth();
+  if(!selectedCalendarDuty || selectedMonth!==month){
+    const defaultDuty=bestCalendarDefaultDuty(entries,year,month);
+    if(defaultDuty) selectCalendarDuty(defaultDuty);
+  }
+
+  // Ensure the selected cell visibly matches the information card.
+  if(selectedCalendarDuty){
+    const selectedKey=calendarDateKey(selectedCalendarDuty);
+    grid.querySelector(`[data-calendar-key="${selectedKey}"]`)?.classList.add("selected");
+  }
+}
+
+function splitStationTime(value){
+  const text=String(value||"").trim();
+  if(!text) return {station:"—",time:"—"};
+
+  const parts=text.split(/\s+/);
+  const station=parts[0]||"—";
+  const time=parts.slice(1).join(" ")||"—";
+  return {station,time};
 }
 
 function selectCalendarDuty(row){
   if(!row) return;
+
   selectedCalendarDuty=row;
   const panel=$("#calendarSelected");
   panel?.classList.remove("hidden");
+
   const date=parseRosterDate(row.date);
-  $("#selectedWeekday").textContent=(row.day||dayName(row.date)||"—").toUpperCase();
+  const departure=splitStationTime(row.dep);
+  const arrival=splitStationTime(row._arrival||row.arr);
+  const route=calendarRoute(row)||row.work||"—";
+  const reportStation=departure.station;
+  const dutyEndStation=arrival.station;
+
+  $("#selectedWeekday").textContent=
+    (row.day||dayName(row.date)||"—").toUpperCase();
   $("#selectedDay").textContent=date?date.getDate():"—";
-  $("#selectedMonthYear").textContent=date?date.toLocaleDateString("en-US",{month:"short",year:"numeric"}).toUpperCase():"—";
+  $("#selectedMonthYear").textContent=date
+    ? date.toLocaleDateString("en-US",{month:"short",year:"numeric"}).toUpperCase()
+    : "—";
+
   $("#selectedItem").textContent=calendarDisplayItem(row)||"Duty";
-  $("#selectedRoute").textContent=calendarRoute(row)||row.work||"—";
-  $("#selectedAircraft").textContent=row.ac?`Aircraft ${row.ac}`:(row.work||"—");
+  $("#selectedWorkBadge").textContent=row.work||row._calendarCategory.toUpperCase();
+  $("#selectedRoute").textContent=route;
+  $("#selectedAircraft").textContent=row.ac
+    ? `Airbus A330-${row.ac}`
+    : (row.work||"—");
+
   $("#selectedReport").textContent=row.dutyStart||"—";
-  $("#selectedDeparture").textContent=row.dep||"—";
-  $("#selectedArrival").textContent=row._arrival||row.arr||"—";
+  $("#selectedReportStation").textContent=reportStation;
+  $("#selectedDepartureTime").textContent=departure.time;
+  $("#selectedDepartureStation").textContent=departure.station;
+  $("#selectedArrivalTime").textContent=arrival.time;
+  $("#selectedArrivalStation").textContent=arrival.station;
   $("#selectedDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
+  $("#selectedDutyEndStation").textContent=dutyEndStation;
+
   $("#selectedBlock").textContent=row._totalBlock||row.block||"—";
   $("#selectedDuty").textContent=row._totalDuty||row.duty||"—";
   $("#selectedWork").textContent=row.work||"—";
@@ -2769,12 +2972,20 @@ function selectCalendarDuty(row){
 function switchRosterView(view){
   crewViewMode=view;
   const calendar=view==="calendar";
+
   $("#classicView")?.classList.toggle("hidden",calendar);
   $("#calendarView")?.classList.toggle("hidden",!calendar);
-  document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.classList.toggle("active",tab.dataset.view===view));
+  document.body.classList.toggle("calendar-mode",calendar);
+
+  document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+    tab.classList.toggle("active",tab.dataset.view===view)
+  );
+
   localStorage.setItem("crewview-roster-view",view);
+
   if(calendar){
     calendarCursor=loadedRosterMonth();
+    selectedCalendarDuty=null;
     renderCalendarView();
     window.scrollTo({top:0,behavior:"smooth"});
   }else{
@@ -2782,12 +2993,66 @@ function switchRosterView(view){
   }
 }
 
-document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.addEventListener("click",()=>switchRosterView(tab.dataset.view)));
-$("#calendarPrev")?.addEventListener("click",()=>{if(!calendarCursor)return;calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);renderCalendarView();});
-$("#calendarNext")?.addEventListener("click",()=>{if(!calendarCursor)return;calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendarView();});
-$("#calendarToday")?.addEventListener("click",()=>{calendarCursor=loadedRosterMonth()||new Date();calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth(),1);renderCalendarView();});
+document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+  tab.addEventListener("click",()=>switchRosterView(tab.dataset.view))
+);
+
+document.querySelectorAll("[data-calendar-mode='classic']").forEach(button=>
+  button.addEventListener("click",()=>switchRosterView("classic"))
+);
+
+$("#calendarPrev")?.addEventListener("click",()=>{
+  if(!calendarCursor) return;
+  calendarCursor=new Date(
+    calendarCursor.getFullYear(),
+    calendarCursor.getMonth()-1,
+    1
+  );
+  selectedCalendarDuty=null;
+  renderCalendarView();
+});
+
+$("#calendarNext")?.addEventListener("click",()=>{
+  if(!calendarCursor) return;
+  calendarCursor=new Date(
+    calendarCursor.getFullYear(),
+    calendarCursor.getMonth()+1,
+    1
+  );
+  selectedCalendarDuty=null;
+  renderCalendarView();
+});
+
+$("#calendarToday")?.addEventListener("click",()=>{
+  const loaded=loadedRosterMonth()||new Date();
+  calendarCursor=new Date(loaded.getFullYear(),loaded.getMonth(),1);
+  selectedCalendarDuty=null;
+  renderCalendarView();
+});
+
+$("#calendarThemeButton")?.addEventListener("click",()=>themeToggle?.click());
+
+$("#calendarFilters")?.addEventListener("click",()=>{
+  document.querySelector(".calendar-legend")?.classList.toggle("filters-open");
+});
+
+document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    const category=button.dataset.filter;
+    if(calendarFiltersEnabled.has(category)){
+      calendarFiltersEnabled.delete(category);
+      button.classList.add("disabled");
+    }else{
+      calendarFiltersEnabled.add(category);
+      button.classList.remove("disabled");
+    }
+    selectedCalendarDuty=null;
+    renderCalendarView();
+  });
+});
+
 $("#selectedDetailsBtn")?.addEventListener("click",()=>{
-  if(!selectedCalendarDuty)return;
+  if(!selectedCalendarDuty) return;
   activeNextDuty=selectedCalendarDuty;
   openDutyDetails();
 });

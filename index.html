@@ -161,76 +161,128 @@
 </section>
 </div>
 
+
 <section class="calendar-view hidden" id="calendarView" aria-label="Calendar roster view">
-  <div class="calendar-profile">
-    <div class="calendar-avatar" id="calendarAvatar">CV</div>
-    <div class="calendar-profile-copy">
-      <strong id="calendarName">—</strong>
-      <span id="calendarMeta">—</span>
-    </div>
-    <div class="calendar-stats">
-      <span><strong id="calendarFH">00:00</strong><small>Block Hrs</small></span>
-      <span><strong id="calendarDH">00:00</strong><small>Duty Hrs</small></span>
-      <span><strong id="calendarOff">0</strong><small>Off Days</small></span>
-    </div>
-  </div>
+  <div class="calendar-app-shell">
+    <header class="calendar-app-header">
+      <div class="calendar-brand">
+        <span class="calendar-brand-plane">✈</span>
+        <div>
+          <strong>CrewView</strong>
+          <small>Your Roster. Your View.</small>
+        </div>
+      </div>
 
-  <div class="calendar-card">
-    <div class="calendar-toolbar">
-      <button type="button" class="calendar-nav" id="calendarPrev" aria-label="Previous month">‹</button>
-      <div>
-        <small id="calendarPrevLabel">Previous</small>
-      </div>
-      <h2 id="calendarMonthTitle">Month</h2>
-      <div class="calendar-next-label"><small id="calendarNextLabel">Next</small></div>
-      <button type="button" class="calendar-nav" id="calendarNext" aria-label="Next month">›</button>
-    </div>
-    <div class="calendar-actions">
-      <button type="button" class="calendar-today" id="calendarToday">▣ Today</button>
-      <span class="calendar-help">Tap any duty to view details</span>
-    </div>
-    <div class="calendar-legend">
-      <span><i class="cal-dot flight"></i>Flight Duty</span>
-      <span><i class="cal-dot off"></i>Day Off</span>
-      <span><i class="cal-dot standby"></i>Standby</span>
-      <span><i class="cal-dot leave"></i>Leave</span>
-      <span><i class="cal-dot training"></i>DSA / Training</span>
-      <span><i class="cal-dot simulator"></i>Simulator</span>
-      <span><i class="cal-dot admin"></i>Office / Admin</span>
-    </div>
-    <div class="calendar-weekdays" aria-hidden="true">
-      <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
-    </div>
-    <div class="calendar-grid" id="calendarGrid"></div>
-  </div>
+      <nav class="calendar-mode-tabs" aria-label="Roster mode">
+        <button type="button" data-calendar-mode="classic">Classic</button>
+        <button type="button" class="active" data-calendar-mode="calendar">Calendar</button>
+        <button type="button" class="timeline-coming" disabled>
+          Timeline <em>NEW</em>
+        </button>
+      </nav>
 
-  <section class="calendar-selected hidden" id="calendarSelected">
-    <div class="selected-date">
-      <small id="selectedWeekday">—</small>
-      <strong id="selectedDay">—</strong>
-      <span id="selectedMonthYear">—</span>
-    </div>
-    <div class="selected-main">
-      <div>
-        <h3 id="selectedItem">—</h3>
-        <p id="selectedRoute">—</p>
-        <small id="selectedAircraft">—</small>
+      <div class="calendar-header-actions">
+        <button type="button" id="calendarThemeButton" aria-label="Switch appearance">☀</button>
+        <button type="button" aria-label="Help">?</button>
+        <button type="button" aria-label="More options">⋮</button>
       </div>
-      <div class="selected-times">
-        <span><small>Report</small><strong id="selectedReport">—</strong></span>
-        <span><small>Departure</small><strong id="selectedDeparture">—</strong></span>
-        <span><small>Arrival</small><strong id="selectedArrival">—</strong></span>
-        <span><small>Duty End</small><strong id="selectedDutyEnd">—</strong></span>
+    </header>
+
+    <section class="calendar-profile">
+      <div class="calendar-avatar" id="calendarAvatar">CV</div>
+      <div class="calendar-profile-copy">
+        <strong id="calendarName">—</strong>
+        <span id="calendarMeta">—</span>
       </div>
-    </div>
-    <div class="selected-metrics">
-      <span><small>Block Time</small><strong id="selectedBlock">—</strong></span>
-      <span><small>Duty Time</small><strong id="selectedDuty">—</strong></span>
-      <span><small>Work Type</small><strong id="selectedWork">—</strong></span>
-    </div>
-    <button type="button" class="btn primary selected-details-btn" id="selectedDetailsBtn">View Duty Details ›</button>
-  </section>
+      <div class="calendar-stats">
+        <span><b>◷</b><strong id="calendarFH">00:00</strong><small>Block Hrs</small></span>
+        <span><b>▣</b><strong id="calendarDH">00:00</strong><small>Duty Hrs</small></span>
+        <span><b>▤</b><strong id="calendarOff">0</strong><small>Off Days</small></span>
+      </div>
+    </section>
+
+    <section class="calendar-content">
+      <div class="calendar-month-bar">
+        <button type="button" class="month-side previous" id="calendarPrev">
+          <span>‹</span><small id="calendarPrevLabel">Previous</small>
+        </button>
+
+        <h2 id="calendarMonthTitle">Month</h2>
+
+        <button type="button" class="month-side next" id="calendarNext">
+          <small id="calendarNextLabel">Next</small><span>›</span>
+        </button>
+      </div>
+
+      <div class="calendar-tools">
+        <button type="button" class="calendar-tool" id="calendarToday">▣&nbsp; Today</button>
+        <button type="button" class="calendar-tool" id="calendarFilters">▽&nbsp; Filters</button>
+      </div>
+
+      <div class="calendar-legend">
+        <button type="button" data-filter="flight"><i class="cal-dot flight"></i>Flight Duty</button>
+        <button type="button" data-filter="off"><i class="cal-dot off"></i>Day Off</button>
+        <button type="button" data-filter="standby"><i class="cal-dot standby"></i>Standby</button>
+        <button type="button" data-filter="leave"><i class="cal-dot leave"></i>Leave</button>
+        <button type="button" data-filter="training"><i class="cal-dot training"></i>DSA / Training</button>
+        <button type="button" data-filter="simulator"><i class="cal-dot simulator"></i>Simulator</button>
+        <button type="button" data-filter="admin"><i class="cal-dot admin"></i>Office / Admin</button>
+      </div>
+
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>MON</span><span>TUE</span><span>WED</span><span>THU</span>
+        <span>FRI</span><span>SAT</span><span>SUN</span>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+
+      <section class="calendar-selected hidden" id="calendarSelected">
+        <div class="selected-drag" aria-hidden="true"></div>
+
+        <div class="selected-layout">
+          <div class="selected-date">
+            <small id="selectedWeekday">—</small>
+            <strong id="selectedDay">—</strong>
+            <span id="selectedMonthYear">—</span>
+          </div>
+
+          <div class="selected-flight">
+            <div class="selected-flight-title">
+              <h3 id="selectedItem">—</h3>
+              <b id="selectedWorkBadge">—</b>
+            </div>
+            <p id="selectedRoute">—</p>
+            <small id="selectedAircraft">—</small>
+          </div>
+
+          <div class="selected-times">
+            <span><small>Report</small><strong id="selectedReport">—</strong><em id="selectedReportStation">—</em></span>
+            <span><small>Departure</small><strong id="selectedDepartureTime">—</strong><em id="selectedDepartureStation">—</em></span>
+            <span><small>Arrival</small><strong id="selectedArrivalTime">—</strong><em id="selectedArrivalStation">—</em></span>
+            <span><small>Duty End</small><strong id="selectedDutyEnd">—</strong><em id="selectedDutyEndStation">—</em></span>
+          </div>
+
+          <div class="selected-metrics">
+            <span><b>◷</b><small>Block Time</small><strong id="selectedBlock">—</strong></span>
+            <span><b>▣</b><small>Duty Time</small><strong id="selectedDuty">—</strong></span>
+            <span><b>⌁</b><small>Work Type</small><strong id="selectedWork">—</strong></span>
+          </div>
+
+          <button type="button" class="selected-details-btn" id="selectedDetailsBtn">
+            ▤&nbsp; View Duty Details <span>›</span>
+          </button>
+        </div>
+      </section>
+    </section>
+
+    <nav class="calendar-bottom-nav" aria-label="CrewView navigation">
+      <button type="button" data-calendar-mode="classic"><span>▧</span><small>Roster</small></button>
+      <button type="button" class="active"><span>▣</span><small>Calendar</small></button>
+      <button type="button" disabled><span>▥</span><small>Summary</small></button>
+      <button type="button" disabled><span>⚙</span><small>Settings</small></button>
+    </nav>
+  </div>
 </section>
+
 </main>
 <footer>
   <button class="btn primary" id="printBtn">Save PDF</button>

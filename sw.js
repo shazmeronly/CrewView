@@ -1,4 +1,4 @@
-const CACHE = "crewview-calendar-v58";
+const CACHE = "crewview-calendar-exact-photo-v59";
 const ASSETS = [
   "./",
   "./index.html",
