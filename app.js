@@ -60,12 +60,14 @@ function applyOnePageFit(){
 
 function rowHTML(r={}){
   const continuation=r._overnightContinuation ? "1" : "";
+  const syntheticCalendarRow=r._syntheticCalendarRow ? "1" : "";
   const dutyGroup=esc(r._dutyGroup||"");
   const sectorIndex=Number.isFinite(r._sectorIndex) ? String(r._sectorIndex) : "";
   const sectorCount=Number.isFinite(r._sectorCount) ? String(r._sectorCount) : "";
 
   return `<tr
     data-overnight-continuation="${continuation}"
+    data-synthetic-calendar-row="${syntheticCalendarRow}"
     data-duty-group="${dutyGroup}"
     data-sector-index="${sectorIndex}"
     data-sector-count="${sectorCount}"
@@ -134,6 +136,8 @@ function getRows(){
       [...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])
     );
     row._overnightContinuation=tr.dataset.overnightContinuation==="1";
+    row._syntheticCalendarRow=
+      tr.dataset.syntheticCalendarRow==="1";
     row._dutyGroup=tr.dataset.dutyGroup||"";
 
     if(tr.dataset.sectorIndex!==""){
@@ -149,11 +153,30 @@ function getRows(){
 function toMinutes(t){let m=String(t||"").match(/(\d{1,3}):(\d{2})/);return m?(+m[1]*60+ +m[2]):0}
 function hhmm(n){return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`}
 function updateStats(){
-  const rows=getRows(); let fh=0,dh=0,off=0;
-  rows.forEach(r=>{fh+=toMinutes(r.block);dh+=toMinutes(r.duty);if((r.item||"").trim()==="D")off++});
+  const rows=getRows();
+  let fh=0;
+  let dh=0;
+  const genuineOffDates=new Set();
+
+  rows.forEach(row=>{
+    fh+=toMinutes(row.block);
+    dh+=toMinutes(row.duty);
+
+    const item=String(row.item||"").trim().toUpperCase();
+
+    if(
+      !row._overnightContinuation &&
+      !row._syntheticCalendarRow &&
+      ["D","DO","OFF"].includes(item) &&
+      String(row.date||"").trim()
+    ){
+      genuineOffDates.add(row.date);
+    }
+  });
+
   $("#fh").textContent=officialFH || hhmm(fh);
   $("#dh").textContent=officialDH || hhmm(dh);
-  $("#off").textContent=off;
+  $("#off").textContent=genuineOffDates.size;
 }
 tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty()});
 
@@ -757,7 +780,9 @@ function markRemainingBlankDaysAsOff(rows){
     if(!hasDutyInformation){
       return {
         ...row,
-        item:"D"
+        item:"D",
+        _syntheticCalendarRow:
+          row._syntheticCalendarRow===true
       };
     }
 
@@ -876,8 +901,15 @@ function fillEveryDay(rows=getRows()){
   for(let n=1;n<=days;n++){
     const d=new Date(year,month,n), key=fmtDate(d);
     const arr=byDate.get(key);
-    if(arr?.length) arr.forEach(r=>full.push({...r,date:key,day:dayName(key)}));
-    else full.push({date:key,day:dayName(key)});
+    if(arr?.length){
+      arr.forEach(r=>full.push({...r,date:key,day:dayName(key)}));
+    }else{
+      full.push({
+        date:key,
+        day:dayName(key),
+        _syntheticCalendarRow:true
+      });
+    }
   }
   return full;
 }
