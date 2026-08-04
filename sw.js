@@ -1,4 +1,4 @@
-const CACHE = "crewview-calendar-profile-header-fix-v75";
+const CACHE = "crewview-seamless-view-transition-v76";
 const ASSETS = [
   "./",
   "./index.html",

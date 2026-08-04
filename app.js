@@ -2599,6 +2599,11 @@ async function parsePDF(file){
 
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";
+const crewViewScrollPositions={
+  classic:0,
+  calendar:0
+};
+let crewViewTransitionTimer=null;
 let calendarCursor=null;
 let selectedCalendarDuty=null;
 const calendarFiltersEnabled=new Set([
@@ -3228,28 +3233,70 @@ document.addEventListener("keydown",event=>{
 });
 
 function switchRosterView(view){
+  if(view===crewViewMode) return;
+
   closeCalendarDutyOverlay();
-  crewViewMode=view;
-  const calendar=view==="calendar";
+  closeCalendarViewSheet?.();
 
-  $("#classicView")?.classList.toggle("hidden",calendar);
-  $("#calendarView")?.classList.toggle("hidden",!calendar);
-  document.body.classList.toggle("calendar-mode",calendar);
+  const previousView=crewViewMode;
+  const previousElement=previousView==="calendar"
+    ? $("#calendarView")
+    : $("#classicView");
+  const nextElement=view==="calendar"
+    ? $("#calendarView")
+    : $("#classicView");
 
-  document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
-    tab.classList.toggle("active",tab.dataset.view===view)
-  );
+  crewViewScrollPositions[previousView]=window.scrollY||0;
 
-  localStorage.setItem("crewview-roster-view",view);
+  clearTimeout(crewViewTransitionTimer);
+  document.body.classList.add("view-transitioning");
+  previousElement?.classList.add("view-leaving");
 
-  if(calendar){
-    calendarCursor=loadedRosterMonth();
-    selectedCalendarDuty=null;
-    renderCalendarView();
-    window.scrollTo({top:0,behavior:"smooth"});
-  }else{
-    setTimeout(applyOnePageFit,0);
-  }
+  crewViewTransitionTimer=setTimeout(()=>{
+    crewViewMode=view;
+    const calendar=view==="calendar";
+
+    $("#classicView")?.classList.toggle("hidden",calendar);
+    $("#calendarView")?.classList.toggle("hidden",!calendar);
+    document.body.classList.toggle("calendar-mode",calendar);
+
+    document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+      tab.classList.toggle("active",tab.dataset.view===view)
+    );
+
+    localStorage.setItem("crewview-roster-view",view);
+
+    previousElement?.classList.remove("view-leaving");
+    nextElement?.classList.add("view-entering");
+
+    if(calendar){
+      calendarCursor=loadedRosterMonth();
+      selectedCalendarDuty=null;
+      renderCalendarView({suppressAutoSelect:false});
+
+      requestAnimationFrame(()=>{
+        window.scrollTo({
+          top:crewViewScrollPositions.calendar||0,
+          behavior:"auto"
+        });
+      });
+    }else{
+      requestAnimationFrame(()=>{
+        applyOnePageFit();
+        window.scrollTo({
+          top:crewViewScrollPositions.classic||0,
+          behavior:"auto"
+        });
+      });
+    }
+
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        nextElement?.classList.remove("view-entering");
+        document.body.classList.remove("view-transitioning");
+      });
+    });
+  },170);
 }
 
 document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
@@ -3501,7 +3548,7 @@ $("#clearBtn")?.addEventListener("click",event=>{
   if(fileInput) fileInput.value="";
 
   status.textContent="No roster loaded.";
-  window.scrollTo({top:0,behavior:"smooth"});
+  
 });
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
 $("#printBtn").onclick=()=>{

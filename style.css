@@ -3817,3 +3817,84 @@ body.calendar-no-today-highlight .calendar-today-dot{
     font-size:7px !important;
   }
 }
+
+
+/* =========================================================
+   CrewView v2.1 — seamless Classic ↔ Calendar transition
+   ========================================================= */
+
+#classicView,
+#calendarView{
+  transform-origin:50% 18%;
+  transition:
+    opacity .22s ease,
+    transform .22s cubic-bezier(.22,.8,.28,1),
+    filter .22s ease;
+}
+
+#classicView.view-leaving,
+#calendarView.view-leaving{
+  opacity:0;
+  transform:translateY(7px) scale(.992);
+  filter:blur(2px);
+  pointer-events:none;
+}
+
+#classicView.view-entering,
+#calendarView.view-entering{
+  opacity:0;
+  transform:translateY(-7px) scale(.992);
+  filter:blur(2px);
+}
+
+body.view-transitioning{
+  overflow:hidden;
+}
+
+body.view-transitioning::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:999;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 18%,rgba(44,135,255,.06),transparent 35%);
+  opacity:.65;
+  animation:crewViewTransitionGlow .34s ease both;
+}
+
+@keyframes crewViewTransitionGlow{
+  0%,100%{ opacity:0; }
+  45%{ opacity:.65; }
+}
+
+/* Keep both view selectors visually related. */
+.view-switcher,
+.calendar-mode-tabs{
+  transition:
+    background .22s ease,
+    border-color .22s ease,
+    box-shadow .22s ease;
+}
+
+/* Avoid an abrupt height collapse while changing views. */
+main{
+  min-height:100vh;
+}
+
+/* Reduce motion when requested in Calendar Settings or OS settings. */
+body.calendar-no-animations #classicView,
+body.calendar-no-animations #calendarView,
+body.calendar-no-animations.view-transitioning::after{
+  transition:none !important;
+  animation:none !important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  #classicView,
+  #calendarView,
+  body.view-transitioning::after{
+    transition:none !important;
+    animation:none !important;
+  }
+}
