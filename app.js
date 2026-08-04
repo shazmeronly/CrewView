@@ -440,6 +440,26 @@ function validateKnownRoster(rows){
   };
 }
 
+
+function updateRosterSourceNote(){
+  const note=$("#rosterSourceNote");
+  if(!note) return;
+
+  const now=new Date();
+  const historical=Boolean(
+    officialRosterPeriod?.end &&
+    officialRosterPeriod.end < new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    )
+  );
+
+  note.textContent=historical
+    ? "Hours and duties are from the uploaded roster PDF snapshot, not the live iFlight Actual Roster."
+    : "Hours and duties are taken from the uploaded roster PDF.";
+}
+
 function renderValidation(result){
   const element=$("#validationResult");
   if(!element) return;
@@ -492,6 +512,7 @@ function parseHeader(text){
   if(fh){officialFH=fh[1];$("#fh").textContent=officialFH;}
   if(dh){officialDH=dh[1];$("#dh").textContent=officialDH;}
   updateCompactProfile();
+  updateRosterSourceNote();
 }
 function closest(items, xMin,xMax, y, tol=9){
   return items.filter(i=>i.x>=xMin&&i.x<xMax&&Math.abs(i.y-y)<=tol)
@@ -1905,6 +1926,22 @@ function buildCompleteDuty(rows,index){
 
 function getUpcomingDuty(rows){
   const now=new Date();
+
+  /*
+   * A historical roster cannot contain a real upcoming duty. Hiding the card
+   * prevents an old June duty being presented as "Next Duty" in August.
+   */
+  if(
+    officialRosterPeriod?.end &&
+    officialRosterPeriod.end < new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    )
+  ){
+    return null;
+  }
+
   const candidates=[];
 
   rows.forEach((row,index)=>{
@@ -2499,6 +2536,7 @@ async function parsePDF(file){
   });
 
   setRows(allRows);
+  updateRosterSourceNote();
 
   const validation=validateKnownRoster(allRows);
   renderValidation(validation);
