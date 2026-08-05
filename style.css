@@ -4361,3 +4361,135 @@ html,body{
   .calendar-duty-report,.calendar-duty-departure{font-size:5.4px;}
   .calendar-day.training{min-height:100px !important;}
 }
+
+
+/* =========================================================
+   CrewView v2.8 — seamless two-way Classic ↔ Calendar switch
+   ========================================================= */
+
+/*
+ * Both destination views are prepared before the visual transition.
+ * This prevents Calendar from appearing only after Classic disappears.
+ */
+#classicView.view-preparing,
+#calendarView.view-preparing{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:-1 !important;
+  width:100% !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+body.view-transitioning{
+  overflow:hidden !important;
+}
+
+/* Direction-aware content motion */
+body.transition-to-calendar #classicView.view-leaving{
+  opacity:0 !important;
+  transform:translateX(-18px) scale(.992) !important;
+  filter:blur(1.5px) !important;
+}
+
+body.transition-to-calendar #calendarView.view-entering{
+  opacity:0;
+  transform:translateX(18px) scale(.992);
+  filter:blur(1.5px);
+}
+
+body.transition-to-classic #calendarView.view-leaving{
+  opacity:0 !important;
+  transform:translateX(18px) scale(.992) !important;
+  filter:blur(1.5px) !important;
+}
+
+body.transition-to-classic #classicView.view-entering{
+  opacity:0;
+  transform:translateX(-18px) scale(.992);
+  filter:blur(1.5px);
+}
+
+#classicView.view-entering,
+#calendarView.view-entering{
+  animation:crewViewEnter .38s cubic-bezier(.22,.8,.28,1) both;
+}
+
+#classicView.view-leaving,
+#calendarView.view-leaving{
+  animation:crewViewLeave .19s ease both;
+  pointer-events:none;
+}
+
+@keyframes crewViewEnter{
+  0%{
+    opacity:0;
+    filter:blur(1.5px);
+  }
+  100%{
+    opacity:1;
+    transform:translateX(0) scale(1);
+    filter:blur(0);
+  }
+}
+
+@keyframes crewViewLeave{
+  from{opacity:1;}
+  to{opacity:0;}
+}
+
+/*
+ * A subtle glass veil hides the unavoidable global header/layout swap,
+ * then clears as the destination view settles.
+ */
+body.view-transitioning::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:998;
+  pointer-events:none;
+  opacity:0;
+  background:
+    radial-gradient(circle at 50% 18%,rgba(38,135,255,.10),transparent 38%),
+    rgba(5,14,23,.10);
+  backdrop-filter:blur(0);
+  -webkit-backdrop-filter:blur(0);
+  transition:
+    opacity .18s ease,
+    backdrop-filter .18s ease,
+    -webkit-backdrop-filter .18s ease;
+}
+
+body.view-transitioning:not(.view-transition-swapped)::before{
+  opacity:1;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+
+body.view-transition-swapped::before{
+  opacity:0;
+  backdrop-filter:blur(0);
+  -webkit-backdrop-filter:blur(0);
+}
+
+/* Disable the older glow layer so the two effects do not fight. */
+body.view-transitioning::after{
+  display:none !important;
+}
+
+body.calendar-no-animations #classicView,
+body.calendar-no-animations #calendarView,
+body.calendar-no-animations.view-transitioning::before{
+  animation:none !important;
+  transition:none !important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  #classicView,
+  #calendarView,
+  body.view-transitioning::before{
+    animation:none !important;
+    transition:none !important;
+  }
+}

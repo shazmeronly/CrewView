@@ -3318,70 +3318,87 @@ function showValidationToast(message){
 }
 
 function switchRosterView(view){
-  if(view===crewViewMode) return;
+  if(view===crewViewMode || document.body.classList.contains("view-transitioning")){
+    return;
+  }
 
   closeCalendarDutyOverlay();
   closeCalendarViewSheet?.();
 
   const previousView=crewViewMode;
+  const goingToCalendar=view==="calendar";
   const previousElement=previousView==="calendar"
     ? $("#calendarView")
     : $("#classicView");
-  const nextElement=view==="calendar"
+  const nextElement=goingToCalendar
     ? $("#calendarView")
     : $("#classicView");
 
   crewViewScrollPositions[previousView]=window.scrollY||0;
-
   clearTimeout(crewViewTransitionTimer);
-  document.body.classList.add("view-transitioning");
-  previousElement?.classList.add("view-leaving");
 
-  crewViewTransitionTimer=setTimeout(()=>{
-    crewViewMode=view;
-    const calendar=view==="calendar";
-
-    $("#classicView")?.classList.toggle("hidden",calendar);
-    $("#calendarView")?.classList.toggle("hidden",!calendar);
-    document.body.classList.toggle("calendar-mode",calendar);
-
-    document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
-      tab.classList.toggle("active",tab.dataset.view===view)
-    );
-
-    localStorage.setItem("crewview-roster-view",view);
-
-    previousElement?.classList.remove("view-leaving");
-    nextElement?.classList.add("view-entering");
-
-    if(calendar){
+  /*
+   * Prepare the destination before the animation starts.
+   * Previously Calendar was rendered only after Classic had disappeared,
+   * which caused the sudden jump in the Classic → Calendar direction.
+   */
+  if(goingToCalendar){
+    if(!calendarCursor){
       calendarCursor=loadedRosterMonth();
-      selectedCalendarDuty=null;
-      renderCalendarView({suppressAutoSelect:false});
-
-      requestAnimationFrame(()=>{
-        window.scrollTo({
-          top:crewViewScrollPositions.calendar||0,
-          behavior:"auto"
-        });
-      });
-    }else{
-      requestAnimationFrame(()=>{
-        applyOnePageFit();
-        window.scrollTo({
-          top:crewViewScrollPositions.classic||0,
-          behavior:"auto"
-        });
-      });
     }
+    selectedCalendarDuty=null;
+    $("#calendarView")?.classList.remove("hidden");
+    $("#calendarView")?.classList.add("view-preparing");
+    renderCalendarView({suppressAutoSelect:false});
+  }else{
+    $("#classicView")?.classList.remove("hidden");
+    $("#classicView")?.classList.add("view-preparing");
+    applyOnePageFit();
+  }
 
+  document.body.classList.add(
+    "view-transitioning",
+    goingToCalendar ? "transition-to-calendar" : "transition-to-classic"
+  );
+
+  requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        nextElement?.classList.remove("view-entering");
-        document.body.classList.remove("view-transitioning");
-      });
+      nextElement?.classList.remove("view-preparing");
+      nextElement?.classList.add("view-entering");
+      previousElement?.classList.add("view-leaving");
+
+      crewViewTransitionTimer=setTimeout(()=>{
+        crewViewMode=view;
+        document.body.classList.toggle("calendar-mode",goingToCalendar);
+
+        document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+          tab.classList.toggle("active",tab.dataset.view===view)
+        );
+
+        localStorage.setItem("crewview-roster-view",view);
+
+        document.body.classList.add("view-transition-swapped");
+
+        requestAnimationFrame(()=>{
+          const destinationScroll=crewViewScrollPositions[view]||0;
+          window.scrollTo({top:destinationScroll,left:0,behavior:"auto"});
+        });
+
+        crewViewTransitionTimer=setTimeout(()=>{
+          previousElement?.classList.add("hidden");
+          previousElement?.classList.remove("view-leaving");
+          nextElement?.classList.remove("view-entering");
+
+          document.body.classList.remove(
+            "view-transitioning",
+            "view-transition-swapped",
+            "transition-to-calendar",
+            "transition-to-classic"
+          );
+        },190);
+      },190);
     });
-  },170);
+  });
 }
 
 document.querySelectorAll(".view-tab[data-view]").forEach(tab=>

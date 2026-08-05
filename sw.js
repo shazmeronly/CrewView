@@ -1,4 +1,4 @@
-const CACHE = "crewview-stable-ui-fix-v83";
+const CACHE = "crewview-seamless-bidirectional-transition-v83";
 const ASSETS = [
   "./",
   "./index.html",
