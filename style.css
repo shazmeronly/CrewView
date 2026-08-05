@@ -4684,3 +4684,8 @@ html[data-theme="dark"] .itinerary-shell,html[data-theme="dark"] .itinerary-card
 @media(max-width:720px){.itinerary-view{padding:0 8px}.itinerary-header{align-items:flex-start;padding:14px;flex-direction:column}.itinerary-summary{width:100%}.itinerary-summary span{flex:1;min-width:0}.itinerary-table-wrap{display:none}.itinerary-mobile-list{display:block}.itinerary-header h2{font-size:21px}}
 body.itinerary-mode #nextDutyCard,body.itinerary-mode #compactProfile{display:none!important}
 @media print{#itineraryView{display:none!important}}
+
+/* iOS-safe native roster file picker: the real file input covers the visible button. */
+.native-file-picker{position:relative;display:inline-block;max-width:100%;}
+.native-file-picker .btn{display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.native-file-picker input[type="file"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0;z-index:2;}

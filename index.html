@@ -47,8 +47,10 @@
     <div style="font-size:36px">📄</div>
     <strong>Upload Current Roster</strong>
     <p class="help compact-help">The file is processed inside your browser. It is not uploaded anywhere.</p>
-    <label class="btn primary" for="pdfInput">Load Current Roster</label>
-    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
+    <div class="native-file-picker">
+      <span class="btn primary">Load Current Roster</span>
+      <input id="pdfInput" type="file" accept="application/pdf,.pdf" aria-label="Choose current roster PDF">
+    </div>
   </div>
   <div class="actions clean-actions">
     <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
