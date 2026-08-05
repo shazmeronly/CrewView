@@ -40,7 +40,7 @@
 <nav class="view-switcher hidden" id="viewSwitcher" aria-label="Roster view">
   <button class="view-tab active" type="button" data-view="classic">Classic</button>
   <button class="view-tab" type="button" data-view="calendar">Calendar</button>
-  <button class="view-tab timeline-tab" type="button" disabled>Timeline <small>SOON</small></button>
+  <button class="view-tab" type="button" data-view="itinerary">Itinerary</button>
 </nav>
 <section class="card upload-card" id="uploadCard">
   <div class="drop">
@@ -172,6 +172,33 @@
 </div>
 
 
+<section class="itinerary-view hidden" id="itineraryView" aria-label="Itinerary roster view">
+  <div class="itinerary-shell">
+    <header class="itinerary-header">
+      <div>
+        <small>OLD-STYLE ROSTER</small>
+        <h2 id="itineraryMonthTitle">Itinerary</h2>
+        <p id="itineraryProfile">—</p>
+      </div>
+      <div class="itinerary-summary">
+        <span><small>Block</small><strong id="itineraryFH">00:00</strong></span>
+        <span><small>Duty</small><strong id="itineraryDH">00:00</strong></span>
+        <span><small>Off</small><strong id="itineraryOff">0</strong></span>
+      </div>
+    </header>
+    <div class="itinerary-table-wrap">
+      <table class="itinerary-table">
+        <thead><tr>
+          <th>Date</th><th>Day</th><th>Duty Start</th><th>Item</th><th>Dep/Start</th>
+          <th>Arr/End</th><th>Duty End</th><th>Work</th><th>Block</th><th>Duty</th><th>A/C</th>
+        </tr></thead>
+        <tbody id="itineraryTableBody"></tbody>
+      </table>
+    </div>
+    <div class="itinerary-mobile-list" id="itineraryMobileList"></div>
+  </div>
+</section>
+
 <section class="calendar-view hidden" id="calendarView" aria-label="Calendar roster view">
   <div class="calendar-app-shell">
     <header class="calendar-app-header">
@@ -186,9 +213,7 @@
       <nav class="calendar-mode-tabs" aria-label="Roster mode">
         <button type="button" data-calendar-mode="classic">Classic</button>
         <button type="button" class="active" data-calendar-mode="calendar">Calendar</button>
-        <button type="button" class="timeline-coming" disabled>
-          Timeline <em>NEW</em>
-        </button>
+        <button type="button" data-calendar-mode="itinerary">Itinerary</button>
       </nav>
 
       <div class="calendar-header-actions">

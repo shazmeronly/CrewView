@@ -161,6 +161,7 @@ function setRows(rows){
   updateStats();
   renderNextDuty();
   renderCalendarView();
+  renderItineraryView();
   setTimeout(applyOnePageFit,0);
 }
 function getRows(){
@@ -241,7 +242,7 @@ function updateStats(){
   $("#dh").textContent=officialDH || hhmm(dh);
   $("#off").textContent=offDates.size;
 }
-tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView()});
+tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView();if(crewViewMode==="itinerary")renderItineraryView()});
 
 
 function updateCompactProfile(){
@@ -2609,9 +2610,11 @@ async function parsePDF(file){
   document.body.classList.remove("view-transitioning");
   $("#classicView")?.classList.remove("view-entering","view-leaving");
   $("#calendarView")?.classList.remove("view-entering","view-leaving");
+  $("#itineraryView")?.classList.remove("view-entering","view-leaving");
   crewViewMode="classic";
   $("#classicView")?.classList.remove("hidden");
   $("#calendarView")?.classList.add("hidden");
+  $("#itineraryView")?.classList.add("hidden");
   document.body.classList.remove("calendar-mode");
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
     tab.classList.toggle("active",tab.dataset.view==="classic")
@@ -2657,7 +2660,8 @@ async function parsePDF(file){
 let crewViewMode="classic";
 const crewViewScrollPositions={
   classic:0,
-  calendar:0
+  calendar:0,
+  itinerary:0
 };
 let crewViewTransitionTimer=null;
 let calendarCursor=null;
@@ -3317,66 +3321,106 @@ function showValidationToast(message){
   },3000);
 }
 
+
+function itineraryKind(row){
+  const item=String(row.item||"").trim().toUpperCase();
+  const work=String(row.work||"").trim().toUpperCase();
+  if(row._layoverDay) return "layover";
+  if(["D","DO","DO1","OFF"].includes(item)) return "off";
+  if(item.includes("SIM")||item.includes("LPC")||item.includes("OPC")) return "simulator";
+  if(item==="DSA"||item.includes("TRAIN")||item.includes("GROUND")||item.includes("COURSE")) return "training";
+  if(work==="PS") return "positioning";
+  if(/^MH\d{2,4}$/i.test(item)) return "flight";
+  return item ? "other" : "empty";
+}
+
+function splitStationTime(value){
+  const text=String(value||"").trim();
+  const match=text.match(/^([A-Z]{3})\s+(.+)$/i);
+  return match ? {station:match[1].toUpperCase(),time:match[2]} : {station:"",time:text};
+}
+
+function renderItineraryView(){
+  const tableBody=$("#itineraryTableBody");
+  const mobileList=$("#itineraryMobileList");
+  if(!tableBody||!mobileList) return;
+
+  const rows=getRows();
+  const profileName=$("#name")?.value||"—";
+  const meta=[$("#staff")?.value,$("#rank")?.value,$("#fleet")?.value,$("#base")?.value].filter(Boolean).join(" · ");
+  const month=loadedRosterMonth?.();
+  $("#itineraryMonthTitle").textContent=month ? month.toLocaleString("en-US",{month:"long",year:"numeric"}) : "Itinerary";
+  $("#itineraryProfile").textContent=`${profileName}${meta?` · ${meta}`:""}`;
+  $("#itineraryFH").textContent=$("#fh")?.textContent||"00:00";
+  $("#itineraryDH").textContent=$("#dh")?.textContent||"00:00";
+  $("#itineraryOff").textContent=$("#off")?.textContent||"0";
+
+  tableBody.innerHTML=rows.map(row=>{
+    const kind=itineraryKind(row);
+    return `<tr class="itinerary-row kind-${kind}">${cols.map(c=>`<td>${esc(row[c]||"")}</td>`).join("")}</tr>`;
+  }).join("");
+
+  mobileList.innerHTML=rows.map(row=>{
+    const kind=itineraryKind(row);
+    const dep=splitStationTime(row.dep);
+    const arr=splitStationTime(row.arr);
+    const route=dep.station||arr.station ? `${dep.station||"—"} → ${arr.station||"—"}` : "";
+    const simple=["off","training","simulator","layover","other"].includes(kind) && !/^MH\d{2,4}$/i.test(String(row.item||""));
+    return `<article class="itinerary-card kind-${kind}">
+      <div class="itinerary-card-date"><strong>${esc(row.date||"")}</strong><span>${esc(row.day||"")}</span></div>
+      <div class="itinerary-card-main">
+        <div class="itinerary-card-title"><strong>${esc(row.item|| (kind==="layover"?"LAYOVER":"—"))}</strong>${row.work?`<span>${esc(row.work)}</span>`:""}</div>
+        ${route?`<div class="itinerary-route">${esc(route)}</div>`:""}
+        ${simple?`<div class="itinerary-simple-time">${esc(row.dutyStart||dep.time||"")}${row.dutyEnd?` – ${esc(row.dutyEnd)}`:""}</div>`:`<div class="itinerary-times">
+          <span><small>Report</small><b>${esc(row.dutyStart||"—")}</b></span>
+          <span><small>Depart</small><b>${esc(dep.time||"—")}</b></span>
+          <span><small>Arrive</small><b>${esc(arr.time||"—")}</b></span>
+          <span><small>Duty End</small><b>${esc(row.dutyEnd||"—")}</b></span>
+        </div>`}
+        <div class="itinerary-card-footer"><span>Block <b>${esc(row.block||"—")}</b></span><span>Duty <b>${esc(row.duty||"—")}</b></span><span>A/C <b>${esc(row.ac||"—")}</b></span></div>
+      </div>
+    </article>`;
+  }).join("");
+}
+
 function switchRosterView(view){
-  if(view===crewViewMode || document.body.classList.contains("view-switching")){
-    return;
-  }
+  if(!["classic","calendar","itinerary"].includes(view)) return;
+  if(view===crewViewMode || document.body.classList.contains("view-switching")) return;
 
   closeCalendarDutyOverlay();
   closeCalendarViewSheet?.();
-
   const previousView=crewViewMode;
-  const goingToCalendar=view==="calendar";
-
   crewViewScrollPositions[previousView]=window.scrollY||0;
   clearTimeout(crewViewTransitionTimer);
-
-  /*
-   * Fast transition strategy:
-   * 1. Add a very short soft cover.
-   * 2. Swap views immediately on the next animation frame.
-   * 3. Remove the cover straight away.
-   *
-   * No waiting for Calendar rendering and no native View Transition API,
-   * so the app never appears stuck.
-   */
   document.body.classList.add("view-switching","view-switch-cover");
 
   requestAnimationFrame(()=>{
     crewViewMode=view;
+    const classic=$("#classicView"), calendar=$("#calendarView"), itinerary=$("#itineraryView");
+    classic?.classList.toggle("hidden",view!=="classic");
+    calendar?.classList.toggle("hidden",view!=="calendar");
+    itinerary?.classList.toggle("hidden",view!=="itinerary");
+    document.body.classList.toggle("calendar-mode",view==="calendar");
+    document.body.classList.toggle("itinerary-mode",view==="itinerary");
 
-    if(goingToCalendar){
-      if(!calendarCursor){
-        calendarCursor=loadedRosterMonth();
-      }
-
+    if(view==="calendar"){
+      if(!calendarCursor) calendarCursor=loadedRosterMonth();
       selectedCalendarDuty=null;
-      $("#calendarView")?.classList.remove("hidden");
-      $("#classicView")?.classList.add("hidden");
-      document.body.classList.add("calendar-mode");
       renderCalendarView({suppressAutoSelect:false});
+    }else if(view==="itinerary"){
+      renderItineraryView();
     }else{
-      $("#classicView")?.classList.remove("hidden");
-      $("#calendarView")?.classList.add("hidden");
-      document.body.classList.remove("calendar-mode");
       applyOnePageFit();
     }
 
-    document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
-      tab.classList.toggle("active",tab.dataset.view===view)
-    );
-
+    document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.classList.toggle("active",tab.dataset.view===view));
+    document.querySelectorAll("[data-calendar-mode]").forEach(tab=>tab.classList.toggle("active",tab.dataset.calendarMode===view));
     localStorage.setItem("crewview-roster-view",view);
-
-    const destinationScroll=crewViewScrollPositions[view]||0;
-    window.scrollTo({top:destinationScroll,left:0,behavior:"auto"});
+    window.scrollTo({top:crewViewScrollPositions[view]||0,left:0,behavior:"auto"});
 
     requestAnimationFrame(()=>{
       document.body.classList.remove("view-switch-cover");
-
-      crewViewTransitionTimer=setTimeout(()=>{
-        document.body.classList.remove("view-switching");
-      },140);
+      crewViewTransitionTimer=setTimeout(()=>document.body.classList.remove("view-switching"),140);
     });
   });
 }
@@ -3385,8 +3429,8 @@ document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
   tab.addEventListener("click",()=>switchRosterView(tab.dataset.view))
 );
 
-document.querySelectorAll("[data-calendar-mode='classic']").forEach(button=>
-  button.addEventListener("click",()=>switchRosterView("classic"))
+document.querySelectorAll("[data-calendar-mode]").forEach(button=>
+  button.addEventListener("click",()=>switchRosterView(button.dataset.calendarMode))
 );
 
 $("#calendarPrev")?.addEventListener("click",()=>{
@@ -3637,6 +3681,7 @@ $("#clearBtn")?.addEventListener("click",event=>{
   switchRosterView("classic");
   calendarCursor=null;
   selectedCalendarDuty=null;
+  renderItineraryView();
 
   const fileInput=$("#pdfInput");
   if(fileInput) fileInput.value="";
