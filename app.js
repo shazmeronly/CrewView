@@ -1,4 +1,22 @@
 
+// Keep CrewView at the true top when the page is first opened or restored by iOS.
+if("scrollRestoration" in history){
+  history.scrollRestoration="manual";
+}
+function resetInitialViewport(){
+  window.scrollTo({top:0,left:0,behavior:"auto"});
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+}
+window.addEventListener("pageshow",()=>{
+  resetInitialViewport();
+  requestAnimationFrame(resetInitialViewport);
+},{once:true});
+document.addEventListener("DOMContentLoaded",()=>{
+  resetInitialViewport();
+  requestAnimationFrame(resetInitialViewport);
+},{once:true});
+
 const themeToggle=document.querySelector("#themeToggle");
 const themeIcon=document.querySelector("#themeIcon");
 const themeText=document.querySelector("#themeText");
@@ -3102,10 +3120,12 @@ function renderCalendarView(options={}){
             <div class="calendar-flight-departure">${esc(tile.departure||"")}</div>
           </div>
         ` : `
-          ${tile.title?`<strong>${esc(tile.title)}</strong>`:""}
-          ${tile.route?`<span class="calendar-day-route">${esc(tile.route)}</span>`:""}
-          ${tile.report?`<small class="calendar-report-time">${esc(tile.report)}</small>`:""}
-          ${tile.departure?`<small class="calendar-departure-time">${esc(tile.departure)}</small>`:""}
+          <div class="calendar-duty-info ${category}">
+            <div class="calendar-duty-title">${esc(tile.title||"")}</div>
+            <div class="calendar-duty-route">${esc(tile.route||"")}</div>
+            <div class="calendar-duty-report">${esc(tile.report||"")}</div>
+            <div class="calendar-duty-departure">${esc(tile.departure||"")}</div>
+          </div>
         `}
         ${(
           (calendarViewOptions.workType&&tile.footerLeft)||
@@ -3408,11 +3428,6 @@ $("#calendarToday")?.addEventListener("click",()=>{
 
     if(todayCell){
       todayCell.classList.add("today-flash");
-      todayCell.scrollIntoView({
-        behavior:"smooth",
-        block:"center",
-        inline:"center"
-      });
       setTimeout(()=>todayCell.classList.remove("today-flash"),1100);
     }else{
       const title=$("#calendarMonthTitle");

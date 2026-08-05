@@ -4281,3 +4281,83 @@ html[data-theme="light"] .validation-toast{
     transition:none !important;
   }
 }
+
+
+/* =========================================================
+   CrewView v2.7 — stable initial viewport and complete duty tiles
+   ========================================================= */
+html,body{
+  scroll-behavior:auto !important;
+  overscroll-behavior-y:none;
+}
+
+.calendar-duty-info{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  display:flex !important;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:flex-start;
+  margin-top:14px;
+  overflow:visible !important;
+}
+.calendar-duty-title,
+.calendar-duty-route,
+.calendar-duty-report,
+.calendar-duty-departure{
+  display:block !important;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  position:static !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  text-align:left;
+  box-sizing:border-box;
+}
+.calendar-duty-title{font-size:8px;line-height:1.08;font-weight:900;}
+.calendar-duty-route{margin-top:3px;font-size:6px;line-height:1.08;font-weight:700;}
+.calendar-duty-report,
+.calendar-duty-departure{margin-top:3px;font-size:5.8px;line-height:1.08;font-weight:760;}
+.calendar-duty-departure{opacity:.84 !important;}
+
+.calendar-day.training .calendar-duty-info,
+.calendar-day.training .calendar-duty-info > div,
+.calendar-day.simulator .calendar-duty-info,
+.calendar-day.simulator .calendar-duty-info > div,
+.calendar-day.admin .calendar-duty-info,
+.calendar-day.admin .calendar-duty-info > div,
+.calendar-day.continuation .calendar-duty-info,
+.calendar-day.continuation .calendar-duty-info > div,
+.calendar-day.leave .calendar-duty-info,
+.calendar-day.leave .calendar-duty-info > div,
+.calendar-day.off .calendar-duty-info,
+.calendar-day.off .calendar-duty-info > div{color:#fff !important;}
+.calendar-day.standby .calendar-duty-info,
+.calendar-day.standby .calendar-duty-info > div{color:#251d02 !important;text-shadow:none !important;}
+
+/* 17/18 August DSA and other training tiles get enough vertical room. */
+.calendar-day.training{
+  min-height:104px !important;
+}
+.calendar-day.training .calendar-duty-info{
+  margin-top:11px;
+}
+.calendar-day.training .calendar-duty-title{
+  font-size:8px;
+}
+.calendar-day.training .calendar-duty-report{
+  font-size:6px;
+}
+
+@media(max-width:540px){
+  .calendar-duty-info{margin-top:11px;}
+  .calendar-duty-title{font-size:7px;}
+  .calendar-duty-route{font-size:5.5px;}
+  .calendar-duty-report,.calendar-duty-departure{font-size:5.4px;}
+  .calendar-day.training{min-height:100px !important;}
+}

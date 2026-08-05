@@ -1,4 +1,4 @@
-const CACHE = "crewview-validation-toast-v82";
+const CACHE = "crewview-stable-ui-fix-v83";
 const ASSETS = [
   "./",
   "./index.html",
