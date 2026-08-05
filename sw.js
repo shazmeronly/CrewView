@@ -1,5 +1,4 @@
-// upload-picker-fix-v1
-const CACHE = "crewview-itinerary-v88-runtime-fix";
+const CACHE = "crewview-refined-light-mode-v86";
 const ASSETS = [
   "./",
   "./index.html",
