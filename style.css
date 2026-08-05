@@ -4689,3 +4689,8 @@ body.itinerary-mode #nextDutyCard,body.itinerary-mode #compactProfile{display:no
 .native-file-picker{position:relative;display:inline-block;max-width:100%;}
 .native-file-picker .btn{display:flex;align-items:center;justify-content:center;pointer-events:none;}
 .native-file-picker input[type="file"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0;z-index:2;}
+
+/* Reliable iOS file picker: label activates the native input even before app.js loads. */
+.native-file-picker{position:relative;display:inline-flex;max-width:100%;cursor:pointer;}
+.native-file-picker input[type="file"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:5;}
+.native-file-picker .btn{pointer-events:none;}

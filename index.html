@@ -47,10 +47,10 @@
     <div style="font-size:36px">📄</div>
     <strong>Upload Current Roster</strong>
     <p class="help compact-help">The file is processed inside your browser. It is not uploaded anywhere.</p>
-    <div class="native-file-picker">
+    <label class="native-file-picker" for="pdfInput">
       <span class="btn primary">Load Current Roster</span>
       <input id="pdfInput" type="file" accept="application/pdf,.pdf" aria-label="Choose current roster PDF">
-    </div>
+    </label>
   </div>
   <div class="actions clean-actions">
     <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
@@ -365,7 +365,6 @@
   <button class="btn primary" id="printBtn">Save PDF</button>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs" type="module"></script>
 <script type="module" src="app.js"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">

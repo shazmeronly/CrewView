@@ -40,8 +40,19 @@ themeToggle?.addEventListener("click",()=>{
   requestAnimationFrame(syncCalendarThemeButton);
 });
 
-import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
+let pdfjsLib=null;
+async function ensurePdfJs(){
+  if(pdfjsLib) return pdfjsLib;
+  status && (status.textContent="Loading PDF reader…");
+  try{
+    pdfjsLib=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
+    return pdfjsLib;
+  }catch(error){
+    console.error("PDF.js failed to load",error);
+    throw new Error("The PDF reader could not load. Check your internet connection, reload CrewView, and try again.");
+  }
+}
 
 const $=s=>document.querySelector(s);
 const tbody=$("#rosterTable tbody"), status=$("#status");
@@ -2357,6 +2368,7 @@ function detectRosterType(text){
 }
 
 async function parsePDF(file){
+  await ensurePdfJs();
   status.textContent="Reading PDF…";
   officialFH=null;
   officialDH=null;
