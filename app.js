@@ -3317,8 +3317,8 @@ function showValidationToast(message){
   },3000);
 }
 
-async function switchRosterView(view){
-  if(view===crewViewMode || document.body.classList.contains("view-transitioning")){
+function switchRosterView(view){
+  if(view===crewViewMode || document.body.classList.contains("view-switching")){
     return;
   }
 
@@ -3331,7 +3331,18 @@ async function switchRosterView(view){
   crewViewScrollPositions[previousView]=window.scrollY||0;
   clearTimeout(crewViewTransitionTimer);
 
-  const applyTargetView=()=>{
+  /*
+   * Fast transition strategy:
+   * 1. Add a very short soft cover.
+   * 2. Swap views immediately on the next animation frame.
+   * 3. Remove the cover straight away.
+   *
+   * No waiting for Calendar rendering and no native View Transition API,
+   * so the app never appears stuck.
+   */
+  document.body.classList.add("view-switching","view-switch-cover");
+
+  requestAnimationFrame(()=>{
     crewViewMode=view;
 
     if(goingToCalendar){
@@ -3356,74 +3367,18 @@ async function switchRosterView(view){
     );
 
     localStorage.setItem("crewview-roster-view",view);
-  };
 
-  const restoreDestinationScroll=()=>{
     const destinationScroll=crewViewScrollPositions[view]||0;
-    window.scrollTo({
-      top:destinationScroll,
-      left:0,
-      behavior:"auto"
-    });
-  };
-
-  const animationsDisabled=
-    document.body.classList.contains("calendar-no-animations") ||
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  document.body.classList.add("view-transitioning");
-
-  /*
-   * Use the browser's native View Transitions API when available.
-   * It captures the current screen, swaps the view, and smoothly blends
-   * to the destination without exposing the layout rebuild in between.
-   */
-  if(document.startViewTransition && !animationsDisabled){
-    try{
-      const transition=document.startViewTransition(async()=>{
-        applyTargetView();
-
-        await new Promise(resolve=>
-          requestAnimationFrame(()=>{
-            restoreDestinationScroll();
-            requestAnimationFrame(resolve);
-          })
-        );
-      });
-
-      await transition.finished;
-    }catch(error){
-      applyTargetView();
-      restoreDestinationScroll();
-    }finally{
-      document.body.classList.remove("view-transitioning");
-    }
-
-    return;
-  }
-
-  /*
-   * Fallback for older browsers: a short symmetrical crossfade.
-   * No directional slide or blur, so both directions feel identical.
-   */
-  document.body.classList.add("legacy-view-fade-out");
-
-  crewViewTransitionTimer=setTimeout(()=>{
-    applyTargetView();
-    restoreDestinationScroll();
-
-    document.body.classList.remove("legacy-view-fade-out");
-    document.body.classList.add("legacy-view-fade-in");
+    window.scrollTo({top:destinationScroll,left:0,behavior:"auto"});
 
     requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        document.body.classList.remove(
-          "legacy-view-fade-in",
-          "view-transitioning"
-        );
-      });
+      document.body.classList.remove("view-switch-cover");
+
+      crewViewTransitionTimer=setTimeout(()=>{
+        document.body.classList.remove("view-switching");
+      },140);
     });
-  },150);
+  });
 }
 
 document.querySelectorAll(".view-tab[data-view]").forEach(tab=>

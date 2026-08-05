@@ -4364,198 +4364,38 @@ html,body{
 
 
 /* =========================================================
-   CrewView v2.8 — seamless two-way Classic ↔ Calendar switch
+   CrewView v3.0 — instant smooth view switch
    ========================================================= */
 
 /*
- * Both destination views are prepared before the visual transition.
- * This prevents Calendar from appearing only after Classic disappears.
+ * A tiny translucent cover hides the one-frame layout difference.
+ * The actual view swap happens immediately, so there is no frozen pause.
  */
-#classicView.view-preparing,
-#calendarView.view-preparing{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:-1 !important;
-  width:100% !important;
-  visibility:hidden !important;
-  opacity:0 !important;
-  pointer-events:none !important;
-}
-
-body.view-transitioning{
-  overflow:hidden !important;
-}
-
-/* Direction-aware content motion */
-body.transition-to-calendar #classicView.view-leaving{
-  opacity:0 !important;
-  transform:translateX(-18px) scale(.992) !important;
-  filter:blur(1.5px) !important;
-}
-
-body.transition-to-calendar #calendarView.view-entering{
-  opacity:0;
-  transform:translateX(18px) scale(.992);
-  filter:blur(1.5px);
-}
-
-body.transition-to-classic #calendarView.view-leaving{
-  opacity:0 !important;
-  transform:translateX(18px) scale(.992) !important;
-  filter:blur(1.5px) !important;
-}
-
-body.transition-to-classic #classicView.view-entering{
-  opacity:0;
-  transform:translateX(-18px) scale(.992);
-  filter:blur(1.5px);
-}
-
-#classicView.view-entering,
-#calendarView.view-entering{
-  animation:crewViewEnter .38s cubic-bezier(.22,.8,.28,1) both;
-}
-
-#classicView.view-leaving,
-#calendarView.view-leaving{
-  animation:crewViewLeave .19s ease both;
+body.view-switching{
   pointer-events:none;
 }
 
-@keyframes crewViewEnter{
-  0%{
-    opacity:0;
-    filter:blur(1.5px);
-  }
-  100%{
-    opacity:1;
-    transform:translateX(0) scale(1);
-    filter:blur(0);
-  }
-}
-
-@keyframes crewViewLeave{
-  from{opacity:1;}
-  to{opacity:0;}
-}
-
-/*
- * A subtle glass veil hides the unavoidable global header/layout swap,
- * then clears as the destination view settles.
- */
-body.view-transitioning::before{
+body.view-switching::before{
   content:"";
   position:fixed;
   inset:0;
-  z-index:998;
+  z-index:9999;
   pointer-events:none;
+  background:rgba(5,14,23,.18);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
   opacity:0;
-  background:
-    radial-gradient(circle at 50% 18%,rgba(38,135,255,.10),transparent 38%),
-    rgba(5,14,23,.10);
-  backdrop-filter:blur(0);
-  -webkit-backdrop-filter:blur(0);
-  transition:
-    opacity .18s ease,
-    backdrop-filter .18s ease,
-    -webkit-backdrop-filter .18s ease;
+  transition:opacity .12s ease;
 }
 
-body.view-transitioning:not(.view-transition-swapped)::before{
+body.view-switch-cover::before{
   opacity:1;
-  backdrop-filter:blur(5px);
-  -webkit-backdrop-filter:blur(5px);
 }
 
-body.view-transition-swapped::before{
-  opacity:0;
-  backdrop-filter:blur(0);
-  -webkit-backdrop-filter:blur(0);
-}
-
-/* Disable the older glow layer so the two effects do not fight. */
-body.view-transitioning::after{
-  display:none !important;
-}
-
-body.calendar-no-animations #classicView,
-body.calendar-no-animations #calendarView,
-body.calendar-no-animations.view-transitioning::before{
-  animation:none !important;
-  transition:none !important;
-}
-
-@media(prefers-reduced-motion:reduce){
-  #classicView,
-  #calendarView,
-  body.view-transitioning::before{
-    animation:none !important;
-    transition:none !important;
-  }
-}
-
-
-/* =========================================================
-   CrewView v2.9 — native, symmetrical view transition
-   ========================================================= */
-
-/*
- * The browser captures the old and new app states, allowing the entire
- * interface to blend without exposing the different Classic/Calendar
- * layout construction.
- */
-::view-transition-old(root),
-::view-transition-new(root){
-  animation-duration:.30s;
-  animation-timing-function:cubic-bezier(.22,.75,.24,1);
-  mix-blend-mode:normal;
-}
-
-::view-transition-old(root){
-  animation-name:crewViewNativeOld;
-}
-
-::view-transition-new(root){
-  animation-name:crewViewNativeNew;
-}
-
-@keyframes crewViewNativeOld{
-  0%{
-    opacity:1;
-    transform:scale(1);
-    filter:blur(0);
-  }
-  100%{
-    opacity:0;
-    transform:scale(.997);
-    filter:blur(.6px);
-  }
-}
-
-@keyframes crewViewNativeNew{
-  0%{
-    opacity:0;
-    transform:scale(1.003);
-    filter:blur(.6px);
-  }
-  100%{
-    opacity:1;
-    transform:scale(1);
-    filter:blur(0);
-  }
-}
-
-/* Prevent user input only during the very short visual swap. */
-body.view-transitioning{
-  pointer-events:none;
-}
-
-/* Remove the older directional slide/veil effects. */
-body.view-transitioning::before,
-body.view-transitioning::after{
-  display:none !important;
-}
-
+/* Remove all older transition effects that could cause delay or conflict. */
+body.view-transitioning,
+body.legacy-view-fade-out,
+body.legacy-view-fade-in,
 #classicView.view-entering,
 #classicView.view-leaving,
 #classicView.view-preparing,
@@ -4568,37 +4408,15 @@ body.view-transitioning::after{
   filter:none !important;
 }
 
-/* Symmetrical fallback for browsers without View Transitions API. */
-body{
-  transition:opacity .15s ease, transform .15s ease;
-}
-
-body.legacy-view-fade-out{
-  opacity:.05;
-  transform:scale(.998);
-}
-
-body.legacy-view-fade-in{
-  animation:crewViewLegacyIn .18s ease both;
-}
-
-@keyframes crewViewLegacyIn{
-  from{
-    opacity:.05;
-    transform:scale(1.002);
-  }
-  to{
-    opacity:1;
-    transform:scale(1);
-  }
+body.view-transitioning::before,
+body.view-transitioning::after{
+  display:none !important;
 }
 
 @media(prefers-reduced-motion:reduce){
-  ::view-transition-old(root),
-  ::view-transition-new(root),
-  body,
-  body.legacy-view-fade-in{
-    animation:none !important;
+  body.view-switching::before{
     transition:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
   }
 }
