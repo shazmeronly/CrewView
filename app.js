@@ -3317,7 +3317,7 @@ function showValidationToast(message){
   },3000);
 }
 
-function switchRosterView(view){
+async function switchRosterView(view){
   if(view===crewViewMode || document.body.classList.contains("view-transitioning")){
     return;
   }
@@ -3327,78 +3327,103 @@ function switchRosterView(view){
 
   const previousView=crewViewMode;
   const goingToCalendar=view==="calendar";
-  const previousElement=previousView==="calendar"
-    ? $("#calendarView")
-    : $("#classicView");
-  const nextElement=goingToCalendar
-    ? $("#calendarView")
-    : $("#classicView");
 
   crewViewScrollPositions[previousView]=window.scrollY||0;
   clearTimeout(crewViewTransitionTimer);
 
-  /*
-   * Prepare the destination before the animation starts.
-   * Previously Calendar was rendered only after Classic had disappeared,
-   * which caused the sudden jump in the Classic → Calendar direction.
-   */
-  if(goingToCalendar){
-    if(!calendarCursor){
-      calendarCursor=loadedRosterMonth();
+  const applyTargetView=()=>{
+    crewViewMode=view;
+
+    if(goingToCalendar){
+      if(!calendarCursor){
+        calendarCursor=loadedRosterMonth();
+      }
+
+      selectedCalendarDuty=null;
+      $("#calendarView")?.classList.remove("hidden");
+      $("#classicView")?.classList.add("hidden");
+      document.body.classList.add("calendar-mode");
+      renderCalendarView({suppressAutoSelect:false});
+    }else{
+      $("#classicView")?.classList.remove("hidden");
+      $("#calendarView")?.classList.add("hidden");
+      document.body.classList.remove("calendar-mode");
+      applyOnePageFit();
     }
-    selectedCalendarDuty=null;
-    $("#calendarView")?.classList.remove("hidden");
-    $("#calendarView")?.classList.add("view-preparing");
-    renderCalendarView({suppressAutoSelect:false});
-  }else{
-    $("#classicView")?.classList.remove("hidden");
-    $("#classicView")?.classList.add("view-preparing");
-    applyOnePageFit();
+
+    document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+      tab.classList.toggle("active",tab.dataset.view===view)
+    );
+
+    localStorage.setItem("crewview-roster-view",view);
+  };
+
+  const restoreDestinationScroll=()=>{
+    const destinationScroll=crewViewScrollPositions[view]||0;
+    window.scrollTo({
+      top:destinationScroll,
+      left:0,
+      behavior:"auto"
+    });
+  };
+
+  const animationsDisabled=
+    document.body.classList.contains("calendar-no-animations") ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  document.body.classList.add("view-transitioning");
+
+  /*
+   * Use the browser's native View Transitions API when available.
+   * It captures the current screen, swaps the view, and smoothly blends
+   * to the destination without exposing the layout rebuild in between.
+   */
+  if(document.startViewTransition && !animationsDisabled){
+    try{
+      const transition=document.startViewTransition(async()=>{
+        applyTargetView();
+
+        await new Promise(resolve=>
+          requestAnimationFrame(()=>{
+            restoreDestinationScroll();
+            requestAnimationFrame(resolve);
+          })
+        );
+      });
+
+      await transition.finished;
+    }catch(error){
+      applyTargetView();
+      restoreDestinationScroll();
+    }finally{
+      document.body.classList.remove("view-transitioning");
+    }
+
+    return;
   }
 
-  document.body.classList.add(
-    "view-transitioning",
-    goingToCalendar ? "transition-to-calendar" : "transition-to-classic"
-  );
+  /*
+   * Fallback for older browsers: a short symmetrical crossfade.
+   * No directional slide or blur, so both directions feel identical.
+   */
+  document.body.classList.add("legacy-view-fade-out");
 
-  requestAnimationFrame(()=>{
+  crewViewTransitionTimer=setTimeout(()=>{
+    applyTargetView();
+    restoreDestinationScroll();
+
+    document.body.classList.remove("legacy-view-fade-out");
+    document.body.classList.add("legacy-view-fade-in");
+
     requestAnimationFrame(()=>{
-      nextElement?.classList.remove("view-preparing");
-      nextElement?.classList.add("view-entering");
-      previousElement?.classList.add("view-leaving");
-
-      crewViewTransitionTimer=setTimeout(()=>{
-        crewViewMode=view;
-        document.body.classList.toggle("calendar-mode",goingToCalendar);
-
-        document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
-          tab.classList.toggle("active",tab.dataset.view===view)
+      requestAnimationFrame(()=>{
+        document.body.classList.remove(
+          "legacy-view-fade-in",
+          "view-transitioning"
         );
-
-        localStorage.setItem("crewview-roster-view",view);
-
-        document.body.classList.add("view-transition-swapped");
-
-        requestAnimationFrame(()=>{
-          const destinationScroll=crewViewScrollPositions[view]||0;
-          window.scrollTo({top:destinationScroll,left:0,behavior:"auto"});
-        });
-
-        crewViewTransitionTimer=setTimeout(()=>{
-          previousElement?.classList.add("hidden");
-          previousElement?.classList.remove("view-leaving");
-          nextElement?.classList.remove("view-entering");
-
-          document.body.classList.remove(
-            "view-transitioning",
-            "view-transition-swapped",
-            "transition-to-calendar",
-            "transition-to-classic"
-          );
-        },190);
-      },190);
+      });
     });
-  });
+  },150);
 }
 
 document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
