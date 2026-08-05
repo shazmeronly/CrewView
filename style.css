@@ -4420,3 +4420,252 @@ body.view-transitioning::after{
     -webkit-backdrop-filter:none !important;
   }
 }
+
+
+/* =========================================================
+   CrewView v3.1 — refined, natural light mode
+   ========================================================= */
+
+html[data-theme="light"] body{
+  background:#eef2f6 !important;
+  color:#142235 !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-view{
+  color:#142235 !important;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(80,146,230,.12),transparent 30%),
+    linear-gradient(180deg,#f5f7fa 0%,#eef2f6 58%,#e9eef3 100%) !important;
+}
+
+/* Header keeps CrewView identity without feeling detached. */
+html[data-theme="light"] body.calendar-mode .calendar-app-header{
+  color:#fff !important;
+  background:
+    linear-gradient(135deg,rgba(12,65,116,.98),rgba(25,99,174,.96)) !important;
+  border-bottom:1px solid rgba(255,255,255,.18) !important;
+  box-shadow:0 4px 14px rgba(25,65,110,.18) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-brand,
+html[data-theme="light"] body.calendar-mode .calendar-brand strong,
+html[data-theme="light"] body.calendar-mode .calendar-brand small{
+  color:#fff !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-mode-tabs{
+  background:rgba(9,39,68,.34) !important;
+  border:1px solid rgba(255,255,255,.18) !important;
+  box-shadow:inset 0 1px rgba(255,255,255,.08) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-mode-tabs button{
+  color:rgba(255,255,255,.78) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-mode-tabs button.active{
+  color:#fff !important;
+  background:linear-gradient(180deg,#388cf3,#1f69ce) !important;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.22),
+    0 6px 14px rgba(13,75,145,.28) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-theme-toggle{
+  color:#173451 !important;
+  background:rgba(255,255,255,.88) !important;
+  border-color:rgba(255,255,255,.55) !important;
+  box-shadow:0 4px 12px rgba(10,47,82,.20) !important;
+}
+
+/* Pilot summary */
+html[data-theme="light"] body.calendar-mode .calendar-profile{
+  color:#fff !important;
+  background:
+    linear-gradient(135deg,#1266b2,#184f8d) !important;
+  border-bottom:1px solid rgba(255,255,255,.16) !important;
+  box-shadow:0 4px 14px rgba(28,78,124,.14) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-profile-copy strong,
+html[data-theme="light"] body.calendar-mode .calendar-profile-copy span,
+html[data-theme="light"] body.calendar-mode .calendar-stats strong,
+html[data-theme="light"] body.calendar-mode .calendar-stats small{
+  color:#fff !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-avatar{
+  color:#fff !important;
+  background:linear-gradient(145deg,#4a9cff,#1e6ed8) !important;
+  border-color:rgba(255,255,255,.30) !important;
+  box-shadow:0 4px 12px rgba(9,62,119,.26) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-stats span{
+  background:rgba(7,44,78,.18) !important;
+  border-color:rgba(255,255,255,.18) !important;
+  box-shadow:inset 0 1px rgba(255,255,255,.06) !important;
+}
+
+/* Month area and controls */
+html[data-theme="light"] body.calendar-mode .calendar-content{
+  color:#142235 !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-month-header,
+html[data-theme="light"] body.calendar-mode .calendar-month-title,
+html[data-theme="light"] body.calendar-mode .month-side{
+  color:#142235 !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-tool{
+  color:#24537e !important;
+  background:rgba(255,255,255,.76) !important;
+  border:1px solid rgba(77,112,145,.18) !important;
+  box-shadow:
+    0 3px 10px rgba(40,65,90,.08),
+    inset 0 1px rgba(255,255,255,.90) !important;
+  backdrop-filter:blur(14px) saturate(120%);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-tool:active{
+  background:#fff !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-legend{
+  border-bottom-color:rgba(67,94,120,.14) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-legend button{
+  color:#40566d !important;
+  background:transparent !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-weekdays{
+  color:#667a8e !important;
+}
+
+/* Tiles: flatter, cleaner, and less sticker-like. */
+html[data-theme="light"] body.calendar-mode .calendar-day{
+  border:1px solid rgba(45,73,100,.12) !important;
+  box-shadow:
+    0 3px 9px rgba(35,56,77,.09),
+    inset 0 1px rgba(255,255,255,.18) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.flight{
+  background:linear-gradient(145deg,#2e86e9,#125eb6) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.off{
+  background:linear-gradient(145deg,#2d9a43,#17742b) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.standby{
+  color:#2c2304 !important;
+  background:linear-gradient(145deg,#ffd858,#e5ad18) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.leave{
+  background:linear-gradient(145deg,#db5d99,#b43c7a) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.training{
+  background:linear-gradient(145deg,#925de2,#6634b8) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.simulator{
+  background:linear-gradient(145deg,#f38a36,#d25f13) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.admin{
+  background:linear-gradient(145deg,#7d8996,#596572) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.empty,
+html[data-theme="light"] body.calendar-mode .calendar-day.outside{
+  color:#8795a4 !important;
+  background:linear-gradient(145deg,#e8edf2,#dce3e9) !important;
+  border-color:rgba(62,89,115,.10) !important;
+  box-shadow:inset 0 1px rgba(255,255,255,.76) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.empty .calendar-day-number,
+html[data-theme="light"] body.calendar-mode .calendar-day.outside .calendar-day-number{
+  color:#8997a6 !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-day.today{
+  box-shadow:
+    0 0 0 3px rgba(46,134,233,.30),
+    0 4px 12px rgba(38,100,167,.16) !important;
+}
+
+/* Remove dark-theme glow in light mode. */
+html[data-theme="light"] body.calendar-mode .calendar-day.selected{
+  box-shadow:
+    0 0 0 3px rgba(46,134,233,.28),
+    0 5px 14px rgba(31,93,156,.18) !important;
+  filter:none !important;
+}
+
+/* Liquid sheets */
+html[data-theme="light"] body.calendar-mode .calendar-selected,
+html[data-theme="light"] body.calendar-mode .calendar-view-sheet{
+  color:#15283a !important;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.94),rgba(237,244,249,.96)) !important;
+  border-color:rgba(75,111,142,.18) !important;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.95),
+    0 20px 50px rgba(45,70,95,.18) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-selected h3,
+html[data-theme="light"] body.calendar-mode .calendar-selected strong,
+html[data-theme="light"] body.calendar-mode .calendar-view-sheet h3{
+  color:#10243a !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-selected small,
+html[data-theme="light"] body.calendar-mode .calendar-selected p,
+html[data-theme="light"] body.calendar-mode .calendar-view-sheet > p,
+html[data-theme="light"] body.calendar-mode .view-sheet-size > span{
+  color:#5b7085 !important;
+}
+
+html[data-theme="light"] body.calendar-mode .selected-times span,
+html[data-theme="light"] body.calendar-mode .selected-metrics span{
+  background:rgba(238,244,249,.84) !important;
+  border-color:rgba(70,107,139,.14) !important;
+}
+
+html[data-theme="light"] body.calendar-mode .calendar-detail-backdrop,
+html[data-theme="light"] body.calendar-mode .calendar-view-backdrop{
+  background:rgba(74,91,108,.22) !important;
+  backdrop-filter:blur(12px) saturate(115%);
+  -webkit-backdrop-filter:blur(12px) saturate(115%);
+}
+
+/* Footer/nav if re-enabled later. */
+html[data-theme="light"] body.calendar-mode .calendar-bottom-nav{
+  color:#52687d !important;
+  background:rgba(248,250,252,.94) !important;
+  border-top-color:rgba(68,95,120,.14) !important;
+  box-shadow:0 -6px 18px rgba(34,58,80,.08) !important;
+}
+
+/* Reduce bright white glare on iPhone. */
+@media(max-width:540px){
+  html[data-theme="light"] body.calendar-mode .calendar-view{
+    background:
+      linear-gradient(180deg,#f2f5f8 0%,#edf1f5 100%) !important;
+  }
+
+  html[data-theme="light"] body.calendar-mode .calendar-day{
+    box-shadow:
+      0 2px 7px rgba(35,56,77,.08),
+      inset 0 1px rgba(255,255,255,.16) !important;
+  }
+}
