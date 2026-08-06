@@ -4669,3 +4669,14 @@ html[data-theme="light"] body.calendar-mode .calendar-bottom-nav{
       inset 0 1px rgba(255,255,255,.16) !important;
   }
 }
+
+/* Compact overnight continuation rows */
+tbody tr.row-overnight-continuation td{
+  padding-top:3px !important;
+  padding-bottom:3px !important;
+  line-height:1.15;
+  border-top:none !important;
+}
+tbody tr.row-overnight-continuation + tr td{
+  border-top:1px solid var(--border-color,#d7dee7);
+}
