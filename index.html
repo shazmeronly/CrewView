@@ -5,152 +5,137 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b5cab">
 <title>CrewView</title>
-<style>
-:root{--blue:#0b5cab;--line:#d8dde5;--cream:#f4ecd2;--ink:#16202a;--muted:#66717d}
-*{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f3f6f9;color:var(--ink)}
-header{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,#064d8b,#0b73c9);color:white;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;box-shadow:0 2px 12px #0002}
-header h1{font-size:20px;margin:0 0 3px} header p{font-size:12px;margin:0;opacity:.9}
-main{max-width:1100px;margin:auto;padding:14px 12px 90px}
-.card{background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px #11223310}
-.drop{border:2px dashed #9bb7d3;border-radius:12px;padding:22px 14px;text-align:center;background:#f8fbff}
-input[type=file]{display:none}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:10px;padding:12px 15px;font-weight:700;font-size:15px;cursor:pointer}
-.primary{background:var(--blue);color:white}.secondary{background:#eaf2f9;color:#084a83}.danger{background:#ffeaea;color:#9b1c1c}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.status{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.meta label{font-size:11px;color:var(--muted)} .meta input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px}
-.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;-webkit-overflow-scrolling:touch}
-table{border-collapse:collapse;width:100%;min-width:1040px;font-size:11px}
-th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px 6px;white-space:nowrap;text-align:left;height:28px}
-th{position:sticky;top:0;background:var(--cream);font-weight:700;z-index:2;text-align:center}
-tbody tr:nth-child(even){background:#fbfcfd}
-tbody td:nth-child(1),tbody td:nth-child(2){font-weight:600;text-align:center}
-td[contenteditable=true]{background:#fffdf3;outline:none}
-td[contenteditable=true]:focus{box-shadow:inset 0 0 0 2px #f0b429}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-.stat{background:#f7f9fb;border:1px solid var(--line);border-radius:9px;padding:10px}
-.stat small{display:block;color:var(--muted);font-size:10px}.stat strong{font-size:18px}
-.hidden{display:none!important}
-.help{font-size:12px;line-height:1.45;color:#46515d}
-footer{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:9px 12px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;z-index:6}
-footer .btn{flex:1;max-width:320px}
-@media print{
- *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
- @page{size:A4 landscape;margin:6mm}
- body{background:white} header,.upload-card,.actions,footer,.help{display:none!important}
- main{padding:0;max-width:none}.card{box-shadow:none;padding:0;margin:0}
- .meta{grid-template-columns:2fr 1fr 1fr 1fr 1fr;margin-bottom:4px}.meta input{border:0;padding:2px;font-size:9px;font-weight:600}
- .table-wrap{overflow:visible;border:0} table{min-width:0;font-size:7.3px;table-layout:fixed}
- th,td{padding:1.5px 2px;height:14px;white-space:normal;line-height:1.05}
- th{position:static}.summary{grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px}.stat{padding:4px}.stat strong{font-size:12px}
-}
-
-.legend{display:flex;flex-wrap:wrap;gap:7px 10px;margin:8px 0 10px;font-size:11px;color:#46515d}
-.legend-item{display:inline-flex;align-items:center;gap:5px}
-.swatch{width:12px;height:12px;border-radius:3px;border:1px solid #0002;display:inline-block}
-.date-swatch{background:#dbeafe}.day-swatch{background:#ede9fe}.report-swatch{background:#fef3c7}
-.flight-swatch{background:#dcfce7}.timing-swatch{background:#e0f2fe}.hours-swatch{background:#ffedd5}
-.off-swatch{background:#f1f5f9}.training-swatch{background:#fce7f3}
-
-tbody td:nth-child(1){background:#dbeafe;color:#1e3a8a}
-tbody td:nth-child(2){background:#ede9fe;color:#5b21b6}
-tbody td:nth-child(3){background:#fef3c7;color:#854d0e;font-weight:700}
-tbody td:nth-child(4){background:#dcfce7;color:#166534;font-weight:700}
-tbody td:nth-child(5),tbody td:nth-child(6),tbody td:nth-child(7){background:#e0f2fe;color:#075985}
-tbody td:nth-child(8){background:#f8fafc;color:#334155}
-tbody td:nth-child(9),tbody td:nth-child(10){background:#ffedd5;color:#9a3412;font-weight:700}
-tbody td:nth-child(11){background:#f3f4f6;color:#374151}
-
-tbody tr.row-off td{background:#f1f5f9!important;color:#64748b!important}
-tbody tr.row-off td:nth-child(4){font-weight:800;color:#334155!important}
-tbody tr.row-training td{background:#fdf2f8!important;color:#9d174d!important}
-tbody tr.row-training td:nth-child(3),tbody tr.row-training td:nth-child(4){font-weight:800}
-tbody tr.row-positioning td{background:#f0fdfa!important;color:#115e59!important}
-tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(2)){background:#fff!important;color:#94a3b8!important}
-
-@media screen{
-  th:nth-child(1),td:nth-child(1){position:sticky;left:0;z-index:3}
-  th:nth-child(2),td:nth-child(2){position:sticky;left:74px;z-index:3}
-  th:nth-child(1),th:nth-child(2){z-index:4}
-}
-@media(max-width:640px){
-  .legend{font-size:10px;gap:6px 8px}
-  table{font-size:10.5px}
-  th,td{padding:5px}
-}
-
-
-.fit-shell{width:100%;overflow:hidden}
-.scale-stage{transform-origin:top left;width:max-content}
-body.fit-mode .table-wrap{overflow:hidden}
-body.fit-mode .scale-stage{will-change:transform}
-body.fit-mode table{min-width:1040px}
-body.fit-mode th,body.fit-mode td{height:23px;padding:3px 4px;font-size:10px}
-body.fit-mode .legend{margin-bottom:6px}
-body.fit-mode .summary{margin-top:7px}
-body.fit-mode .stat{padding:7px}
-body.fit-mode .stat strong{font-size:15px}
-
-@media(max-width:640px){
-  body.fit-mode main{padding-left:6px;padding-right:6px}
-  body.fit-mode .card{padding:8px;border-radius:10px}
-  body.fit-mode .meta{gap:4px;margin-bottom:5px}
-  body.fit-mode .meta input{padding:5px;font-size:11px}
-  body.fit-mode .legend{font-size:9px;gap:4px 6px}
-}
-
-/* Guaranteed single-sheet PDF/print layout */
-@media print{
-  @page{size:A4 landscape;margin:4mm}
-  html,body{width:297mm;height:210mm;overflow:hidden}
-  main{width:289mm!important;max-width:289mm!important;height:202mm!important;overflow:hidden!important}
-  #resultCard{width:100%!important;height:auto!important}
-  .fit-shell,.table-wrap{overflow:visible!important;width:100%!important}
-  .scale-stage{transform:none!important;width:100%!important}
-  table{width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:6.6px!important}
-  th,td{height:11.5px!important;padding:1px 1.5px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:clip!important}
-  .legend{font-size:7px!important;gap:2px 5px!important;margin:2px 0 3px!important}
-  .swatch{width:7px!important;height:7px!important}
-  .meta{margin-bottom:2px!important;gap:2px!important}
-  .meta input{font-size:7px!important;padding:1px!important}
-  .summary{margin-top:2px!important;gap:2px!important}
-  .stat{padding:2px!important}
-  .stat small{font-size:6px!important}
-  .stat strong{font-size:9px!important}
-  .help{display:none!important}
-}
-
-</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CrewView">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1>CrewView</h1><p>Upload your current roster and view it in the classic one-page layout</p></header>
+<header>
+  <div class="header-row">
+    <div>
+      <h1>CrewView</h1>
+      <p>Upload your current roster and view it in the classic one-page layout</p>
+    </div>
+    <div class="header-actions">
+      <div class="loaded-roster-actions" id="loadedRosterActions" aria-label="Roster actions" aria-hidden="true">
+        <button id="replaceRosterBtn" class="header-icon-btn" type="button" aria-label="Replace roster" title="Replace roster">
+          <span aria-hidden="true">↻</span>
+        </button>
+        <button id="headerClearBtn" class="header-icon-btn danger-icon" type="button" aria-label="Clear current roster" title="Clear current roster">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch appearance">
+        <span id="themeIcon">🌙</span>
+        <span id="themeText">Dark</span>
+      </button>
+    </div>
+  </div>
+</header>
 <main>
-<section class="card upload-card">
+<nav class="view-switcher hidden" id="viewSwitcher" aria-label="Roster view">
+  <button class="view-tab active" type="button" data-view="classic">Classic</button>
+  <button class="view-tab" type="button" data-view="calendar">Calendar</button>
+  <button class="view-tab timeline-tab" type="button" disabled>Timeline <small>SOON</small></button>
+</nav>
+<section class="card upload-card" id="uploadCard">
   <div class="drop">
     <div style="font-size:36px">📄</div>
     <strong>Upload Current Roster</strong>
-    <p class="help">The file is processed inside your browser. It is not uploaded anywhere.</p>
+    <p class="help compact-help">The file is processed inside your browser. It is not uploaded anywhere.</p>
     <label class="btn primary" for="pdfInput">Load Current Roster</label>
     <input id="pdfInput" type="file" accept="application/pdf,.pdf">
   </div>
-  <div class="actions">
-    <button class="btn secondary" id="fillDaysBtn">Show every day</button>
+  <div class="actions clean-actions">
     <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
-    <button class="btn secondary" id="addRowBtn">Add row manually</button>
-    <button class="btn danger" id="clearBtn">Clear</button>
+    <button class="btn danger" id="clearBtn" type="button">Clear</button>
   </div>
   <div class="status" id="status">No roster loaded.</div>
+  <div class="validation-result hidden" id="validationResult" aria-live="polite"></div>
+</section>
+<section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite" role="button" tabindex="0" aria-label="Open next duty details">
+  <div class="compact-duty-main">
+    <div>
+      <div class="next-duty-eyebrow">NEXT DUTY</div>
+      <div class="compact-duty-title">
+        <strong id="nextDutyItem">—</strong>
+        <span id="nextDutyRoute">—</span>
+      </div>
+    </div>
+    <div class="compact-duty-report">
+      <span>REPORT</span>
+      <strong id="nextDutyReport">—</strong>
+    </div>
+  </div>
+
+  <div class="compact-duty-bottom">
+    <span id="nextDutyDate">—</span>
+    <span>End <strong id="nextDutyEnd">—</strong></span>
+    <span>A/C <strong id="nextDutyAircraft">—</strong></span>
+    <span class="compact-countdown">In <strong id="nextDutyCountdown">—</strong></span>
+  </div>
+  <div class="countdown-track compact-track" aria-hidden="true">
+    <div class="countdown-fill" id="nextDutyProgress"></div>
+  </div>
 </section>
 
+
+
+
+
+
+
+
+
+<div class="duty-detail-backdrop hidden" id="dutyDetailBackdrop"></div>
+<section class="duty-detail-sheet hidden" id="dutyDetailSheet" role="dialog" aria-modal="true" aria-labelledby="dutyDetailTitle">
+  <div class="duty-detail-handle" aria-hidden="true"></div>
+  <div class="duty-detail-header">
+    <div>
+      <small>NEXT DUTY DETAILS</small>
+      <h2 id="dutyDetailTitle">—</h2>
+      <p id="dutyDetailRoute">—</p>
+    </div>
+    <button type="button" class="duty-detail-close" id="dutyDetailClose" aria-label="Close duty details">×</button>
+  </div>
+
+  <div class="duty-sector-section hidden" id="dutySectorSection">
+    <span class="duty-sector-heading">FLIGHT SECTORS</span>
+    <div class="duty-sector-list" id="dutySectorList"></div>
+  </div>
+
+  <div class="duty-detail-grid">
+    <div><span>Date</span><strong id="detailDate">—</strong></div>
+    <div><span>Report</span><strong id="detailReport">—</strong></div>
+    <div><span>Departure</span><strong id="detailDeparture">—</strong></div>
+    <div><span>Arrival</span><strong id="detailArrival">—</strong></div>
+    <div><span>Duty End</span><strong id="detailDutyEnd">—</strong></div>
+    <div><span>Aircraft</span><strong id="detailAircraft">—</strong></div>
+    <div><span>Block Hours</span><strong id="detailBlock">—</strong></div>
+    <div><span>Roster Duty Hours</span><strong id="detailDutyHours">—</strong></div>
+    <div><span>Work Type</span><strong id="detailWorkType">—</strong></div>
+    <div><span>Reports In</span><strong id="detailCountdown">—</strong></div>
+  </div>
+
+  <p class="duty-detail-note">Tap outside this panel or use × to close.</p>
+</section>
+
+<section class="compact-profile hidden" id="compactProfile">
+  <strong id="compactName">—</strong>
+  <span id="compactMeta">—</span>
+</section>
+<div id="classicView">
 <section class="card" id="resultCard">
-  <div class="meta">
-    <div><label>Name</label><input id="name" value=""></div>
-    <div><label>Staff No.</label><input id="staff" value=""></div>
-    <div><label>Rank</label><input id="rank" value=""></div>
-    <div><label>Fleet</label><input id="fleet" value=""></div>
-    <div><label>Base</label><input id="base" value=""></div>
+  <div class="meta" id="profileForm">
+    <div class="name-field"><label>Name</label><input id="name" value="" readonly></div>
+    <div><label>Staff No.</label><input id="staff" value="" readonly></div>
+    <div><label>Rank</label><input id="rank" value="" readonly></div>
+    <div><label>Fleet</label><input id="fleet" value="" readonly></div>
+    <div><label>Base</label><input id="base" value="" readonly></div>
   </div>
 
   <div class="legend" aria-label="Roster colour legend">
@@ -161,7 +146,7 @@ body.fit-mode .stat strong{font-size:15px}
     <span class="legend-item"><i class="swatch timing-swatch"></i>Departure & arrival</span>
     <span class="legend-item"><i class="swatch hours-swatch"></i>Hours</span>
     <span class="legend-item"><i class="swatch off-swatch"></i>Off day</span>
-    <span class="legend-item"><i class="swatch training-swatch"></i>Training / DSA</span>
+    <span class="legend-item"><i class="swatch training-swatch"></i>Training & Ground Duty</span>
   </div>
 
   <div class="fit-shell" id="fitShell">
@@ -177,199 +162,187 @@ body.fit-mode .stat strong{font-size:15px}
     </div>
   </div>
 </div>
-  <div class="summary">
-    <div class="stat"><small>Actual Block Hours</small><strong id="fh">00:00</strong></div>
+  <div class="summary compact-summary">
+    <div class="stat"><small>Roster Block Hours</small><strong id="fh">00:00</strong></div>
     <div class="stat"><small>Duty Hours</small><strong id="dh">00:00</strong></div>
     <div class="stat"><small>Off Days</small><strong id="off">0</strong></div>
   </div>
-  <p class="help">The roster automatically scales to fit one screen-width. Tap Full Size for easier editing, then Fit One Page before saving. On iPhone, tap “Save / Print PDF”, then use the Share button and choose “Save to Files”.</p>
+  <p class="help"><span id="rosterSourceNote">Hours and duties are taken from the uploaded roster PDF.</span><br><br>Tap “Save PDF”. In the iPhone preview, use Share and choose “Save to Files”.</p>
 </section>
+</div>
+
+
+<section class="calendar-view hidden" id="calendarView" aria-label="Calendar roster view">
+  <div class="calendar-app-shell">
+    <header class="calendar-app-header">
+      <div class="calendar-brand">
+        <span class="calendar-brand-plane">✈</span>
+        <div>
+          <strong>CrewView</strong>
+          <small>Your Roster. Your View.</small>
+        </div>
+      </div>
+
+      <nav class="calendar-mode-tabs" aria-label="Roster mode">
+        <button type="button" data-calendar-mode="classic">Classic</button>
+        <button type="button" class="active" data-calendar-mode="calendar">Calendar</button>
+        <button type="button" class="timeline-coming" disabled>
+          Timeline <em>NEW</em>
+        </button>
+      </nav>
+
+      <div class="calendar-header-actions">
+        <button type="button" id="calendarThemeButton" class="calendar-theme-toggle" aria-label="Switch appearance">
+          <span id="calendarThemeIcon">☀</span>
+          <span id="calendarThemeText">Light</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="calendar-profile">
+      <div class="calendar-avatar" id="calendarAvatar">CV</div>
+      <div class="calendar-profile-copy">
+        <strong id="calendarName">—</strong>
+        <span id="calendarMeta">—</span>
+      </div>
+      <div class="calendar-stats">
+        <span><b>◷</b><strong id="calendarFH">00:00</strong><small>Block Hrs</small></span>
+        <span><b>▣</b><strong id="calendarDH">00:00</strong><small>Duty Hrs</small></span>
+        <span><b>▤</b><strong id="calendarOff">0</strong><small>Off Days</small></span>
+      </div>
+    </section>
+
+    <section class="calendar-content">
+      <div class="calendar-month-bar">
+        <button type="button" class="month-side previous" id="calendarPrev">
+          <span>‹</span><small id="calendarPrevLabel">Previous</small>
+        </button>
+
+        <h2 id="calendarMonthTitle">Month</h2>
+
+        <button type="button" class="month-side next" id="calendarNext">
+          <small id="calendarNextLabel">Next</small><span>›</span>
+        </button>
+      </div>
+
+      <div class="calendar-tools">
+        <button type="button" class="calendar-tool" id="calendarToday">▣&nbsp; Today</button>
+        <button type="button" class="calendar-tool" id="calendarFilters">⚙&nbsp; Settings</button>
+      </div>
+
+      <div class="calendar-legend">
+        <button type="button" data-filter="flight"><i class="cal-dot flight"></i>Flight Duty</button>
+        <button type="button" data-filter="off"><i class="cal-dot off"></i>Day Off</button>
+        <button type="button" data-filter="standby"><i class="cal-dot standby"></i>Standby</button>
+        <button type="button" data-filter="leave"><i class="cal-dot leave"></i>Leave</button>
+        <button type="button" data-filter="training"><i class="cal-dot training"></i>DSA / Training</button>
+        <button type="button" data-filter="simulator"><i class="cal-dot simulator"></i>Simulator</button>
+        <button type="button" data-filter="admin"><i class="cal-dot admin"></i>Office / Admin</button>
+      </div>
+
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>MON</span><span>TUE</span><span>WED</span><span>THU</span>
+        <span>FRI</span><span>SAT</span><span>SUN</span>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+
+      <div class="calendar-detail-backdrop hidden" id="calendarDetailBackdrop"></div>
+      <div class="calendar-view-backdrop hidden" id="calendarViewBackdrop"></div>
+      
+<section class="calendar-view-sheet hidden" id="calendarViewSheet" role="dialog" aria-modal="true" aria-label="Calendar settings">
+  <div class="view-sheet-handle"></div>
+  <button type="button" class="view-sheet-close" id="calendarViewClose" aria-label="Close calendar settings">×</button>
+
+  <h3>Calendar Settings</h3>
+  <p>Adjust how the monthly calendar is displayed.</p>
+
+  <label>
+    <span>Show previous/next month days</span>
+    <input type="checkbox" id="optOutsideDays" checked>
+  </label>
+
+  <label>
+    <span>Highlight today</span>
+    <input type="checkbox" id="optHighlightToday" checked>
+  </label>
+
+  <label>
+    <span>Animations</span>
+    <input type="checkbox" id="optAnimations" checked>
+  </label>
+
+  <div class="view-sheet-size">
+    <span>Calendar size</span>
+    <div>
+      <button type="button" data-calendar-density="compact">Compact</button>
+      <button type="button" class="active" data-calendar-density="comfortable">Comfortable</button>
+      <button type="button" data-calendar-density="large">Large Text</button>
+    </div>
+  </div>
+
+  <button type="button" class="view-sheet-done" id="calendarViewDone">Done</button>
+</section>
+
+
+      <section class="calendar-selected hidden" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Selected duty details">
+        <button type="button" class="calendar-detail-close" id="calendarDetailClose" aria-label="Close duty details">×</button>
+        <div class="selected-drag" aria-hidden="true"></div>
+
+        <div class="selected-layout">
+          <div class="selected-date">
+            <small id="selectedWeekday">—</small>
+            <strong id="selectedDay">—</strong>
+            <span id="selectedMonthYear">—</span>
+          </div>
+
+          <div class="selected-flight">
+            <div class="selected-flight-title">
+              <h3 id="selectedItem">—</h3>
+              <b id="selectedWorkBadge">—</b>
+            </div>
+            <p id="selectedRoute">—</p>
+            <small id="selectedAircraft">—</small>
+          </div>
+
+          <div class="selected-times">
+            <span><small>Report</small><strong id="selectedReport">—</strong><em id="selectedReportStation">—</em></span>
+            <span><small>Departure</small><strong id="selectedDepartureTime">—</strong><em id="selectedDepartureStation">—</em></span>
+            <span><small>Arrival</small><strong id="selectedArrivalTime">—</strong><em id="selectedArrivalStation">—</em></span>
+            <span><small>Duty End</small><strong id="selectedDutyEnd">—</strong><em id="selectedDutyEndStation">—</em></span>
+          </div>
+
+          <div class="selected-metrics">
+            <span><b>◷</b><small>Block Time</small><strong id="selectedBlock">—</strong></span>
+            <span><b>▣</b><small>Duty Time</small><strong id="selectedDuty">—</strong></span>
+            <span><b>⌁</b><small>Work Type</small><strong id="selectedWork">—</strong></span>
+          </div>
+
+          <button type="button" class="selected-details-btn" id="selectedDetailsBtn">
+            ▤&nbsp; View Duty Details <span>›</span>
+          </button>
+        </div>
+      </section>
+    </section>
+
+    <nav class="calendar-bottom-nav" aria-label="CrewView navigation">
+      <button type="button" data-calendar-mode="classic"><span>▧</span><small>Roster</small></button>
+      <button type="button" class="active"><span>▣</span><small>Calendar</small></button>
+      <button type="button" disabled><span>▥</span><small>Summary</small></button>
+      <button type="button" disabled><span>⚙</span><small>Settings</small></button>
+    </nav>
+  </div>
+</section>
+
 </main>
 <footer>
-  <button class="btn secondary" id="fitBtn">Fit One Page</button>
-  <button class="btn secondary" id="sortBtn">Sort</button>
-  <button class="btn primary" id="printBtn">Save / Print PDF</button>
+  <button class="btn primary" id="printBtn">Save PDF</button>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs" type="module"></script>
-<script type="module">
-import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
+<script type="module" src="app.js"></script>
 
-const $=s=>document.querySelector(s);
-const tbody=$("#rosterTable tbody"), status=$("#status");
-const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block","duty","ac"];
-
-function dayName(dateStr){
-  const m=dateStr.match(/(\d{2})-([A-Za-z]{3})-(\d{4})/); if(!m)return "";
-  const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  const d=new Date(+m[3],months[m[2]],+m[1]); return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-}
-
-let fitEnabled=true;
-function applyOnePageFit(){
-  const shell=$("#fitShell"), stage=$("#scaleStage"), table=$("#rosterTable");
-  if(!shell||!stage||!table)return;
-  document.body.classList.toggle("fit-mode",fitEnabled);
-  stage.style.transform="none";
-  stage.style.height="auto";
-  if(!fitEnabled){
-    $("#tableWrap").style.overflow="auto";
-    $("#fitBtn").textContent="Fit One Page";
-    return;
-  }
-  $("#tableWrap").style.overflow="hidden";
-  requestAnimationFrame(()=>{
-    const available=shell.clientWidth;
-    const natural=stage.scrollWidth || table.scrollWidth;
-    const scale=Math.min(1, available/natural);
-    stage.style.transform=`scale(${scale})`;
-    stage.style.height=`${stage.scrollHeight*scale}px`;
-    $("#fitBtn").textContent="Full Size";
-  });
-}
-
-function rowHTML(r={}){
-  return `<tr>${cols.map(c=>`<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`).join("")}</tr>`;
-}
-function esc(v){return String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function classifyRows(){
-  [...tbody.rows].forEach(tr=>{
-    tr.classList.remove("row-off","row-training","row-positioning","row-empty");
-    const item=(tr.cells[3]?.textContent||"").trim().toUpperCase();
-    const work=(tr.cells[7]?.textContent||"").trim().toUpperCase();
-    const hasDuty=[...tr.cells].slice(2).some(td=>td.textContent.trim());
-    if(item==="D" || item==="OFF" || item.startsWith("DO")) tr.classList.add("row-off");
-    else if(item==="DSA" || item.includes("TRAIN") || item.includes("SIM")) tr.classList.add("row-training");
-    else if(work==="PS") tr.classList.add("row-positioning");
-    else if(!hasDuty) tr.classList.add("row-empty");
-  });
-}
-function setRows(rows){tbody.innerHTML=rows.map(rowHTML).join(""); classifyRows(); updateStats(); setTimeout(applyOnePageFit,0)}
-function getRows(){return [...tbody.rows].map(tr=>Object.fromEntries([...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])))}
-function toMinutes(t){let m=String(t||"").match(/(\d{1,3}):(\d{2})/);return m?(+m[1]*60+ +m[2]):0}
-function hhmm(n){return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`}
-function updateStats(){
-  const rows=getRows(); let fh=0,dh=0,off=0;
-  rows.forEach(r=>{fh+=toMinutes(r.block);dh+=toMinutes(r.duty);if((r.item||"").trim()==="D")off++});
-  $("#fh").textContent=hhmm(fh);$("#dh").textContent=hhmm(dh);$("#off").textContent=off;
-}
-tbody.addEventListener("input",()=>{classifyRows();updateStats()});
-
-function parseHeader(text){
-  const head=text.replace(/\s+/g," ");
-  const person=head.match(/Roster Report.*?\d{2}-[A-Za-z]{3}-\d{4}\s+to\s+\d{2}-[A-Za-z]{3}-\d{4}\s+(.+?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]+)\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2})/i);
-  if(person){$("#name").value=person[1].trim();$("#staff").value=person[2];$("#fleet").value=person[3];$("#base").value=person[4];$("#rank").value=person[5]}
-  const fh=head.match(/FH\s*:\s*(\d+:\d{2})/i), dh=head.match(/DH\s*:\s*(\d+:\d{2})/i);
-  if(fh)$("#fh").textContent=fh[1];if(dh)$("#dh").textContent=dh[1];
-}
-
-function closest(items, xMin,xMax, y, tol=9){
-  return items.filter(i=>i.x>=xMin&&i.x<xMax&&Math.abs(i.y-y)<=tol)
-              .sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").trim();
-}
-function cleanTime(v){return v.replace(/\s+/g,"").replace("(+ 1)","(+1)")}
-function buildRows(items,w,h){
-  // Coordinates are normalized to the rendered landscape page.
-  const dates=items.filter(i=>/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(i.s) && i.x < w*0.13 && i.y>h*0.10);
-  const unique=[]; dates.sort((a,b)=>a.y-b.y).forEach(d=>{if(!unique.some(x=>Math.abs(x.y-d.y)<4))unique.push(d)});
-  const rows=[];
-  for(const d of unique){
-    const y=d.y;
-    const activity=closest(items,w*.10,w*.225,y,10);
-    let dutyStart=closest(items,w*.225,w*.29,y,10);
-    let item=closest(items,w*.29,w*.365,y,10);
-    let work=closest(items,w*.42,w*.48,y,10);
-    let dep=closest(items,w*.52,w*.62,y,11);
-    let arr=closest(items,w*.62,w*.72,y,16);
-    let dutyEnd=closest(items,w*.76,w*.82,y,16);
-    let block=closest(items,w*.82,w*.87,y,11);
-    let duty=closest(items,w*.87,w*.92,y,11);
-    let ac=closest(items,w*.955,w*1.01,y,11);
-    if(!item && /^(D|DO\d|DSA|OFF|AL|SL)$/i.test(activity)) item=activity;
-    if(item==="D"){dutyStart="";dep="";arr="";dutyEnd="";work="";block="";duty="";ac=""}
-    rows.push({date:d.s,day:dayName(d.s),dutyStart:cleanTime(dutyStart),item,
-      dep:dep.replace(/\s+/g," "),arr:arr.replace(/\s+/g," "),dutyEnd:cleanTime(dutyEnd),
-      work,block:cleanTime(block),duty:cleanTime(duty),ac});
-  }
-  return rows;
-}
-
-
-function parseRosterDate(s){
-  const m=String(s||"").match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
-  if(!m)return null;
-  const mm={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11}[m[2]];
-  return mm===undefined?null:new Date(+m[3],mm,+m[1]);
-}
-function fmtDate(d){
-  const mon=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
-  return `${String(d.getDate()).padStart(2,"0")}-${mon}-${d.getFullYear()}`;
-}
-function fillEveryDay(rows=getRows()){
-  const valid=rows.map(r=>({r,d:parseRosterDate(r.date)})).filter(x=>x.d);
-  if(!valid.length){status.textContent="Load a roster first.";return rows}
-  const first=valid.reduce((a,b)=>a.d<b.d?a:b).d;
-  const year=first.getFullYear(), month=first.getMonth();
-  const days=new Date(year,month+1,0).getDate();
-  const byDate=new Map();
-  valid.forEach(({r,d})=>{
-    if(d.getFullYear()===year && d.getMonth()===month){
-      const key=fmtDate(d);
-      if(!byDate.has(key))byDate.set(key,[]);
-      byDate.get(key).push(r);
-    }
-  });
-  const full=[];
-  for(let n=1;n<=days;n++){
-    const d=new Date(year,month,n), key=fmtDate(d);
-    const arr=byDate.get(key);
-    if(arr?.length) arr.forEach(r=>full.push({...r,date:key,day:dayName(key)}));
-    else full.push({date:key,day:dayName(key)});
-  }
-  return full;
-}
-
-async function parsePDF(file){
-  status.textContent="Reading PDF…";
-  const data=new Uint8Array(await file.arrayBuffer());
-  const pdf=await pdfjsLib.getDocument({data}).promise;
-  let allRows=[], allText=[];
-  for(let p=1;p<=pdf.numPages;p++){
-    const page=await pdf.getPage(p), viewport=page.getViewport({scale:1});
-    const tc=await page.getTextContent();
-    const items=tc.items.map(it=>{
-      const t=pdfjsLib.Util.transform(viewport.transform,it.transform);
-      return {s:it.str.trim(),x:t[4],y:viewport.height-t[5]};
-    }).filter(i=>i.s);
-    allText.push(items.map(i=>i.s).join(" "));
-    const pageRows=buildRows(items,viewport.width,viewport.height);
-    allRows.push(...pageRows);
-  }
-  parseHeader(allText.join(" "));
-  // dedupe by date+item+start
-  const seen=new Set();
-  allRows=allRows.filter(r=>{const k=r.date+"|"+r.item+"|"+r.dutyStart;if(seen.has(k))return false;seen.add(k);return true});
-  if(!allRows.length) throw new Error("No roster rows were detected. This version supports the current Malaysia Airlines Roster Report PDF.");
-  allRows=fillEveryDay(allRows);
-  setRows(allRows);
-  status.textContent=`Converted the roster and displayed all ${new Date(parseRosterDate(allRows[0].date).getFullYear(), parseRosterDate(allRows[0].date).getMonth()+1, 0).getDate()} calendar days. Please review the yellow cells.`;
-}
-
-$("#pdfInput").addEventListener("change",async e=>{
-  const file=e.target.files[0]; if(!file)return;
-  try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
-});
-$("#loadAnotherBtn").onclick=()=>$("#pdfInput").click();
-$("#addRowBtn").onclick=()=>{tbody.insertAdjacentHTML("beforeend",rowHTML({}));tbody.lastElementChild.scrollIntoView({behavior:"smooth"});updateStats()}
-$("#clearBtn").onclick=()=>{setRows([]);status.textContent="Cleared."}
-$("#fillDaysBtn").onclick=()=>{const rows=fillEveryDay();setRows(rows);status.textContent="Every calendar day is now shown, including blank layover/rest dates."};
-$("#sortBtn").onclick=()=>{const rows=getRows().sort((a,b)=>(parseRosterDate(a.date)||0)-(parseRosterDate(b.date)||0));setRows(rows)}
-$("#fitBtn").onclick=()=>{fitEnabled=!fitEnabled;applyOnePageFit()};
-window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
-$("#printBtn").onclick=()=>{fitEnabled=true;applyOnePageFit();setTimeout(()=>window.print(),80)};
-
-
-window.addEventListener("load",()=>{document.body.classList.add("fit-mode");applyOnePageFit()});
-</script>
+  <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
+    <span class="validation-toast-icon">✓</span>
+    <span id="validationToastText">Roster validation passed.</span>
+  </div>
 </body></html>
