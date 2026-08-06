@@ -4680,3 +4680,13 @@ tbody tr.row-overnight-continuation td{
 tbody tr.row-overnight-continuation + tr td{
   border-top:1px solid var(--border-color,#d7dee7);
 }
+
+/*
+ * Classic view only: keep synthetic layover/calendar placeholder rows in the
+ * DOM so Calendar view still has a complete date grid, but do not show those
+ * empty placeholders in the Classic roster table. Overnight continuation rows
+ * remain visible because they contain the next-day arrival/duty-end values.
+ */
+body:not(.calendar-mode) #rosterTable tbody tr[data-synthetic-calendar-row="1"][data-layover-day="1"]:not([data-overnight-continuation="1"]){
+  display:none !important;
+}
