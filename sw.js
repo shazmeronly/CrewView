@@ -1,4 +1,4 @@
-const CACHE = "crewview-refined-light-mode-v86";
+const CACHE = "crewview-refined-light-mode-v87-date-label-fix";
 const ASSETS = [
   "./",
   "./index.html",

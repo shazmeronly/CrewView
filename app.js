@@ -88,6 +88,9 @@ function rowHTML(r={}){
   const dutyGroup=esc(r._dutyGroup||"");
   const sectorIndex=Number.isFinite(r._sectorIndex) ? String(r._sectorIndex) : "";
   const sectorCount=Number.isFinite(r._sectorCount) ? String(r._sectorCount) : "";
+  const rosterDate=esc(r.date||"");
+  const rosterDay=esc(r.day||"");
+  const hideDateLabel=r._hideDateLabel===true;
 
   return `<tr
     data-overnight-continuation="${continuation}"
@@ -97,9 +100,12 @@ function rowHTML(r={}){
     data-duty-group="${dutyGroup}"
     data-sector-index="${sectorIndex}"
     data-sector-count="${sectorCount}"
-  >${cols.map(c=>
-    `<td contenteditable="true" data-k="${c}">${esc(r[c]??"")}</td>`
-  ).join("")}</tr>`;
+    data-roster-date="${rosterDate}"
+    data-roster-day="${rosterDay}"
+  >${cols.map(c=>{
+    const value=hideDateLabel && (c==="date" || c==="day") ? "" : (r[c]??"");
+    return `<td contenteditable="true" data-k="${c}">${esc(value)}</td>`;
+  }).join("")}</tr>`;
 }
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function classifyRows(){
@@ -168,6 +174,11 @@ function getRows(){
     const row=Object.fromEntries(
       [...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])
     );
+    // The table can visually suppress repeated date/day labels while keeping
+    // the real date attached to every row for calendar, stats and duty logic.
+    if(tr.dataset.rosterDate) row.date=tr.dataset.rosterDate;
+    if(tr.dataset.rosterDay) row.day=tr.dataset.rosterDay;
+
     row._overnightContinuation=tr.dataset.overnightContinuation==="1";
     row._syntheticCalendarRow=
       tr.dataset.syntheticCalendarRow==="1";
@@ -1402,10 +1413,14 @@ function fillEveryDay(rows=getRows(),period=officialRosterPeriod){
     const entries=byDate.get(key);
 
     if(entries?.length){
-      entries.forEach(row=>full.push({
+      entries.forEach((row,index)=>full.push({
         ...row,
         date:key,
-        day:dayName(key)
+        day:dayName(key),
+        // Print the date/day only once for a calendar date. Additional rows
+        // (overnight arrival plus a later duty, or multi-sector duties) keep
+        // the same underlying date but do not repeat the label in Classic view.
+        _hideDateLabel:index>0
       }));
     }else{
       full.push({
