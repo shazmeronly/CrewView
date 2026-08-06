@@ -1097,6 +1097,11 @@ function applyClassicOvernightTiming(rows,pdfText){
         first.work,first.block,first.duty,first.ac
       ].every(v=>!String(v||"").trim());
 
+      const hasVisibleRosterContent=r=>[
+        r.dutyStart,r.item,r.dep,r.arr,r.dutyEnd,
+        r.work,r.block,r.duty,r.ac
+      ].some(v=>String(v||"").trim());
+
       if(blank){
         first.arr=extras[0].arr;
         first.dutyEnd=extras[0].dutyEnd;
@@ -1104,12 +1109,19 @@ function applyClassicOvernightTiming(rows,pdfText){
         result.push(first);
 
         extras.slice(1).forEach(extra=>result.push({...extra,date:"",day:""}));
-        sameDate.slice(1).forEach(r=>result.push({...r,date:"",day:""}));
+        // Do not render synthetic/empty calendar placeholders beneath the
+        // overnight-arrival row. They caused a full blank line before the
+        // next dated duty (for example between 07-Aug and 08-Aug).
+        sameDate.slice(1)
+          .filter(hasVisibleRosterContent)
+          .forEach(r=>result.push({...r,date:"",day:""}));
       } else {
-        // Arrival line first, then the existing duty beneath it.
+        // Arrival line first, then only real duties beneath it.
         result.push({...extras[0],date,day:dayName(date)});
         extras.slice(1).forEach(extra=>result.push({...extra,date:"",day:""}));
-        sameDate.forEach(r=>result.push({...r,date:"",day:""}));
+        sameDate
+          .filter(hasVisibleRosterContent)
+          .forEach(r=>result.push({...r,date:"",day:""}));
       }
 
       handled.add(date);
