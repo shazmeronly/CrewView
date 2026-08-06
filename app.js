@@ -1253,6 +1253,15 @@ function removeOffPlaceholdersOnDutyDates(rows){
   });
 }
 
+function removeCompletelyBlankRows(rows){
+  return rows.filter(row=>{
+    return [
+      row.date,row.day,row.dutyStart,row.item,row.dep,row.arr,row.dutyEnd,
+      row.work,row.block,row.duty,row.ac
+    ].some(value=>String(value||"").trim()!=="");
+  });
+}
+
 function removeSyntheticOffRowsOnOvernightDates(rows){
   const overnightDates=new Set(
     rows
@@ -2588,6 +2597,10 @@ async function parsePDF(file){
 
   // Remove any D/DO placeholder that shares a date with an actual duty.
   allRows=removeOffPlaceholdersOnDutyDates(allRows);
+
+  // Do not render parser placeholders with no date and no roster content.
+  // These rows caused the visible full-height gap between 07-Aug and 08-Aug.
+  allRows=removeCompletelyBlankRows(allRows);
 
   allRows.forEach((row,index)=>{
     row._displayOrder=
