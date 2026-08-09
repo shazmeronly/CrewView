@@ -2253,8 +2253,11 @@ function scorePairingRows(rows){
 
   // Reward clean field separation.
   rows.forEach(row=>{
+    const item=String(row.item||"").trim().toUpperCase();
     if(/^\d{2}:\d{2}$/.test(String(row.dutyStart||""))) score+=2;
-    if(/^MH\d{2,4}$/i.test(String(row.item||""))) score+=5;
+    if(/^MH\d{2,4}$/i.test(item)) score+=5;
+    // Cabin office duty (OFF01 / OF1) is a real duty, not an off day.
+    if(/^(?:OFF0?1|OF1)$/.test(item)) score+=12;
     if(/^[A-Z]{3}\s+\d{2}:\d{2}/.test(String(row.dep||""))) score+=3;
     if(/^[A-Z]{3}\s+\d{2}:\d{2}/.test(String(row.arr||""))) score+=3;
 
@@ -2400,7 +2403,7 @@ function detectRosterType(text){
   }
 
   if(
-    ["FS","FSS","LS","CSS","IFM","CCM"].includes(rank)
+    ["FS","FSS","LS","CSS","IFS","IFM","CCM"].includes(rank)
   ){
     return "cabin";
   }
