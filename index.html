@@ -93,31 +93,53 @@
       <div><span>PHASE</span><strong id="smartDutyPhase">—</strong></div>
     </div>
 
-    <div class="pilot-ops-panel hidden" id="pilotOpsPanel">
+    <div class="pilot-ops-panel hidden ops-mode-both" id="pilotOpsPanel" data-time-mode="both">
       <div class="pilot-ops-header">
         <div>
-          <strong>ACTUAL FLIGHT TIMES</strong>
-          <small>Tap Now at the event, or enter the time manually.</small>
+          <strong>ACTUAL FLIGHT TIMES · UTC</strong>
+          <small>Enter operational times in UTC. CrewView converts them to airport local time automatically.</small>
         </div>
         <button type="button" class="ops-reset smart-duty-control" id="opsResetBtn">Reset</button>
       </div>
 
+      <div class="ops-display-row">
+        <div class="ops-report-chip">
+          <span>REPORT</span>
+          <strong id="opsReportUtc">—</strong>
+          <small class="ops-local-time" id="opsReportLocal">Local —</small>
+        </div>
+        <div class="ops-time-mode smart-duty-control" aria-label="Operational time display">
+          <button type="button" data-ops-time-mode="utc" aria-pressed="false">UTC</button>
+          <button type="button" data-ops-time-mode="both" class="active" aria-pressed="true">Both</button>
+          <button type="button" data-ops-time-mode="local" aria-pressed="false">Local</button>
+        </div>
+      </div>
+
       <div class="pilot-ops-grid">
         <label>
-          <span>Pushback</span>
+          <span>Pushback <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsPushback" data-ops-field="pushback" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="pushback">Now</button></div>
+          <small class="ops-local-time" id="opsPushbackLocal">Local —</small>
         </label>
         <label>
-          <span>Airborne</span>
+          <span>Airborne <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsAirborne" data-ops-field="airborne" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="airborne">Now</button></div>
+          <small class="ops-local-time" id="opsAirborneLocal">Local —</small>
         </label>
         <label>
-          <span>Landing</span>
+          <span>Landing <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsLanding" data-ops-field="landing" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="landing">Now</button></div>
+          <small class="ops-local-time" id="opsLandingLocal">Local —</small>
         </label>
         <label>
-          <span>On Chocks</span>
+          <span>On Chocks <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsOnChocks" data-ops-field="onChocks" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="onChocks">Now</button></div>
+          <small class="ops-local-time" id="opsOnChocksLocal">Local —</small>
+        </label>
+        <label class="ops-duty-end-field">
+          <span>Duty End / Released <em class="ops-utc-badge">UTC</em></span>
+          <div><input class="smart-duty-control" id="opsDutyEnd" data-ops-field="dutyEnd" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="dutyEnd">Now</button></div>
+          <small class="ops-local-time" id="opsDutyEndLocal">Local —</small>
         </label>
       </div>
 
@@ -127,7 +149,15 @@
         <div><span>Taxi In</span><strong id="actualTaxiIn">—</strong></div>
         <div><span>Actual Block</span><strong id="actualBlockTime">—</strong></div>
       </div>
-      <p class="ops-note" id="opsAccuracyNote">Tap “Now” for exact elapsed calculations across time zones. Manually typed clock times are shown as approximate calculations.</p>
+
+      <div class="pilot-duty-compare-grid">
+        <div><span>Roster Duty</span><strong id="rosterDutyTime">—</strong></div>
+        <div><span>Actual Duty</span><strong id="actualDutyTime">—</strong></div>
+        <div><span>Difference</span><strong id="actualDutyDifference">—</strong></div>
+      </div>
+
+      <p class="ops-timezone-status" id="opsTimezoneStatus"></p>
+      <p class="ops-note" id="opsAccuracyNote">UTC is the master record. “Now” captures the exact instant; manual entries are interpreted as UTC and anchored to this duty. Actual Duty runs from roster Report to Duty End / Released.</p>
     </div>
 
     <div class="cabin-duty-panel hidden" id="cabinDutyPanel">

@@ -1,9 +1,10 @@
-const CACHE = "crewview-smart-duty-v90";
+const CACHE = "crewview-smart-duty-v91";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./airport-timezones.js",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",

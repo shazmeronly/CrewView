@@ -40,6 +40,7 @@ themeToggle?.addEventListener("click",()=>{
   requestAnimationFrame(syncCalendarThemeButton);
 });
 
+import { AIRPORT_TIMEZONES } from "./airport-timezones.js";
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 
@@ -2061,7 +2062,134 @@ function smartDutyKey(row){
     .join("|");
 }
 
-const SMART_DUTY_STORAGE_KEY="crewview-operational-times-v1";
+const SMART_DUTY_STORAGE_KEY="crewview-operational-times-v2-utc";
+const SMART_DUTY_TIME_MODE_KEY="crewview-operational-display-mode-v1";
+const SMART_DUTY_FIELDS=["pushback","airborne","landing","onChocks","dutyEnd"];
+
+function airportTimezone(code){
+  const iata=String(code||"").trim().toUpperCase();
+  return AIRPORT_TIMEZONES[iata] || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function dutyDepartureAirport(row){
+  const route=(row?._routeAirports||[]).filter(Boolean);
+  return String(route[0] || airportCode(row?.dep) || "").toUpperCase();
+}
+
+function dutyArrivalAirport(row){
+  const route=(row?._routeAirports||[]).filter(Boolean);
+  return String(route[route.length-1] || airportCode(row?._arrival||row?.arr) || "").toUpperCase();
+}
+
+function smartDutyEventAirport(row,field){
+  return ["pushback","airborne"].includes(field)
+    ? dutyDepartureAirport(row)
+    : dutyArrivalAirport(row);
+}
+
+function smartDutyEventTimezone(row,field){
+  return airportTimezone(smartDutyEventAirport(row,field));
+}
+
+function rosterDateComponents(dateText){
+  const match=String(dateText||"").match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
+  if(!match) return null;
+  const months={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  const month=months[match[2]];
+  if(!month) return null;
+  return {year:Number(match[3]),month,day:Number(match[1])};
+}
+
+function timePartsInZone(timestamp,timeZone){
+  try{
+    const parts=new Intl.DateTimeFormat("en-CA",{
+      timeZone,
+      year:"numeric",month:"2-digit",day:"2-digit",
+      hour:"2-digit",minute:"2-digit",second:"2-digit",
+      hourCycle:"h23"
+    }).formatToParts(new Date(timestamp));
+    return Object.fromEntries(parts.filter(part=>part.type!=="literal").map(part=>[part.type,part.value]));
+  }catch(_error){
+    const d=new Date(timestamp);
+    return {
+      year:String(d.getUTCFullYear()),
+      month:String(d.getUTCMonth()+1).padStart(2,"0"),
+      day:String(d.getUTCDate()).padStart(2,"0"),
+      hour:String(d.getUTCHours()).padStart(2,"0"),
+      minute:String(d.getUTCMinutes()).padStart(2,"0"),
+      second:String(d.getUTCSeconds()).padStart(2,"0")
+    };
+  }
+}
+
+function zonedWallTimeToUtcMs(dateText,timeText,timeZone){
+  const date=rosterDateComponents(dateText);
+  const time=String(timeText||"").match(/(\d{1,2}):(\d{2})/);
+  if(!date||!time) return null;
+
+  const target=Date.UTC(date.year,date.month-1,date.day,Number(time[1]),Number(time[2]),0,0);
+  let guess=target;
+
+  // Resolve the local wall-clock value into an absolute instant. Iteration
+  // handles non-integer offsets and daylight-saving changes via Intl/IANA data.
+  for(let index=0;index<3;index++){
+    const parts=timePartsInZone(guess,timeZone);
+    const shown=Date.UTC(
+      Number(parts.year),Number(parts.month)-1,Number(parts.day),
+      Number(parts.hour),Number(parts.minute),Number(parts.second||0),0
+    );
+    guess+=target-shown;
+  }
+  return guess;
+}
+
+function smartDutyReportUtcMs(row){
+  if(!row) return null;
+  const airport=dutyDepartureAirport(row);
+  const timezone=airportTimezone(airport);
+  const resolved=zonedWallTimeToUtcMs(row.date,row.dutyStart,timezone);
+  if(Number.isFinite(resolved)) return resolved;
+  const fallback=row._dt||dutyDateTime(row);
+  return fallback instanceof Date ? fallback.getTime() : null;
+}
+
+function smartDutyEndUtcMs(row){
+  const report=smartDutyReportUtcMs(row);
+  if(!Number.isFinite(report)) return null;
+  const dutyMinutes=toMinutes(row?._totalDuty||row?.duty);
+  if(dutyMinutes>0) return report+dutyMinutes*60000;
+  return report+12*3600000;
+}
+
+function formatUtcHHMM(timestamp){
+  if(!Number.isFinite(Number(timestamp))) return "—";
+  const d=new Date(Number(timestamp));
+  return `${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
+}
+
+function rosterDateKeyFromParts(parts){
+  if(!parts) return null;
+  return Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day));
+}
+
+function localDateDelta(row,timestamp,timeZone){
+  const base=rosterDateComponents(row?.date);
+  if(!base || !Number.isFinite(Number(timestamp))) return 0;
+  const local=timePartsInZone(Number(timestamp),timeZone);
+  const baseKey=Date.UTC(base.year,base.month-1,base.day);
+  const localKey=rosterDateKeyFromParts(local);
+  return Math.round((localKey-baseKey)/86400000);
+}
+
+function formatLocalOperationalTime(row,field,event){
+  if(!event || !Number.isFinite(event.at)) return "Local —";
+  const airport=event.airport || smartDutyEventAirport(row,field);
+  const timezone=event.timezone || airportTimezone(airport);
+  const parts=timePartsInZone(event.at,timezone);
+  const delta=localDateDelta(row,event.at,timezone);
+  const marker=delta===0 ? "" : delta>0 ? ` (+${delta})` : ` (${delta})`;
+  return `${parts.hour}:${parts.minute}${marker}${airport?` ${airport}`:""}`;
+}
 
 function loadOperationalStore(){
   try{
@@ -2076,7 +2204,7 @@ function saveOperationalStore(store){
   try{
     localStorage.setItem(SMART_DUTY_STORAGE_KEY,JSON.stringify(store));
   }catch(error){
-    console.warn("CrewView could not save operational times",error);
+    console.warn("CrewView could not save UTC operational times",error);
   }
 }
 
@@ -2088,13 +2216,79 @@ function operationalRecord(row){
 
 function operationalEvent(record,field){
   const value=record?.[field];
-  if(!value) return {time:"",at:null,offset:null};
-  if(typeof value==="string") return {time:value,at:null,offset:null};
+  if(!value) return {time:"",at:null,source:"",airport:"",timezone:""};
+  if(typeof value==="string") return {time:value,at:null,source:"legacy",airport:"",timezone:""};
   return {
-    time:String(value.time||""),
+    time:String(value.utcTime||value.time||""),
     at:Number.isFinite(Number(value.at)) ? Number(value.at) : null,
-    offset:Number.isFinite(Number(value.offset)) ? Number(value.offset) : null
+    source:String(value.source||""),
+    airport:String(value.airport||""),
+    timezone:String(value.timezone||"")
   };
+}
+
+function currentUtcHHMM(){
+  const now=new Date();
+  return `${String(now.getUTCHours()).padStart(2,"0")}:${String(now.getUTCMinutes()).padStart(2,"0")}`;
+}
+
+function clockMinutes(value){
+  const match=String(value||"").match(/^(\d{1,2}):(\d{2})$/);
+  return match ? Number(match[1])*60+Number(match[2]) : null;
+}
+
+function utcTimestampForDay(dayMs,timeText){
+  const minutes=clockMinutes(timeText);
+  if(minutes===null) return null;
+  const d=new Date(dayMs);
+  return Date.UTC(
+    d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),
+    Math.floor(minutes/60),minutes%60,0,0
+  );
+}
+
+function previousOperationalTimestamp(record,field){
+  const index=SMART_DUTY_FIELDS.indexOf(field);
+  for(let cursor=index-1;cursor>=0;cursor--){
+    const event=operationalEvent(record,SMART_DUTY_FIELDS[cursor]);
+    if(Number.isFinite(event.at)) return event.at;
+  }
+  return null;
+}
+
+function inferManualUtcTimestamp(row,field,timeText,record){
+  const minutes=clockMinutes(timeText);
+  if(minutes===null) return null;
+
+  const report=smartDutyReportUtcMs(row);
+  const previous=previousOperationalTimestamp(record,field);
+  const anchor=Number.isFinite(previous) ? previous : (Number.isFinite(report) ? report : Date.now());
+  const anchorDay=Date.UTC(
+    new Date(anchor).getUTCFullYear(),
+    new Date(anchor).getUTCMonth(),
+    new Date(anchor).getUTCDate()
+  );
+
+  const candidates=[];
+  for(let delta=-1;delta<=3;delta++){
+    const candidate=utcTimestampForDay(anchorDay+delta*86400000,timeText);
+    if(Number.isFinite(candidate)) candidates.push(candidate);
+  }
+
+  if(Number.isFinite(previous)){
+    const afterPrevious=candidates.filter(value=>value>=previous).sort((a,b)=>a-b);
+    if(afterPrevious.length) return afterPrevious[0];
+  }
+
+  if(Number.isFinite(report)){
+    // Pushback can occasionally occur shortly before the exact recorded report
+    // instant in manually edited test data, so allow a small guard band.
+    const minimum=report-3*3600000;
+    const afterReport=candidates.filter(value=>value>=minimum).sort((a,b)=>a-b);
+    if(afterReport.length) return afterReport[0];
+  }
+
+  return candidates.sort((a,b)=>Math.abs(a-anchor)-Math.abs(b-anchor))[0]||null;
 }
 
 function setOperationalEvent(row,field,time,{capturedNow=false}={}){
@@ -2105,18 +2299,23 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
   const clean=String(time||"").trim();
 
   if(clean){
+    const at=capturedNow ? Date.now() : inferManualUtcTimestamp(row,field,clean,record);
+    const airport=smartDutyEventAirport(row,field);
     record[field]={
-      time:clean,
-      at:capturedNow ? Date.now() : null,
-      offset:capturedNow ? new Date().getTimezoneOffset() : null
+      utcTime:capturedNow ? currentUtcHHMM() : clean,
+      time:capturedNow ? currentUtcHHMM() : clean,
+      at:Number.isFinite(at) ? at : null,
+      source:capturedNow ? "now" : "manual-utc",
+      airport,
+      timezone:airportTimezone(airport)
     };
   }else{
     delete record[field];
   }
 
   record.updatedAt=Date.now();
-  if(field==="onChocks"){
-    record.completedAt=clean ? Date.now() : null;
+  if(field==="dutyEnd"){
+    record.completedAt=clean ? (record[field]?.at||Date.now()) : null;
   }
 
   store[key]=record;
@@ -2130,56 +2329,54 @@ function resetOperationalRecord(row){
   saveOperationalStore(store);
 }
 
-function currentClockHHMM(){
-  const now=new Date();
-  return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-}
-
-function clockMinutes(value){
-  const match=String(value||"").match(/^(\d{1,2}):(\d{2})$/);
-  return match ? Number(match[1])*60+Number(match[2]) : null;
-}
-
 function durationBetweenOperationalEvents(startEvent,endEvent){
-  if(!startEvent?.time || !endEvent?.time) return null;
-
+  if(!startEvent || !endEvent) return null;
   if(Number.isFinite(startEvent.at) && Number.isFinite(endEvent.at) && endEvent.at>=startEvent.at){
-    return {
-      minutes:Math.round((endEvent.at-startEvent.at)/60000),
-      exact:true
-    };
+    return {minutes:Math.round((endEvent.at-startEvent.at)/60000),exact:true};
   }
-
-  const start=clockMinutes(startEvent.time);
-  const end=clockMinutes(endEvent.time);
-  if(start===null||end===null) return null;
-  let diff=end-start;
-  if(diff<0) diff+=24*60;
-  return {minutes:diff,exact:false};
+  return null;
 }
 
 function formatOperationalDuration(result){
   if(!result || !Number.isFinite(result.minutes)) return "—";
-  const value=hhmm(Math.max(0,result.minutes));
-  return result.exact ? value : `≈${value}`;
+  return hhmm(Math.max(0,result.minutes));
 }
 
-function operationalMetrics(record){
+function rosterDutyMinutes(row){
+  return toMinutes(row?._totalDuty||row?.duty);
+}
+
+function formatSignedMinutes(minutes){
+  if(!Number.isFinite(minutes)) return "—";
+  const sign=minutes>0?"+":minutes<0?"-":"±";
+  return `${sign}${hhmm(Math.abs(Math.round(minutes)))}`;
+}
+
+function operationalMetrics(row,record){
   const pushback=operationalEvent(record,"pushback");
   const airborne=operationalEvent(record,"airborne");
   const landing=operationalEvent(record,"landing");
   const onChocks=operationalEvent(record,"onChocks");
+  const dutyEnd=operationalEvent(record,"dutyEnd");
+  const reportAt=smartDutyReportUtcMs(row);
+  const reportEvent=Number.isFinite(reportAt)?{at:reportAt,time:formatUtcHHMM(reportAt)}:null;
+  const actualDuty=durationBetweenOperationalEvents(reportEvent,dutyEnd);
+  const rosterMinutes=rosterDutyMinutes(row);
   return {
     taxiOut:durationBetweenOperationalEvents(pushback,airborne),
     airTime:durationBetweenOperationalEvents(airborne,landing),
     taxiIn:durationBetweenOperationalEvents(landing,onChocks),
-    block:durationBetweenOperationalEvents(pushback,onChocks)
+    block:durationBetweenOperationalEvents(pushback,onChocks),
+    actualDuty,
+    rosterDuty:rosterMinutes>0?{minutes:rosterMinutes,exact:true}:null,
+    dutyDifference:actualDuty && rosterMinutes>0 ? actualDuty.minutes-rosterMinutes : null
   };
 }
 
 function smartDutyPhase(row,record,role){
   if(role==="pilot" && smartDutyIsFlight(row)){
-    if(operationalEvent(record,"onChocks").time) return "COMPLETED";
+    if(operationalEvent(record,"dutyEnd").time) return "COMPLETED";
+    if(operationalEvent(record,"onChocks").time) return "POST FLIGHT";
     if(operationalEvent(record,"landing").time) return "TAXI IN";
     if(operationalEvent(record,"airborne").time) return "AIRBORNE";
     if(operationalEvent(record,"pushback").time) return "TAXI OUT";
@@ -2220,19 +2417,25 @@ function getSmartDutyCandidates(rows){
 
     const duty={...buildCompleteDuty(rows,index),_dt:report};
     duty._smartKey=smartDutyKey(duty);
-    duty._estimatedEnd=smartDutyEndDateTime(duty);
+    duty._reportUtcMs=smartDutyReportUtcMs(duty);
+    duty._estimatedEndUtcMs=smartDutyEndUtcMs(duty);
+    duty._estimatedEnd=Number.isFinite(duty._estimatedEndUtcMs)
+      ? new Date(duty._estimatedEndUtcMs)
+      : smartDutyEndDateTime(duty);
 
     if(seen.has(duty._smartKey)) return;
     seen.add(duty._smartKey);
     candidates.push(duty);
   });
 
-  return candidates.sort((a,b)=>a._dt-b._dt);
+  return candidates.sort((a,b)=>
+    (a._reportUtcMs||a._dt.getTime())-(b._reportUtcMs||b._dt.getTime())
+  );
 }
 
 function getUpcomingDuty(rows){
-  const now=new Date();
-  return getSmartDutyCandidates(rows).find(duty=>duty._dt>now)||null;
+  const nowMs=Date.now();
+  return getSmartDutyCandidates(rows).find(duty=>(duty._reportUtcMs||duty._dt.getTime())>nowMs)||null;
 }
 
 function getSmartDutySelection(rows){
@@ -2249,44 +2452,46 @@ function getSmartDutySelection(rows){
   const candidates=getSmartDutyCandidates(rows);
   if(!candidates.length) return null;
 
-  const future=candidates.find(duty=>duty._dt.getTime()>nowMs)||null;
+  const reportMs=duty=>duty._reportUtcMs||duty._dt.getTime();
+  const endMs=duty=>duty._estimatedEndUtcMs||duty._estimatedEnd?.getTime()||reportMs(duty)+12*3600000;
 
-  // A duty stays active until its scheduled duty end. If the pilot taps On Chocks
-  // early, it becomes Completed immediately.
+  const future=candidates.find(duty=>reportMs(duty)>nowMs)||null;
+
+  // The duty remains active until an actual Duty End/Released time is entered,
+  // or until the scheduled roster duty end is reached. On Chocks is a flight
+  // milestone, not the end of the crew duty period.
   const active=[...candidates].reverse().find(duty=>{
-    const reportMs=duty._dt.getTime();
-    if(reportMs>nowMs) return false;
+    const start=reportMs(duty);
+    if(start>nowMs) return false;
     const record=operationalRecord(duty);
-    if(operationalEvent(record,"onChocks").time) return false;
-    const endMs=duty._estimatedEnd?.getTime()||reportMs+12*3600000;
-    return nowMs<=endMs;
+    const actualDutyEnd=operationalEvent(record,"dutyEnd");
+    if(Number.isFinite(actualDutyEnd.at) && actualDutyEnd.at<=nowMs) return false;
+    return nowMs<=endMs(duty);
   });
 
   if(active) return {row:active,state:"active"};
 
   const completed=[...candidates].reverse().find(duty=>{
-    if(duty._dt.getTime()>nowMs) return false;
+    if(reportMs(duty)>nowMs) return false;
     const record=operationalRecord(duty);
-    const onChocks=operationalEvent(record,"onChocks");
+    const actualDutyEnd=operationalEvent(record,"dutyEnd");
     const completionMs=
-      (Number.isFinite(onChocks.at) ? onChocks.at : null) ||
+      (Number.isFinite(actualDutyEnd.at) ? actualDutyEnd.at : null) ||
       (Number(record.completedAt)||null) ||
-      duty._estimatedEnd?.getTime();
+      endMs(duty);
     return completionMs && completionMs<=nowMs;
   });
 
   if(completed){
     const record=operationalRecord(completed);
-    const onChocks=operationalEvent(record,"onChocks");
+    const actualDutyEnd=operationalEvent(record,"dutyEnd");
     const completionMs=
-      (Number.isFinite(onChocks.at) ? onChocks.at : null) ||
+      (Number.isFinite(actualDutyEnd.at) ? actualDutyEnd.at : null) ||
       (Number(record.completedAt)||null) ||
-      completed._estimatedEnd?.getTime();
+      endMs(completed);
     const since=nowMs-completionMs;
-    const nextIn=future ? future._dt.getTime()-nowMs : Infinity;
+    const nextIn=future ? reportMs(future)-nowMs : Infinity;
 
-    // Keep Completed front-and-centre for at least 3 hours after duty. If the
-    // next report is still far away, keep it for up to 12 hours.
     if(since<=3*3600000 || (since<=12*3600000 && nextIn>12*3600000)){
       return {row:completed,state:"completed"};
     }
@@ -2303,27 +2508,89 @@ function shortDuration(ms){
   return `${String(hours).padStart(2,"0")}h ${String(mins).padStart(2,"0")}m`;
 }
 
+function smartDutyTimeDisplayMode(){
+  const value=localStorage.getItem(SMART_DUTY_TIME_MODE_KEY);
+  return ["utc","local","both"].includes(value) ? value : "both";
+}
+
+function applySmartDutyTimeDisplayMode(mode){
+  const value=["utc","local","both"].includes(mode) ? mode : "both";
+  localStorage.setItem(SMART_DUTY_TIME_MODE_KEY,value);
+  const panel=$("#pilotOpsPanel");
+  if(panel){
+    panel.dataset.timeMode=value;
+    panel.classList.remove("ops-mode-utc","ops-mode-local","ops-mode-both");
+    panel.classList.add(`ops-mode-${value}`);
+  }
+  document.querySelectorAll("[data-ops-time-mode]").forEach(button=>{
+    button.classList.toggle("active",button.dataset.opsTimeMode===value);
+    button.setAttribute("aria-pressed",button.dataset.opsTimeMode===value?"true":"false");
+  });
+}
+
 function setSmartDutyOperationalInputs(row){
   const record=operationalRecord(row);
   const fieldIds={
     pushback:"#opsPushback",
     airborne:"#opsAirborne",
     landing:"#opsLanding",
-    onChocks:"#opsOnChocks"
+    onChocks:"#opsOnChocks",
+    dutyEnd:"#opsDutyEnd"
+  };
+  const localIds={
+    pushback:"#opsPushbackLocal",
+    airborne:"#opsAirborneLocal",
+    landing:"#opsLandingLocal",
+    onChocks:"#opsOnChocksLocal",
+    dutyEnd:"#opsDutyEndLocal"
   };
 
   Object.entries(fieldIds).forEach(([field,selector])=>{
+    const event=operationalEvent(record,field);
     const input=$(selector);
     if(input && document.activeElement!==input){
-      input.value=operationalEvent(record,field).time||"";
+      input.value=event.time||"";
+    }
+    const local=$(localIds[field]);
+    if(local){
+      local.textContent=formatLocalOperationalTime(row,field,event);
+      local.classList.toggle("has-time",Number.isFinite(event.at));
     }
   });
 
-  const metrics=operationalMetrics(record);
+  const reportMs=smartDutyReportUtcMs(row);
+  const reportAirport=dutyDepartureAirport(row);
+  const reportZone=airportTimezone(reportAirport);
+  const reportEvent=Number.isFinite(reportMs)
+    ? {at:reportMs,airport:reportAirport,timezone:reportZone}
+    : null;
+  $("#opsReportUtc").textContent=Number.isFinite(reportMs)?`${formatUtcHHMM(reportMs)} UTC`:"—";
+  $("#opsReportLocal").textContent=reportEvent
+    ? formatLocalOperationalTime(row,"pushback",reportEvent)
+    : "Local —";
+
+  const metrics=operationalMetrics(row,record);
   $("#actualTaxiOut").textContent=formatOperationalDuration(metrics.taxiOut);
   $("#actualAirTime").textContent=formatOperationalDuration(metrics.airTime);
   $("#actualTaxiIn").textContent=formatOperationalDuration(metrics.taxiIn);
   $("#actualBlockTime").textContent=formatOperationalDuration(metrics.block);
+  $("#rosterDutyTime").textContent=metrics.rosterDuty?hhmm(metrics.rosterDuty.minutes):"—";
+  $("#actualDutyTime").textContent=formatOperationalDuration(metrics.actualDuty);
+  $("#actualDutyDifference").textContent=formatSignedMinutes(metrics.dutyDifference);
+
+  const timezoneStatus=$("#opsTimezoneStatus");
+  if(timezoneStatus){
+    const dep=dutyDepartureAirport(row);
+    const arr=dutyArrivalAirport(row);
+    const depKnown=Boolean(AIRPORT_TIMEZONES[dep]);
+    const arrKnown=Boolean(AIRPORT_TIMEZONES[arr]);
+    timezoneStatus.textContent=depKnown&&arrKnown
+      ? `${dep} ${airportTimezone(dep)} · ${arr} ${airportTimezone(arr)}`
+      : "Airport timezone not found for one station; device timezone fallback is being used.";
+    timezoneStatus.classList.toggle("warning",!(depKnown&&arrKnown));
+  }
+
+  applySmartDutyTimeDisplayMode(smartDutyTimeDisplayMode());
 }
 
 let smartDutyRenderSignature="";
@@ -2403,8 +2670,8 @@ function refreshSmartDutyCard(force=false){
   }
 
   const now=new Date();
-  const reportMs=row._dt.getTime();
-  const endMs=row._estimatedEnd?.getTime()||reportMs+12*3600000;
+  const reportMs=row._reportUtcMs||smartDutyReportUtcMs(row)||row._dt.getTime();
+  const endMs=row._estimatedEndUtcMs||smartDutyEndUtcMs(row)||row._estimatedEnd?.getTime()||reportMs+12*3600000;
   const record=operationalRecord(row);
 
   card.classList.remove("soon","urgent");
@@ -2424,8 +2691,8 @@ function refreshSmartDutyCard(force=false){
 
   const completionMs=state==="completed"
     ? (
-        (Number.isFinite(operationalEvent(record,"onChocks").at)
-          ? operationalEvent(record,"onChocks").at
+        (Number.isFinite(operationalEvent(record,"dutyEnd").at)
+          ? operationalEvent(record,"dutyEnd").at
           : null) ||
         (Number(record.completedAt)||null) ||
         endMs
@@ -2449,9 +2716,9 @@ function refreshSmartDutyCard(force=false){
     const pct=Math.max(0,Math.min(100,(elapsed/span)*100));
     $("#nextDutyProgress").style.width=`${pct}%`;
   }else{
-    const onChocks=operationalEvent(record,"onChocks");
+    const dutyEndEvent=operationalEvent(record,"dutyEnd");
     $("#smartDutyCountdownLabel").textContent="Finished";
-    $("#nextDutyCountdown").textContent=onChocks.time||row._finalDutyEnd||row.dutyEnd||"—";
+    $("#nextDutyCountdown").textContent=dutyEndEvent.time ? `${dutyEndEvent.time} UTC` : (row._finalDutyEnd||row.dutyEnd||"—");
     $("#nextDutyProgress").style.width="100%";
   }
 }
@@ -2545,7 +2812,7 @@ document.querySelectorAll("[data-ops-now]").forEach(button=>{
     event.stopPropagation();
     if(!activeNextDuty) return;
     const field=button.dataset.opsNow;
-    setOperationalEvent(activeNextDuty,field,currentClockHHMM(),{capturedNow:true});
+    setOperationalEvent(activeNextDuty,field,currentUtcHHMM(),{capturedNow:true});
     refreshSmartDutyCard(true);
   });
 });
@@ -2557,6 +2824,14 @@ document.querySelectorAll("[data-ops-field]").forEach(input=>{
     if(!activeNextDuty) return;
     setOperationalEvent(activeNextDuty,input.dataset.opsField,input.value,{capturedNow:false});
     refreshSmartDutyCard(true);
+  });
+});
+
+document.querySelectorAll("[data-ops-time-mode]").forEach(button=>{
+  button.addEventListener("click",event=>{
+    event.preventDefault();
+    event.stopPropagation();
+    applySmartDutyTimeDisplayMode(button.dataset.opsTimeMode);
   });
 });
 
