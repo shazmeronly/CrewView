@@ -57,17 +57,20 @@
   <div class="status" id="status">No roster loaded.</div>
   <div class="validation-result hidden" id="validationResult" aria-live="polite"></div>
 </section>
-<section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite" role="button" tabindex="0" aria-label="Open next duty details">
+<section class="next-duty-card compact-next hidden" id="nextDutyCard" aria-live="polite" role="region" aria-label="Smart duty card">
   <div class="compact-duty-main">
     <div>
-      <div class="next-duty-eyebrow">NEXT DUTY</div>
+      <div class="smart-duty-heading-row">
+        <div class="next-duty-eyebrow" id="smartDutyEyebrow">NEXT DUTY</div>
+        <span class="smart-duty-role" id="smartDutyRole">—</span>
+      </div>
       <div class="compact-duty-title">
         <strong id="nextDutyItem">—</strong>
         <span id="nextDutyRoute">—</span>
       </div>
     </div>
     <div class="compact-duty-report">
-      <span>REPORT</span>
+      <span id="smartDutyRightLabel">REPORT</span>
       <strong id="nextDutyReport">—</strong>
     </div>
   </div>
@@ -76,11 +79,65 @@
     <span id="nextDutyDate">—</span>
     <span>End <strong id="nextDutyEnd">—</strong></span>
     <span>A/C <strong id="nextDutyAircraft">—</strong></span>
-    <span class="compact-countdown">In <strong id="nextDutyCountdown">—</strong></span>
+    <span class="compact-countdown"><span id="smartDutyCountdownLabel">In</span> <strong id="nextDutyCountdown">—</strong></span>
   </div>
+
   <div class="countdown-track compact-track" aria-hidden="true">
     <div class="countdown-fill" id="nextDutyProgress"></div>
   </div>
+
+  <div class="smart-duty-live hidden" id="smartDutyLivePanel">
+    <div class="smart-duty-live-grid">
+      <div><span>ELAPSED</span><strong id="smartDutyElapsed">—</strong></div>
+      <div><span>REMAINING</span><strong id="smartDutyRemaining">—</strong></div>
+      <div><span>PHASE</span><strong id="smartDutyPhase">—</strong></div>
+    </div>
+
+    <div class="pilot-ops-panel hidden" id="pilotOpsPanel">
+      <div class="pilot-ops-header">
+        <div>
+          <strong>ACTUAL FLIGHT TIMES</strong>
+          <small>Tap Now at the event, or enter the time manually.</small>
+        </div>
+        <button type="button" class="ops-reset smart-duty-control" id="opsResetBtn">Reset</button>
+      </div>
+
+      <div class="pilot-ops-grid">
+        <label>
+          <span>Pushback</span>
+          <div><input class="smart-duty-control" id="opsPushback" data-ops-field="pushback" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="pushback">Now</button></div>
+        </label>
+        <label>
+          <span>Airborne</span>
+          <div><input class="smart-duty-control" id="opsAirborne" data-ops-field="airborne" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="airborne">Now</button></div>
+        </label>
+        <label>
+          <span>Landing</span>
+          <div><input class="smart-duty-control" id="opsLanding" data-ops-field="landing" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="landing">Now</button></div>
+        </label>
+        <label>
+          <span>On Chocks</span>
+          <div><input class="smart-duty-control" id="opsOnChocks" data-ops-field="onChocks" type="time" step="60"><button type="button" class="ops-now smart-duty-control" data-ops-now="onChocks">Now</button></div>
+        </label>
+      </div>
+
+      <div class="pilot-actual-grid">
+        <div><span>Taxi Out</span><strong id="actualTaxiOut">—</strong></div>
+        <div><span>Air Time</span><strong id="actualAirTime">—</strong></div>
+        <div><span>Taxi In</span><strong id="actualTaxiIn">—</strong></div>
+        <div><span>Actual Block</span><strong id="actualBlockTime">—</strong></div>
+      </div>
+      <p class="ops-note" id="opsAccuracyNote">Tap “Now” for exact elapsed calculations across time zones. Manually typed clock times are shown as approximate calculations.</p>
+    </div>
+
+    <div class="cabin-duty-panel hidden" id="cabinDutyPanel">
+      <span>CREW COMPANION</span>
+      <strong id="cabinDutyMessage">Duty in progress</strong>
+      <small id="cabinDutyNextMilestone">CrewView is following this duty automatically.</small>
+    </div>
+  </div>
+
+  <button type="button" class="smart-duty-details-btn smart-duty-control" id="smartDutyDetailsBtn">View duty details <span>›</span></button>
 </section>
 
 
@@ -96,7 +153,7 @@
   <div class="duty-detail-handle" aria-hidden="true"></div>
   <div class="duty-detail-header">
     <div>
-      <small>NEXT DUTY DETAILS</small>
+      <small>DUTY DETAILS</small>
       <h2 id="dutyDetailTitle">—</h2>
       <p id="dutyDetailRoute">—</p>
     </div>

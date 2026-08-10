@@ -8,3 +8,6 @@ Changes:
 
 Deploy:
 Upload the contents of this ZIP to Netlify Drop.
+
+
+CrewView v90: Smart Duty Card added. The card now transitions between Next Duty, Active Duty and Completed Duty. Pilot flight duties can record Pushback, Airborne, Landing and On Chocks locally on-device; cabin crew receive a role-specific active-duty view.

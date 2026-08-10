@@ -2013,147 +2013,453 @@ function buildCompleteDuty(rows,index){
   return duty;
 }
 
-function getUpcomingDuty(rows){
-  const now=new Date();
+function isSmartNonWorkingItem(item){
+  return ["D","DO","DO1","OFF"].includes(String(item||"").trim().toUpperCase());
+}
 
-  /*
-   * A historical roster cannot contain a real upcoming duty. Hiding the card
-   * prevents an old June duty being presented as "Next Duty" in August.
-   */
-  if(
-    officialRosterPeriod?.end &&
-    officialRosterPeriod.end < new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    )
-  ){
-    return null;
+function smartCrewRole(){
+  const rank=($("#rank")?.value||"").trim().toUpperCase();
+  if(["FO","SO","CPT","CAPT","CMDR","SFO"].includes(rank)) return "pilot";
+  if(["FS","FSS","LS","CSS","IFS","IFM","CCM"].includes(rank)) return "cabin";
+  return "crew";
+}
+
+function smartDutyIsFlight(row){
+  if(!row) return false;
+  if((row._sectors||[]).some(sector=>/^MH\d+/i.test(String(sector.item||"").trim()))) return true;
+  return /^MH\d+/i.test(String(row.item||"").trim());
+}
+
+function smartDutyEndDateTime(row){
+  if(!row?._dt) return null;
+
+  // Roster Duty Hours are the safest way to create an absolute end instant,
+  // because departure/arrival clocks may be in different local time zones.
+  const dutyMinutes=toMinutes(row._totalDuty||row.duty);
+  if(dutyMinutes>0){
+    return new Date(row._dt.getTime()+dutyMinutes*60000);
   }
 
+  const endText=String(row._finalDutyEnd||row.dutyEnd||"").trim();
+  if(!endText) return new Date(row._dt.getTime()+12*3600000);
+
+  const endDate=parseRosterDate(row._arrivalDate||row.date);
+  const match=endText.match(/(\d{1,2}):(\d{2})/);
+  if(!endDate||!match) return new Date(row._dt.getTime()+12*3600000);
+
+  endDate.setHours(Number(match[1]),Number(match[2]),0,0);
+  while(endDate<=row._dt) endDate.setDate(endDate.getDate()+1);
+  return endDate;
+}
+
+function smartDutyKey(row){
+  const staff=($("#staff")?.value||"").trim()||"crew";
+  const item=row?._displayItems||row?.item||"Duty";
+  const route=(row?._routeAirports||[]).join("-")||routeFromRow(row||{});
+  return [staff,row?.date||"",row?.dutyStart||"",item,route]
+    .map(value=>String(value||"").trim())
+    .join("|");
+}
+
+const SMART_DUTY_STORAGE_KEY="crewview-operational-times-v1";
+
+function loadOperationalStore(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(SMART_DUTY_STORAGE_KEY)||"{}");
+    return parsed && typeof parsed==="object" ? parsed : {};
+  }catch(_error){
+    return {};
+  }
+}
+
+function saveOperationalStore(store){
+  try{
+    localStorage.setItem(SMART_DUTY_STORAGE_KEY,JSON.stringify(store));
+  }catch(error){
+    console.warn("CrewView could not save operational times",error);
+  }
+}
+
+function operationalRecord(row){
+  if(!row) return {};
+  const store=loadOperationalStore();
+  return store[smartDutyKey(row)]||{};
+}
+
+function operationalEvent(record,field){
+  const value=record?.[field];
+  if(!value) return {time:"",at:null,offset:null};
+  if(typeof value==="string") return {time:value,at:null,offset:null};
+  return {
+    time:String(value.time||""),
+    at:Number.isFinite(Number(value.at)) ? Number(value.at) : null,
+    offset:Number.isFinite(Number(value.offset)) ? Number(value.offset) : null
+  };
+}
+
+function setOperationalEvent(row,field,time,{capturedNow=false}={}){
+  if(!row) return;
+  const store=loadOperationalStore();
+  const key=smartDutyKey(row);
+  const record={...(store[key]||{})};
+  const clean=String(time||"").trim();
+
+  if(clean){
+    record[field]={
+      time:clean,
+      at:capturedNow ? Date.now() : null,
+      offset:capturedNow ? new Date().getTimezoneOffset() : null
+    };
+  }else{
+    delete record[field];
+  }
+
+  record.updatedAt=Date.now();
+  if(field==="onChocks"){
+    record.completedAt=clean ? Date.now() : null;
+  }
+
+  store[key]=record;
+  saveOperationalStore(store);
+}
+
+function resetOperationalRecord(row){
+  if(!row) return;
+  const store=loadOperationalStore();
+  delete store[smartDutyKey(row)];
+  saveOperationalStore(store);
+}
+
+function currentClockHHMM(){
+  const now=new Date();
+  return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+}
+
+function clockMinutes(value){
+  const match=String(value||"").match(/^(\d{1,2}):(\d{2})$/);
+  return match ? Number(match[1])*60+Number(match[2]) : null;
+}
+
+function durationBetweenOperationalEvents(startEvent,endEvent){
+  if(!startEvent?.time || !endEvent?.time) return null;
+
+  if(Number.isFinite(startEvent.at) && Number.isFinite(endEvent.at) && endEvent.at>=startEvent.at){
+    return {
+      minutes:Math.round((endEvent.at-startEvent.at)/60000),
+      exact:true
+    };
+  }
+
+  const start=clockMinutes(startEvent.time);
+  const end=clockMinutes(endEvent.time);
+  if(start===null||end===null) return null;
+  let diff=end-start;
+  if(diff<0) diff+=24*60;
+  return {minutes:diff,exact:false};
+}
+
+function formatOperationalDuration(result){
+  if(!result || !Number.isFinite(result.minutes)) return "—";
+  const value=hhmm(Math.max(0,result.minutes));
+  return result.exact ? value : `≈${value}`;
+}
+
+function operationalMetrics(record){
+  const pushback=operationalEvent(record,"pushback");
+  const airborne=operationalEvent(record,"airborne");
+  const landing=operationalEvent(record,"landing");
+  const onChocks=operationalEvent(record,"onChocks");
+  return {
+    taxiOut:durationBetweenOperationalEvents(pushback,airborne),
+    airTime:durationBetweenOperationalEvents(airborne,landing),
+    taxiIn:durationBetweenOperationalEvents(landing,onChocks),
+    block:durationBetweenOperationalEvents(pushback,onChocks)
+  };
+}
+
+function smartDutyPhase(row,record,role){
+  if(role==="pilot" && smartDutyIsFlight(row)){
+    if(operationalEvent(record,"onChocks").time) return "COMPLETED";
+    if(operationalEvent(record,"landing").time) return "TAXI IN";
+    if(operationalEvent(record,"airborne").time) return "AIRBORNE";
+    if(operationalEvent(record,"pushback").time) return "TAXI OUT";
+    return "REPORTED";
+  }
+
+  const item=String(row?.item||"").trim().toUpperCase();
+  if(/^MH\d+/.test(item)) return "FLIGHT DUTY";
+  if(item==="OFF01" || item==="OF1" || item.includes("OFFICE")) return "OFFICE DUTY";
+  if(item.includes("SIM") || item.includes("LPC") || item.includes("OPC")) return "SIMULATOR";
+  if(item==="DSA" || item.includes("TRAIN")) return "TRAINING";
+  return "DUTY IN PROGRESS";
+}
+
+function getSmartDutyCandidates(rows){
   const candidates=[];
+  const seen=new Set();
 
   rows.forEach((row,index)=>{
     if(
       row._overnightContinuation ||
+      !String(row.dutyStart||"").trim() ||
       (
         !String(row.item||"").trim() &&
-        !String(row.dutyStart||"").trim() &&
-        (
-          String(row.arr||"").trim() ||
-          String(row.dutyEnd||"").trim()
-        )
+        (String(row.arr||"").trim() || String(row.dutyEnd||"").trim())
       ) ||
-      /*
-       * A flight row without a report time is a continuation sector.
-       * Do not use _sectorIndex here: pilot rows may carry a page-wide index.
-       */
       (
         !String(row.dutyStart||"").trim() &&
         /^MH\d+/i.test(String(row.item||"").trim())
       )
     ) return;
 
-    const item=(row.item||"").trim().toUpperCase();
+    const item=String(row.item||"").trim();
+    if(!item || isSmartNonWorkingItem(item)) return;
+
     const report=dutyDateTime(row);
+    if(!report) return;
 
-    // Next Duty remains a future working duty only.
-    if(!item || item==="D" || item==="OFF" || !report || report<=now) return;
+    const duty={...buildCompleteDuty(rows,index),_dt:report};
+    duty._smartKey=smartDutyKey(duty);
+    duty._estimatedEnd=smartDutyEndDateTime(duty);
 
-    candidates.push({
-      ...buildCompleteDuty(rows,index),
-      _dt:report
-    });
+    if(seen.has(duty._smartKey)) return;
+    seen.add(duty._smartKey);
+    candidates.push(duty);
   });
 
-  candidates.sort((a,b)=>a._dt-b._dt);
-  return candidates[0]||null;
+  return candidates.sort((a,b)=>a._dt-b._dt);
 }
 
-function renderNextDuty(){
+function getUpcomingDuty(rows){
+  const now=new Date();
+  return getSmartDutyCandidates(rows).find(duty=>duty._dt>now)||null;
+}
+
+function getSmartDutySelection(rows){
+  const now=new Date();
+  const nowMs=now.getTime();
+
+  if(
+    officialRosterPeriod?.end &&
+    officialRosterPeriod.end < new Date(now.getFullYear(),now.getMonth(),now.getDate())
+  ){
+    return null;
+  }
+
+  const candidates=getSmartDutyCandidates(rows);
+  if(!candidates.length) return null;
+
+  const future=candidates.find(duty=>duty._dt.getTime()>nowMs)||null;
+
+  // A duty stays active until its scheduled duty end. If the pilot taps On Chocks
+  // early, it becomes Completed immediately.
+  const active=[...candidates].reverse().find(duty=>{
+    const reportMs=duty._dt.getTime();
+    if(reportMs>nowMs) return false;
+    const record=operationalRecord(duty);
+    if(operationalEvent(record,"onChocks").time) return false;
+    const endMs=duty._estimatedEnd?.getTime()||reportMs+12*3600000;
+    return nowMs<=endMs;
+  });
+
+  if(active) return {row:active,state:"active"};
+
+  const completed=[...candidates].reverse().find(duty=>{
+    if(duty._dt.getTime()>nowMs) return false;
+    const record=operationalRecord(duty);
+    const onChocks=operationalEvent(record,"onChocks");
+    const completionMs=
+      (Number.isFinite(onChocks.at) ? onChocks.at : null) ||
+      (Number(record.completedAt)||null) ||
+      duty._estimatedEnd?.getTime();
+    return completionMs && completionMs<=nowMs;
+  });
+
+  if(completed){
+    const record=operationalRecord(completed);
+    const onChocks=operationalEvent(record,"onChocks");
+    const completionMs=
+      (Number.isFinite(onChocks.at) ? onChocks.at : null) ||
+      (Number(record.completedAt)||null) ||
+      completed._estimatedEnd?.getTime();
+    const since=nowMs-completionMs;
+    const nextIn=future ? future._dt.getTime()-nowMs : Infinity;
+
+    // Keep Completed front-and-centre for at least 3 hours after duty. If the
+    // next report is still far away, keep it for up to 12 hours.
+    if(since<=3*3600000 || (since<=12*3600000 && nextIn>12*3600000)){
+      return {row:completed,state:"completed"};
+    }
+  }
+
+  if(future) return {row:future,state:"next"};
+  return null;
+}
+
+function shortDuration(ms){
+  const total=Math.max(0,Math.floor(ms/60000));
+  const hours=Math.floor(total/60);
+  const mins=total%60;
+  return `${String(hours).padStart(2,"0")}h ${String(mins).padStart(2,"0")}m`;
+}
+
+function setSmartDutyOperationalInputs(row){
+  const record=operationalRecord(row);
+  const fieldIds={
+    pushback:"#opsPushback",
+    airborne:"#opsAirborne",
+    landing:"#opsLanding",
+    onChocks:"#opsOnChocks"
+  };
+
+  Object.entries(fieldIds).forEach(([field,selector])=>{
+    const input=$(selector);
+    if(input && document.activeElement!==input){
+      input.value=operationalEvent(record,field).time||"";
+    }
+  });
+
+  const metrics=operationalMetrics(record);
+  $("#actualTaxiOut").textContent=formatOperationalDuration(metrics.taxiOut);
+  $("#actualAirTime").textContent=formatOperationalDuration(metrics.airTime);
+  $("#actualTaxiIn").textContent=formatOperationalDuration(metrics.taxiIn);
+  $("#actualBlockTime").textContent=formatOperationalDuration(metrics.block);
+}
+
+let smartDutyRenderSignature="";
+let activeSmartDutyState="next";
+
+function refreshSmartDutyCard(force=false){
   const card=$("#nextDutyCard");
   if(!card) return;
 
-  const row=getUpcomingDuty(getRows());
-  activeNextDuty=row;
-  if(!row){
+  const selection=getSmartDutySelection(getRows());
+  if(!selection){
     card.classList.add("hidden");
-    if(nextDutyTimer){clearInterval(nextDutyTimer);nextDutyTimer=null;}
+    activeNextDuty=null;
+    smartDutyRenderSignature="";
     return;
   }
 
-  card.classList.remove("hidden","soon","urgent","current");
-  $("#nextDutyItem").textContent=row._displayItems||row.item||"Duty";
+  const {row,state}=selection;
+  const role=smartCrewRole();
+  const signature=`${row._smartKey||smartDutyKey(row)}|${state}|${role}`;
+  const changed=force || signature!==smartDutyRenderSignature;
+  activeNextDuty=row;
+  activeSmartDutyState=state;
 
-  const routeAirports=(row._routeAirports||[]).filter(Boolean);
-  const departureAirport=(row.dep||"").trim().split(/\s+/)[0]||"";
-  const arrivalAirport=(row._arrival||row.arr||"").trim().split(/\s+/)[0]||"";
+  if(changed){
+    smartDutyRenderSignature=signature;
+    card.classList.remove("hidden","soon","urgent","current","state-next","state-active","state-completed");
+    card.classList.add(`state-${state}`);
 
-  $("#nextDutyRoute").textContent=
-    routeAirports.length>1
-      ? routeAirports.join(" → ")
-      : (
-          departureAirport&&arrivalAirport
+    $("#smartDutyEyebrow").textContent=
+      state==="active" ? "ACTIVE DUTY" :
+      state==="completed" ? "COMPLETED DUTY" :
+      "NEXT DUTY";
+
+    $("#smartDutyRole").textContent=
+      role==="pilot" ? "PILOT" : role==="cabin" ? "CABIN" : "CREW";
+
+    $("#nextDutyItem").textContent=row._displayItems||row.item||"Duty";
+
+    const routeAirports=(row._routeAirports||[]).filter(Boolean);
+    const departureAirport=(row.dep||"").trim().split(/\s+/)[0]||"";
+    const arrivalAirport=(row._arrival||row.arr||"").trim().split(/\s+/)[0]||"";
+    $("#nextDutyRoute").textContent=
+      routeAirports.length>1
+        ? routeAirports.join(" → ")
+        : (departureAirport&&arrivalAirport
             ? `${departureAirport} → ${arrivalAirport}`
-            : (departureAirport||arrivalAirport||"—")
-        );
+            : (departureAirport||arrivalAirport||"—"));
 
-  $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#smartDutyRightLabel").textContent="REPORT";
+    $("#nextDutyReport").textContent=row.dutyStart||"—";
+    $("#nextDutyDate").textContent=`${row.date} · ${row.day||dayName(row.date)}`;
+    $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
+    $("#nextDutyAircraft").textContent=row.ac||"—";
 
-  const reportDay=row.day||dayName(row.date);
+    const livePanel=$("#smartDutyLivePanel");
+    livePanel?.classList.toggle("hidden",state==="next");
 
-  // Keep the card compact: show only the departure/report date.
-  $("#nextDutyDate").textContent=`${row.date} · ${reportDay}`;
+    const pilotPanel=$("#pilotOpsPanel");
+    const cabinPanel=$("#cabinDutyPanel");
+    const showPilotOps=role==="pilot" && smartDutyIsFlight(row) && state!=="next";
+    const showCabin=role==="cabin" && state!=="next";
+    pilotPanel?.classList.toggle("hidden",!showPilotOps);
+    cabinPanel?.classList.toggle("hidden",!showCabin);
 
-  // For overnight duties, use the final duty-end time from the continuation row.
-  $("#nextDutyEnd").textContent=
-    row._finalDutyEnd || row.dutyEnd || "—";
-  $("#nextDutyAircraft").textContent=row.ac||"—";
+    if(showPilotOps) setSmartDutyOperationalInputs(row);
 
-  const update=()=>{
-    const now=new Date();
-    const diff=row._dt-now;
-    const dutyMinutes=toMinutes(row.duty);
-    let estimatedEnd;
-
-    if(row._arrivalDate && row._finalDutyEnd){
-      const endDate=parseRosterDate(row._arrivalDate);
-      const m=String(row._finalDutyEnd).match(/^(\d{1,2}):(\d{2})/);
-      if(endDate && m){
-        endDate.setHours(Number(m[1]),Number(m[2]),0,0);
-        estimatedEnd=endDate;
-      }
+    if(showCabin){
+      const arr=String(row._arrival||row.arr||"").trim();
+      $("#cabinDutyMessage").textContent=
+        state==="completed" ? "Duty completed" : smartDutyPhase(row,{},role);
+      $("#cabinDutyNextMilestone").textContent=
+        state==="completed"
+          ? "CrewView will move to your next report automatically."
+          : (arr ? `Scheduled arrival ${arr} · Duty end ${row._finalDutyEnd||row.dutyEnd||"—"}` : `Scheduled duty end ${row._finalDutyEnd||row.dutyEnd||"—"}`);
     }
+  }
 
-    if(!estimatedEnd){
-      estimatedEnd=new Date(
-        row._dt.getTime()+(dutyMinutes||720)*60000
-      );
-    }
+  const now=new Date();
+  const reportMs=row._dt.getTime();
+  const endMs=row._estimatedEnd?.getTime()||reportMs+12*3600000;
+  const record=operationalRecord(row);
 
-    card.classList.remove("soon","urgent","current");
+  card.classList.remove("soon","urgent");
 
-    if(row._current && now<=estimatedEnd){
-      card.classList.add("current");
-      $("#nextDutyCountdown").textContent="CURRENT DUTY";
-      $("#nextDutyProgress").style.width="100%";
-      return;
-    }
-
+  if(state==="next"){
+    const diff=reportMs-now.getTime();
     if(diff<=6*3600000) card.classList.add("urgent");
     else if(diff<=24*3600000) card.classList.add("soon");
 
+    $("#smartDutyCountdownLabel").textContent="In";
     $("#nextDutyCountdown").textContent=formatCountdown(diff);
-
-    // Progress is based on the final 48 hours before report.
     const windowMs=48*3600000;
     const pct=Math.max(0,Math.min(100,(1-(diff/windowMs))*100));
     $("#nextDutyProgress").style.width=`${pct}%`;
-  };
+    return;
+  }
 
-  update();
+  const completionMs=state==="completed"
+    ? (
+        (Number.isFinite(operationalEvent(record,"onChocks").at)
+          ? operationalEvent(record,"onChocks").at
+          : null) ||
+        (Number(record.completedAt)||null) ||
+        endMs
+      )
+    : null;
+  const elapsed=Math.max(0,(completionMs||now.getTime())-reportMs);
+  const remaining=Math.max(0,endMs-now.getTime());
+  $("#smartDutyElapsed").textContent=shortDuration(elapsed);
+  $("#smartDutyRemaining").textContent=state==="completed" ? "00h 00m" : shortDuration(remaining);
+  $("#smartDutyPhase").textContent=
+    state==="completed" ? "COMPLETED" : smartDutyPhase(row,record,role);
+
+  if(role==="pilot" && smartDutyIsFlight(row)){
+    setSmartDutyOperationalInputs(row);
+  }
+
+  if(state==="active"){
+    $("#smartDutyCountdownLabel").textContent="Elapsed";
+    $("#nextDutyCountdown").textContent=shortDuration(elapsed);
+    const span=Math.max(1,endMs-reportMs);
+    const pct=Math.max(0,Math.min(100,(elapsed/span)*100));
+    $("#nextDutyProgress").style.width=`${pct}%`;
+  }else{
+    const onChocks=operationalEvent(record,"onChocks");
+    $("#smartDutyCountdownLabel").textContent="Finished";
+    $("#nextDutyCountdown").textContent=onChocks.time||row._finalDutyEnd||row.dutyEnd||"—";
+    $("#nextDutyProgress").style.width="100%";
+  }
+}
+
+function renderNextDuty(){
+  refreshSmartDutyCard(true);
   if(nextDutyTimer) clearInterval(nextDutyTimer);
-  nextDutyTimer=setInterval(update,1000);
+  nextDutyTimer=setInterval(()=>refreshSmartDutyCard(false),1000);
 }
 
 function fullAirportTiming(value){
@@ -2189,7 +2495,11 @@ function openDutyDetails(){
   $("#detailDutyHours").textContent=row._totalDuty||row.duty||"—";
   $("#detailWorkType").textContent=row.work||"—";
   $("#detailCountdown").textContent=
-    formatCountdown(row._dt-new Date());
+    activeSmartDutyState==="active"
+      ? "DUTY ACTIVE"
+      : activeSmartDutyState==="completed"
+        ? "COMPLETED"
+        : formatCountdown(row._dt-new Date());
 
   const sectorSection=$("#dutySectorSection");
   const sectorList=$("#dutySectorList");
@@ -2220,12 +2530,42 @@ function closeDutyDetails(){
   $("#nextDutyCard")?.focus();
 }
 
-$("#nextDutyCard")?.addEventListener("click",openDutyDetails);
-$("#nextDutyCard")?.addEventListener("keydown",event=>{
-  if(event.key==="Enter" || event.key===" "){
+$("#smartDutyDetailsBtn")?.addEventListener("click",event=>{
+  event.stopPropagation();
+  openDutyDetails();
+});
+$("#nextDutyCard")?.addEventListener("click",event=>{
+  if(event.target.closest(".smart-duty-control")) return;
+  openDutyDetails();
+});
+
+document.querySelectorAll("[data-ops-now]").forEach(button=>{
+  button.addEventListener("click",event=>{
     event.preventDefault();
-    openDutyDetails();
-  }
+    event.stopPropagation();
+    if(!activeNextDuty) return;
+    const field=button.dataset.opsNow;
+    setOperationalEvent(activeNextDuty,field,currentClockHHMM(),{capturedNow:true});
+    refreshSmartDutyCard(true);
+  });
+});
+
+document.querySelectorAll("[data-ops-field]").forEach(input=>{
+  input.addEventListener("click",event=>event.stopPropagation());
+  input.addEventListener("change",event=>{
+    event.stopPropagation();
+    if(!activeNextDuty) return;
+    setOperationalEvent(activeNextDuty,input.dataset.opsField,input.value,{capturedNow:false});
+    refreshSmartDutyCard(true);
+  });
+});
+
+$("#opsResetBtn")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  if(!activeNextDuty) return;
+  resetOperationalRecord(activeNextDuty);
+  refreshSmartDutyCard(true);
 });
 $("#dutyDetailClose")?.addEventListener("click",closeDutyDetails);
 $("#dutyDetailBackdrop")?.addEventListener("click",closeDutyDetails);
@@ -3676,6 +4016,8 @@ $("#clearBtn")?.addEventListener("click",event=>{
     clearInterval(nextDutyTimer);
     nextDutyTimer=null;
   }
+  smartDutyRenderSignature="";
+  activeSmartDutyState="next";
 
   setRows([]);
 
