@@ -41,8 +41,20 @@ themeToggle?.addEventListener("click",()=>{
 });
 
 import { AIRPORT_TIMEZONES } from "./airport-timezones.js";
-import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
+let pdfjsLib=null;
+const PDFJS_MAIN_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
+const PDFJS_WORKER_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
+async function ensurePdfJs(){
+  if(pdfjsLib) return pdfjsLib;
+  try{
+    pdfjsLib=await import(PDFJS_MAIN_URL);
+    pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER_URL;
+    return pdfjsLib;
+  }catch(error){
+    console.error("CrewView PDF engine unavailable",error);
+    throw new Error("PDF reader is not available offline yet. Reconnect once, open CrewView, then try the upload again.");
+  }
+}
 
 const $=s=>document.querySelector(s);
 const tbody=$("#rosterTable tbody"), status=$("#status");
@@ -3537,6 +3549,7 @@ function detectRosterTimeBasis(pdfText,rows){
 
 async function parsePDF(file){
   status.textContent="Reading PDF…";
+  await ensurePdfJs();
   officialFH=null;
   officialDH=null;
   officialRosterPeriod=null;

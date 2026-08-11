@@ -1,7 +1,7 @@
-const CACHE = "crewview-smart-duty-v100-all-times";
+const CACHE = "crewview-v101-offline-boot";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
-const ASSETS = [
+const SHELL = [
   "./",
   "./index.html",
   "./style.css",
@@ -11,57 +11,67 @@ const ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
-  "./favicon-32.png",
-  PDF_MAIN,
-  PDF_WORKER
+  "./favicon-32.png"
 ];
 
 self.addEventListener("install", event => {
   event.waitUntil((async()=>{
     const cache=await caches.open(CACHE);
-    // Same-origin shell is required. CDN files are attempted separately so a
-    // temporary CDN failure cannot prevent the service worker from installing.
-    await cache.addAll(ASSETS.filter(url=>!/^https?:/i.test(url)));
-    await Promise.allSettled([PDF_MAIN,PDF_WORKER].map(url=>cache.add(url)));
+    // The application shell is mandatory and entirely same-origin.
+    await cache.addAll(SHELL);
+    // PDF.js is only needed for NEW uploads, never for restoring an existing roster.
+    // Cache it opportunistically without allowing a CDN failure to break offline boot.
+    await Promise.allSettled([PDF_MAIN,PDF_WORKER].map(async url=>{
+      try{
+        const response=await fetch(url,{mode:"cors",cache:"no-store"});
+        if(response && response.ok) await cache.put(url,response.clone());
+      }catch(_error){}
+    }));
   })());
   self.skipWaiting();
 });
 
 self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))
-    )
-  );
-  self.clients.claim();
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener("fetch", event => {
   if(event.request.method!=="GET") return;
 
-  // Navigation must fall back to the cached app shell when Safari/PWA is
-  // launched in airplane mode or after iOS has killed the previous process.
+  // App navigations are cache-first so iOS can launch CrewView immediately in
+  // airplane mode instead of trying the network before falling back.
   if(event.request.mode==="navigate"){
     event.respondWith((async()=>{
-      try{
-        const fresh=await fetch(event.request);
-        const cache=await caches.open(CACHE);
-        cache.put("./index.html",fresh.clone()).catch(()=>{});
-        return fresh;
-      }catch(_error){
-        return (await caches.match("./index.html")) || (await caches.match("./"));
+      const cache=await caches.open(CACHE);
+      const shell=(await cache.match("./index.html")) || (await cache.match("./"));
+      if(shell){
+        // Refresh the shell in the background when a connection exists.
+        event.waitUntil((async()=>{
+          try{
+            const fresh=await fetch(event.request);
+            if(fresh && fresh.ok) await cache.put("./index.html",fresh.clone());
+          }catch(_error){}
+        })());
+        return shell;
+      }
+      try{return await fetch(event.request);}catch(_error){
+        return new Response("CrewView is not cached on this device yet. Open it once while online.",{status:503,headers:{"Content-Type":"text/plain"}});
       }
     })());
     return;
   }
 
   event.respondWith((async()=>{
-    const cached=await caches.match(event.request);
+    const cache=await caches.open(CACHE);
+    const cached=await cache.match(event.request);
     if(cached) return cached;
     try{
       const response=await fetch(event.request);
       if(response && (response.ok || response.type==="opaque")){
-        const cache=await caches.open(CACHE);
         cache.put(event.request,response.clone()).catch(()=>{});
       }
       return response;
