@@ -3087,13 +3087,71 @@ document.querySelectorAll("[data-ops-now]").forEach(button=>{
   });
 });
 
+function normalizeOpsTypedTime(value){
+  const raw=String(value||"").trim();
+  const digits=raw.replace(/\D/g,"").slice(0,4);
+  if(digits.length!==4) return null;
+  const hour=Number(digits.slice(0,2));
+  const minute=Number(digits.slice(2));
+  if(!Number.isInteger(hour)||!Number.isInteger(minute)||hour>23||minute>59) return null;
+  return `${digits.slice(0,2)}:${digits.slice(2)}`;
+}
+
+function restoreOpsInputFromStore(input){
+  if(!activeNextDuty) return;
+  const record=operationalRecord(activeNextDuty);
+  const event=operationalEvent(record,input.dataset.opsField);
+  input.value=event.time||"";
+}
+
 document.querySelectorAll("[data-ops-field]").forEach(input=>{
   input.addEventListener("click",event=>event.stopPropagation());
+  input.addEventListener("focus",event=>{
+    event.stopPropagation();
+    // Select the whole existing value so typing 4 digits immediately replaces it.
+    // inputmode=numeric opens the iPhone number keypad instead of the wheel picker.
+    requestAnimationFrame(()=>input.select());
+  });
+  input.addEventListener("input",event=>{
+    event.stopPropagation();
+    const digits=input.value.replace(/\D/g,"").slice(0,4);
+    input.value=digits;
+    if(digits.length!==4 || !activeNextDuty) return;
+
+    const formatted=normalizeOpsTypedTime(digits);
+    if(!formatted){
+      input.setCustomValidity("Enter a valid UTC time from 0000 to 2359.");
+      input.reportValidity();
+      return;
+    }
+
+    input.setCustomValidity("");
+    input.value=formatted;
+    setOperationalEvent(activeNextDuty,input.dataset.opsField,formatted,{capturedNow:false});
+    refreshSmartDutyCard(true);
+    requestAnimationFrame(()=>input.blur());
+  });
   input.addEventListener("change",event=>{
     event.stopPropagation();
     if(!activeNextDuty) return;
-    setOperationalEvent(activeNextDuty,input.dataset.opsField,input.value,{capturedNow:false});
+    const raw=String(input.value||"").trim();
+    if(!raw){
+      setOperationalEvent(activeNextDuty,input.dataset.opsField,"",{capturedNow:false});
+      refreshSmartDutyCard(true);
+      return;
+    }
+    const formatted=normalizeOpsTypedTime(raw);
+    if(!formatted){
+      restoreOpsInputFromStore(input);
+      return;
+    }
+    input.value=formatted;
+    setOperationalEvent(activeNextDuty,input.dataset.opsField,formatted,{capturedNow:false});
     refreshSmartDutyCard(true);
+  });
+  input.addEventListener("blur",()=>{
+    const raw=String(input.value||"").trim();
+    if(raw && !normalizeOpsTypedTime(raw)) restoreOpsInputFromStore(input);
   });
 });
 
