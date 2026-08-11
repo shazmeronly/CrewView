@@ -5033,13 +5033,15 @@ body:not(.calendar-mode) #rosterTable tbody tr[data-synthetic-calendar-row="1"][
 }
 .ops-local-time.has-time{color:#fff}
 .ops-mode-utc .ops-local-time{display:none}
-.ops-mode-local .ops-local-time{
+.ops-mode-local .ops-local-time,
+.ops-mode-lt .ops-local-time,
+.ops-mode-slt .ops-local-time{
   color:#fff;
   font-size:8px;
   font-weight:900;
 }
-.ops-mode-local .ops-utc-badge{opacity:.55}
-.ops-mode-local .pilot-ops-grid input[data-ops-field]{opacity:.72}
+.ops-mode-local .ops-utc-badge,.ops-mode-lt .ops-utc-badge,.ops-mode-slt .ops-utc-badge{opacity:.55}
+.ops-mode-local .pilot-ops-grid input[data-ops-field],.ops-mode-lt .pilot-ops-grid input[data-ops-field],.ops-mode-slt .pilot-ops-grid input[data-ops-field]{opacity:.72}
 
 .ops-duty-end-field{
   grid-column:1 / -1;
@@ -5186,3 +5188,14 @@ body:not(.calendar-mode) #rosterTable tbody tr[data-synthetic-calendar-row="1"][
   .smart-duty-expand-btn,
   .smart-duty-live-toolbar{display:none!important}
 }
+
+/* v99: expanded Smart Duty always shows UTC + LT + SLT */
+.ops-all-times-label{flex:0 0 auto;align-self:center;padding:7px 9px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(0,0,0,.10);color:#fff;font-size:7px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+.ops-slt-time{display:block;min-height:12px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.72);font-size:7px;font-weight:700}
+.ops-slt-time.has-time{color:#fff}
+.ops-mode-all .ops-local-time,.ops-mode-all .ops-slt-time{display:block}
+.ops-mode-all .ops-utc-badge{opacity:1}
+.ops-mode-all .pilot-ops-grid input[data-ops-field]{opacity:1}
+
+/* v100: Active Duty shows UTC + airport LT only; SLT remains a roster parsing/display basis. */
+.ops-slt-time,.ops-all-times-label{display:none!important}
