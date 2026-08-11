@@ -5196,3 +5196,6 @@ body:not(.calendar-mode) #rosterTable tbody tr[data-synthetic-calendar-row="1"][
 .ops-mode-all .ops-local-time,.ops-mode-all .ops-slt-time{display:block}
 .ops-mode-all .ops-utc-badge{opacity:1}
 .ops-mode-all .pilot-ops-grid input[data-ops-field]{opacity:1}
+
+/* v100: Active Duty shows UTC + airport LT only; SLT remains a roster parsing/display basis. */
+.ops-slt-time,.ops-all-times-label{display:none!important}

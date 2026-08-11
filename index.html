@@ -104,7 +104,7 @@
       <div class="pilot-ops-header">
         <div>
           <strong>ACTUAL FLIGHT TIMES · UTC</strong>
-          <small>Enter operational times in UTC. CrewView shows UTC, airport Local Time (LT), and Station Local Time (SLT) together.</small>
+          <small>Enter operational times in UTC. CrewView shows the corresponding airport Local Time (LT) automatically.</small>
         </div>
         <button type="button" class="ops-reset smart-duty-control" id="opsResetBtn">Reset</button>
       </div>
@@ -114,9 +114,7 @@
           <span>REPORT</span>
           <strong id="opsReportUtc">—</strong>
           <small class="ops-local-time" id="opsReportLocal">LT —</small>
-          <small class="ops-slt-time" id="opsReportLocalSlt">SLT —</small>
         </div>
-        <div class="ops-all-times-label" aria-label="All operational time zones">UTC · LT · SLT</div>
       </div>
 
       <div class="pilot-ops-grid">
@@ -124,31 +122,26 @@
           <span>Pushback <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsPushback" data-ops-field="pushback" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="HHMM" autocomplete="off" autocorrect="off" spellcheck="false"><button type="button" class="ops-now smart-duty-control" data-ops-now="pushback">Now</button></div>
           <small class="ops-local-time" id="opsPushbackLocal">LT —</small>
-          <small class="ops-slt-time" id="opsPushbackLocalSlt">SLT —</small>
         </label>
         <label>
           <span>Airborne <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsAirborne" data-ops-field="airborne" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="HHMM" autocomplete="off" autocorrect="off" spellcheck="false"><button type="button" class="ops-now smart-duty-control" data-ops-now="airborne">Now</button></div>
           <small class="ops-local-time" id="opsAirborneLocal">LT —</small>
-          <small class="ops-slt-time" id="opsAirborneLocalSlt">SLT —</small>
         </label>
         <label>
           <span>Landing <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsLanding" data-ops-field="landing" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="HHMM" autocomplete="off" autocorrect="off" spellcheck="false"><button type="button" class="ops-now smart-duty-control" data-ops-now="landing">Now</button></div>
           <small class="ops-local-time" id="opsLandingLocal">LT —</small>
-          <small class="ops-slt-time" id="opsLandingLocalSlt">SLT —</small>
         </label>
         <label>
           <span>On Chocks <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsOnChocks" data-ops-field="onChocks" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="HHMM" autocomplete="off" autocorrect="off" spellcheck="false"><button type="button" class="ops-now smart-duty-control" data-ops-now="onChocks">Now</button></div>
           <small class="ops-local-time" id="opsOnChocksLocal">LT —</small>
-          <small class="ops-slt-time" id="opsOnChocksLocalSlt">SLT —</small>
         </label>
         <label class="ops-duty-end-field">
           <span>Duty End / Released <em class="ops-utc-badge">UTC</em></span>
           <div><input class="smart-duty-control" id="opsDutyEnd" data-ops-field="dutyEnd" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="HHMM" autocomplete="off" autocorrect="off" spellcheck="false"><button type="button" class="ops-now smart-duty-control" data-ops-now="dutyEnd">Now</button></div>
           <small class="ops-local-time" id="opsDutyEndLocal">LT —</small>
-          <small class="ops-slt-time" id="opsDutyEndLocalSlt">SLT —</small>
         </label>
       </div>
 
@@ -166,7 +159,7 @@
       </div>
 
       <p class="ops-timezone-status" id="opsTimezoneStatus"></p>
-      <p class="ops-note" id="opsAccuracyNote">UTC is the master record. UTC, airport Local Time (LT), and Station Local Time (SLT) are shown together. Roster report times use SLT. “Now” records the displayed UTC minute; manual entries are interpreted as UTC and anchored to this duty. After On Chocks, Duty End / Released is automatically set to +45 minutes and remains editable. Actual Duty runs from roster Report to Duty End / Released.</p>
+      <p class="ops-note" id="opsAccuracyNote">UTC is the master record. Airport Local Time (LT) is shown beside each operational entry. CrewView detects the uploaded roster time basis (UTC, LT, or SLT) and converts it internally. “Now” records the displayed UTC minute; manual entries are interpreted as UTC and anchored to this duty. After On Chocks, Duty End / Released is automatically set to +45 minutes and remains editable. Actual Duty runs from roster Report to Duty End / Released.</p>
     </div>
 
     <div class="cabin-duty-panel hidden" id="cabinDutyPanel">

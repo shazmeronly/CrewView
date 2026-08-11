@@ -49,6 +49,7 @@ const tbody=$("#rosterTable tbody"), status=$("#status");
 const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block","duty","ac"];
 let officialFH=null, officialDH=null;
 let officialRosterPeriod=null;
+let rosterTimeBasis="slt"; // utc | lt | slt; detected per uploaded roster
 
 const ROSTER_CACHE_KEY="crewview-roster-cache-v1";
 
@@ -80,6 +81,7 @@ function saveRosterSnapshot(rows){
       officialFH,
       officialDH,
       officialRosterPeriod:serializeRosterPeriod(officialRosterPeriod),
+      rosterTimeBasis,
       profile
     }));
   }catch(error){
@@ -2134,7 +2136,7 @@ function smartDutyKey(row){
 
 const SMART_DUTY_STORAGE_KEY="crewview-operational-times-v2-utc";
 const SMART_DUTY_TIME_MODE_KEY="crewview-operational-display-mode-v2";
-const ROSTER_TIME_BASIS="slt"; // Current iFlight roster export: duty/report clock is Station Local Time.
+// The time basis is detected from each roster upload; UTC remains the canonical operational store.
 const SMART_DUTY_FIELDS=["pushback","airborne","landing","onChocks","dutyEnd"];
 
 function airportTimezone(code){
@@ -2224,7 +2226,7 @@ function rosterStationTimezone(){
 
 function smartDutyReportUtcMs(row){
   if(!row) return null;
-  const timezone=ROSTER_TIME_BASIS==="slt" ? rosterStationTimezone() : airportTimezone(dutyDepartureAirport(row));
+  const timezone=rosterTimeBasis==="slt" ? rosterStationTimezone() : rosterTimeBasis==="utc" ? "UTC" : airportTimezone(dutyDepartureAirport(row));
   const resolved=zonedWallTimeToUtcMs(row.date,row.dutyStart,timezone);
   if(Number.isFinite(resolved)) return resolved;
   const fallback=row._dt||dutyDateTime(row);
@@ -2854,13 +2856,6 @@ function setSmartDutyOperationalInputs(row){
     onChocks:"#opsOnChocksLocal",
     dutyEnd:"#opsDutyEndLocal"
   };
-  const sltIds={
-    pushback:"#opsPushbackLocalSlt",
-    airborne:"#opsAirborneLocalSlt",
-    landing:"#opsLandingLocalSlt",
-    onChocks:"#opsOnChocksLocalSlt",
-    dutyEnd:"#opsDutyEndLocalSlt"
-  };
 
   Object.entries(fieldIds).forEach(([field,selector])=>{
     const event=operationalEvent(record,field);
@@ -2873,16 +2868,11 @@ function setSmartDutyOperationalInputs(row){
       local.textContent=event && Number.isFinite(event.at) ? formatLocalOperationalTime(row,field,event).replace(/^Local\s*/, "LT ") : "LT —";
       local.classList.toggle("has-time",Number.isFinite(event.at));
     }
-    const slt=$(sltIds[field]);
-    if(slt){
-      slt.textContent=event && Number.isFinite(event.at) ? formatSltOperationalTime(row,event) : "SLT —";
-      slt.classList.toggle("has-time",Number.isFinite(event.at));
-    }
   });
 
   const reportMs=smartDutyReportUtcMs(row);
-  const reportAirport=ROSTER_TIME_BASIS==="slt" ? rosterStationAirport() : dutyDepartureAirport(row);
-  const reportZone=ROSTER_TIME_BASIS==="slt" ? rosterStationTimezone() : airportTimezone(reportAirport);
+  const reportAirport=rosterTimeBasis==="slt" ? rosterStationAirport() : dutyDepartureAirport(row);
+  const reportZone=rosterTimeBasis==="slt" ? rosterStationTimezone() : rosterTimeBasis==="utc" ? "UTC" : airportTimezone(reportAirport);
   const reportEvent=Number.isFinite(reportMs)
     ? {at:reportMs,airport:reportAirport,timezone:reportZone}
     : null;
@@ -2890,8 +2880,6 @@ function setSmartDutyOperationalInputs(row){
   $("#opsReportLocal").textContent=reportEvent
     ? formatLocalOperationalTime(row,"pushback",reportEvent).replace(/^Local\s*/, "LT ")
     : "LT —";
-  const reportSlt=$("#opsReportLocalSlt");
-  if(reportSlt) reportSlt.textContent=reportEvent ? formatSltOperationalTime(row,reportEvent) : "SLT —";
 
   const metrics=operationalMetrics(row,record);
   $("#actualTaxiOut").textContent=formatOperationalDuration(metrics.taxiOut);
@@ -2915,7 +2903,7 @@ function setSmartDutyOperationalInputs(row){
   }
 
   const panel=$("#pilotOpsPanel");
-  if(panel){ panel.dataset.timeMode="all"; panel.classList.remove("ops-mode-utc","ops-mode-lt","ops-mode-slt"); panel.classList.add("ops-mode-all"); }
+  if(panel){ panel.dataset.timeMode="both"; panel.classList.remove("ops-mode-all","ops-mode-slt"); panel.classList.add("ops-mode-both"); }
 }
 
 let smartDutyRenderSignature="";
@@ -3484,6 +3472,69 @@ function detectRosterType(text){
   return "cabin";
 }
 
+
+function clockMinutes(text){
+  const m=String(text||"").match(/(\d{1,2}):(\d{2})/);
+  if(!m) return null;
+  return Number(m[1])*60+Number(m[2]);
+}
+function hasNextDayMarker(text){ return /\(\+1\)/.test(String(text||"")); }
+function rowArrivalAirport(row){ return airportCode(row?._arrival||row?.arr)||dutyArrivalAirport(row); }
+function rowDepartureAirport(row){ return airportCode(row?.dep)||dutyDepartureAirport(row); }
+function durationErrorForBasis(row,basis){
+  const depText=String(row?.dep||"");
+  const arrText=String(row?.arr||row?._arrival||"");
+  const depClock=clockMinutes(depText), arrClock=clockMinutes(arrText);
+  const expected=toMinutes(row?.block||row?._totalBlock||"");
+  if(depClock==null||arrClock==null||!expected) return null;
+  const date=row?.date;
+  const depAirport=rowDepartureAirport(row), arrAirport=rowArrivalAirport(row);
+  if(!date||!depAirport||!arrAirport) return null;
+  let depMs,arrMs;
+  if(basis==="lt"){
+    depMs=zonedWallTimeToUtcMs(date,depText,airportTimezone(depAirport));
+    const base=rosterDateComponents(date); if(!base) return null;
+    let arrDate=date;
+    if(hasNextDayMarker(arrText)){
+      const d=new Date(Date.UTC(base.year,base.month-1,base.day)+86400000);
+      const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      arrDate=`${String(d.getUTCDate()).padStart(2,"0")}-${months[d.getUTCMonth()]}-${d.getUTCFullYear()}`;
+    }
+    arrMs=zonedWallTimeToUtcMs(arrDate,arrText,airportTimezone(arrAirport));
+    while(Number.isFinite(depMs)&&Number.isFinite(arrMs)&&arrMs<=depMs) arrMs+=86400000;
+  }else{
+    depMs=depClock*60000;
+    arrMs=(arrClock+(hasNextDayMarker(arrText)?1440:0))*60000;
+    while(arrMs<=depMs) arrMs+=86400000;
+  }
+  if(!Number.isFinite(depMs)||!Number.isFinite(arrMs)) return null;
+  const actual=Math.round((arrMs-depMs)/60000);
+  return Math.abs(actual-expected);
+}
+function detectRosterTimeBasis(pdfText,rows){
+  const normalized=String(pdfText||"").replace(/\s+/g," ");
+  // Prefer an explicit label if the exported document contains one.
+  const explicit=normalized.match(/(?:time\s*(?:basis|mode|zone)?\s*[:\-]?\s*)(UTC|SLT|LT)\b/i);
+  if(explicit) return explicit[1].toLowerCase();
+
+  // LT can be distinguished from a fixed-zone roster by checking whether
+  // airport-zone conversion makes sector durations agree with roster block hours.
+  const samples=(rows||[]).filter(r=>/^MH\d+/i.test(String(r.item||""))).slice(0,20);
+  let lt=0,fixed=0,n=0;
+  samples.forEach(row=>{
+    const a=durationErrorForBasis(row,"lt");
+    const b=durationErrorForBasis(row,"fixed");
+    if(a==null||b==null) return;
+    lt+=Math.min(a,240); fixed+=Math.min(b,240); n++;
+  });
+  if(n>=2 && lt+20 < fixed) return "lt";
+
+  // UTC and SLT are both fixed-zone exports and can be mathematically
+  // indistinguishable when the PDF carries no time-basis label. For iFlight
+  // crew rosters, use station local time as the safe fixed-zone default.
+  return "slt";
+}
+
 async function parsePDF(file){
   status.textContent="Reading PDF…";
   officialFH=null;
@@ -3576,6 +3627,9 @@ async function parsePDF(file){
 
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
+  rosterTimeBasis=detectRosterTimeBasis(combinedText,allRows);
+  try{ localStorage.setItem("crewview-roster-time-basis",rosterTimeBasis); }catch(_error){}
+  console.info("CrewView roster time basis:",rosterTimeBasis.toUpperCase());
 
   if(!pairingMode){
     allRows.push(

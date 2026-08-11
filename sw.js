@@ -1,4 +1,4 @@
-const CACHE = "crewview-smart-duty-v99-all-times";
+const CACHE = "crewview-smart-duty-v100-all-times";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
