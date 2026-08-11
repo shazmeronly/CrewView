@@ -2868,9 +2868,10 @@ function getSmartDutySelection(rows){
       (Number(record.completedAt)||null) ||
       endMs(completed);
     const since=nowMs-completionMs;
-    const nextIn=future ? reportMs(future)-nowMs : Infinity;
 
-    if(since<=3*3600000 || (since<=12*3600000 && nextIn>12*3600000)){
+    // Keep Completed Duty visible for exactly 3 hours after Duty End / Released.
+    // After that, always advance to the next rostered duty regardless of how far away it is.
+    if(since<=3*3600000){
       return {row:completed,state:"completed"};
     }
   }
