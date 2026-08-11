@@ -2278,10 +2278,90 @@ function saveOperationalStore(store){
   }
 }
 
+function normalizeStoredUtcTime(value){
+  const raw=String(value||"").trim();
+  if(/^\d{4}$/.test(raw)){
+    const hh=Number(raw.slice(0,2));
+    const mm=Number(raw.slice(2));
+    if(hh<=23 && mm<=59) return `${raw.slice(0,2)}:${raw.slice(2)}`;
+  }
+  if(/^\d{1,2}:\d{2}$/.test(raw)){
+    const [h,m]=raw.split(":").map(Number);
+    if(h<=23 && m<=59) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+  }
+  return "";
+}
+
+function plausibleOperationalEpoch(value){
+  const n=Number(value);
+  return Number.isFinite(n) && n>=Date.UTC(2000,0,1) && n<=Date.UTC(2100,0,1);
+}
+
+function repairOperationalRecord(row,record){
+  if(!row || !record || typeof record!=="object") return {record:record||{},changed:false};
+  const fixed={...record};
+  const report=smartDutyReportUtcMs(row);
+  let previous=Number.isFinite(report) ? report : null;
+  let changed=false;
+
+  for(const field of SMART_DUTY_FIELDS){
+    const source=fixed[field];
+    if(!source) continue;
+    const sourceObj=typeof source==="string" ? {time:source} : {...source};
+    const time=normalizeStoredUtcTime(sourceObj.utcTime||sourceObj.time||"");
+    if(!time) continue;
+
+    let at=Number(sourceObj.at);
+    const atIsPlausible=plausibleOperationalEpoch(at);
+    const atMatches=atIsPlausible && formatUtcHHMM(at)===time;
+
+    if(!atMatches){
+      const base=Number.isFinite(previous) ? previous : (Number.isFinite(report) ? report : Date.now());
+      const baseDay=Date.UTC(new Date(base).getUTCFullYear(),new Date(base).getUTCMonth(),new Date(base).getUTCDate());
+      const candidates=[];
+      for(let delta=-1;delta<=3;delta++){
+        const candidate=utcTimestampForDay(baseDay+delta*86400000,time);
+        if(Number.isFinite(candidate)) candidates.push(candidate);
+      }
+      if(Number.isFinite(previous)){
+        const after=candidates.filter(v=>v>=previous).sort((a,b)=>a-b);
+        at=after.length ? after[0] : candidates.sort((a,b)=>Math.abs(a-base)-Math.abs(b-base))[0];
+      }else{
+        at=candidates.sort((a,b)=>Math.abs(a-base)-Math.abs(b-base))[0];
+      }
+      changed=true;
+    }
+
+    const airport=sourceObj.airport||smartDutyEventAirport(row,field);
+    fixed[field]={...sourceObj,utcTime:time,time,at:Number.isFinite(at)?Math.floor(at/60000)*60000:null,airport,timezone:sourceObj.timezone||airportTimezone(airport)};
+    if(Number.isFinite(fixed[field].at)) previous=fixed[field].at;
+  }
+
+  const chocks=fixed.onChocks;
+  if(chocks && plausibleOperationalEpoch(chocks.at)){
+    const duty=fixed.dutyEnd;
+    if(!duty || (duty.source==="auto-onchocks-plus-45" && !plausibleOperationalEpoch(duty.at))){
+      const dutyEndAt=chocks.at+45*60000;
+      const airport=smartDutyEventAirport(row,"dutyEnd");
+      fixed.dutyEnd={utcTime:formatUtcHHMM(dutyEndAt),time:formatUtcHHMM(dutyEndAt),at:dutyEndAt,source:"auto-onchocks-plus-45",airport,timezone:airportTimezone(airport)};
+      fixed.completedAt=dutyEndAt;
+      changed=true;
+    }
+  }
+
+  return {record:fixed,changed};
+}
+
 function operationalRecord(row){
   if(!row) return {};
   const store=loadOperationalStore();
-  return store[smartDutyKey(row)]||{};
+  const key=smartDutyKey(row);
+  const repaired=repairOperationalRecord(row,store[key]||{});
+  if(repaired.changed){
+    store[key]=repaired.record;
+    saveOperationalStore(store);
+  }
+  return repaired.record;
 }
 
 function operationalEvent(record,field){
@@ -2371,7 +2451,14 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
   if(clean){
     // Operational records are minute-precision. Do not let hidden seconds from
     // a "Now" tap change Taxi/Block/Duty totals by one minute.
-    const rawAt=capturedNow ? Date.now() : inferManualUtcTimestamp(row,field,clean,record);
+    let rawAt=capturedNow ? Date.now() : inferManualUtcTimestamp(row,field,clean,record);
+    if(!capturedNow && !plausibleOperationalEpoch(rawAt)){
+      const report=smartDutyReportUtcMs(row);
+      const base=Number.isFinite(report)?report:Date.now();
+      const baseDay=Date.UTC(new Date(base).getUTCFullYear(),new Date(base).getUTCMonth(),new Date(base).getUTCDate());
+      const candidate=utcTimestampForDay(baseDay,clean);
+      rawAt=Number.isFinite(candidate)?candidate:null;
+    }
     const at=Number.isFinite(rawAt) ? Math.floor(rawAt/60000)*60000 : null;
     const shownTime=Number.isFinite(at) ? formatUtcHHMM(at) : clean;
     const airport=smartDutyEventAirport(row,field);
