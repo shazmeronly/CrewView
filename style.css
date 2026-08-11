@@ -5091,3 +5091,95 @@ body:not(.calendar-mode) #rosterTable tbody tr[data-synthetic-calendar-row="1"][
   .pilot-duty-compare-grid{gap:4px}
   .pilot-duty-compare-grid>div{padding:5px 3px}
 }
+
+
+/* =========================================================
+   SMART DUTY CARD v92 — compact launcher / expandable workspace
+   Active and Completed duty stay compact by default. Tap the card to
+   reveal the full v91 operational workspace; Minimise returns to summary.
+   ========================================================= */
+.next-duty-card.state-active:not(.smart-duty-expanded),
+.next-duty-card.state-completed:not(.smart-duty-expanded){
+  padding-bottom:11px !important;
+  cursor:pointer;
+}
+
+.next-duty-card.state-active:not(.smart-duty-expanded) .smart-duty-live,
+.next-duty-card.state-completed:not(.smart-duty-expanded) .smart-duty-live,
+.next-duty-card.state-active:not(.smart-duty-expanded) .smart-duty-details-btn,
+.next-duty-card.state-completed:not(.smart-duty-expanded) .smart-duty-details-btn{
+  display:none !important;
+}
+
+.smart-duty-expand-btn{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  margin-top:7px;
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:9px;
+  padding:7px 9px;
+  background:rgba(255,255,255,.10);
+  color:#fff;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.03em;
+}
+.smart-duty-expand-btn span:last-child{
+  font-size:13px;
+  line-height:1;
+}
+.smart-duty-expand-btn:active{
+  background:rgba(255,255,255,.18);
+}
+
+.smart-duty-live-toolbar{
+  display:flex;
+  justify-content:flex-end;
+  margin:0 0 6px;
+}
+.smart-duty-collapse-btn{
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;
+  padding:5px 9px;
+  background:rgba(255,255,255,.10);
+  color:#fff;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.03em;
+}
+.smart-duty-collapse-btn span{
+  margin-left:3px;
+  font-size:9px;
+}
+.smart-duty-collapse-btn:active{
+  background:rgba(255,255,255,.18);
+}
+
+/* Make the collapsed active card closer to the original Next Duty footprint. */
+.next-duty-card.state-active:not(.smart-duty-expanded) .compact-duty-bottom,
+.next-duty-card.state-completed:not(.smart-duty-expanded) .compact-duty-bottom{
+  margin-top:7px;
+}
+.next-duty-card.state-active:not(.smart-duty-expanded) .compact-track,
+.next-duty-card.state-completed:not(.smart-duty-expanded) .compact-track{
+  margin-top:6px;
+}
+
+@media(max-width:520px){
+  .next-duty-card.state-active:not(.smart-duty-expanded),
+  .next-duty-card.state-completed:not(.smart-duty-expanded){
+    padding:12px 13px 10px !important;
+  }
+  .smart-duty-expand-btn{
+    margin-top:6px;
+    padding:6px 8px;
+  }
+}
+
+@media print{
+  .smart-duty-expand-btn,
+  .smart-duty-live-toolbar{display:none!important}
+}

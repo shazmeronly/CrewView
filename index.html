@@ -86,7 +86,14 @@
     <div class="countdown-fill" id="nextDutyProgress"></div>
   </div>
 
+  <button type="button" class="smart-duty-expand-btn smart-duty-control hidden" id="smartDutyExpandBtn" aria-expanded="false">
+    <span id="smartDutyExpandLabel">Open Active Duty</span><span aria-hidden="true">›</span>
+  </button>
+
   <div class="smart-duty-live hidden" id="smartDutyLivePanel">
+    <div class="smart-duty-live-toolbar">
+      <button type="button" class="smart-duty-collapse-btn smart-duty-control" id="smartDutyCollapseBtn">Minimise <span aria-hidden="true">⌃</span></button>
+    </div>
     <div class="smart-duty-live-grid">
       <div><span>ELAPSED</span><strong id="smartDutyElapsed">—</strong></div>
       <div><span>REMAINING</span><strong id="smartDutyRemaining">—</strong></div>

@@ -2595,6 +2595,36 @@ function setSmartDutyOperationalInputs(row){
 
 let smartDutyRenderSignature="";
 let activeSmartDutyState="next";
+let smartDutyExpanded=false;
+let smartDutyExpandedKey="";
+
+function setSmartDutyExpanded(expanded){
+  const card=$("#nextDutyCard");
+  if(!card) return;
+
+  smartDutyExpanded=Boolean(expanded);
+  const canExpand=activeSmartDutyState!=="next";
+  card.classList.toggle("smart-duty-expanded",smartDutyExpanded&&canExpand);
+
+  const expandBtn=$("#smartDutyExpandBtn");
+  if(expandBtn){
+    expandBtn.classList.toggle("hidden",!canExpand||smartDutyExpanded);
+    expandBtn.setAttribute("aria-expanded",smartDutyExpanded&&canExpand ? "true" : "false");
+  }
+
+  const collapseBtn=$("#smartDutyCollapseBtn");
+  if(collapseBtn){
+    collapseBtn.classList.toggle("hidden",!canExpand||!smartDutyExpanded);
+  }
+
+  const label=$("#smartDutyExpandLabel");
+  if(label){
+    label.textContent=
+      activeSmartDutyState==="active" ? "Open Active Duty" :
+      activeSmartDutyState==="completed" ? "Open Completed Duty" :
+      "Open Duty";
+  }
+}
 
 function refreshSmartDutyCard(force=false){
   const card=$("#nextDutyCard");
@@ -2603,15 +2633,27 @@ function refreshSmartDutyCard(force=false){
   const selection=getSmartDutySelection(getRows());
   if(!selection){
     card.classList.add("hidden");
+    card.classList.remove("smart-duty-expanded");
     activeNextDuty=null;
+    smartDutyExpanded=false;
+    smartDutyExpandedKey="";
     smartDutyRenderSignature="";
     return;
   }
 
   const {row,state}=selection;
   const role=smartCrewRole();
-  const signature=`${row._smartKey||smartDutyKey(row)}|${state}|${role}`;
+  const dutyKey=row._smartKey||smartDutyKey(row);
+  const signature=`${dutyKey}|${state}|${role}`;
   const changed=force || signature!==smartDutyRenderSignature;
+
+  // A newly selected duty starts compact. The crew member can tap the card
+  // to reveal the full Active/Completed Duty workspace when needed.
+  if(smartDutyExpandedKey!==dutyKey){
+    smartDutyExpanded=false;
+    smartDutyExpandedKey=dutyKey;
+  }
+
   activeNextDuty=row;
   activeSmartDutyState=state;
 
@@ -2668,6 +2710,8 @@ function refreshSmartDutyCard(force=false){
           : (arr ? `Scheduled arrival ${arr} · Duty end ${row._finalDutyEnd||row.dutyEnd||"—"}` : `Scheduled duty end ${row._finalDutyEnd||row.dutyEnd||"—"}`);
     }
   }
+
+  setSmartDutyExpanded(smartDutyExpanded);
 
   const now=new Date();
   const reportMs=row._reportUtcMs||smartDutyReportUtcMs(row)||row._dt.getTime();
@@ -2801,9 +2845,34 @@ $("#smartDutyDetailsBtn")?.addEventListener("click",event=>{
   event.stopPropagation();
   openDutyDetails();
 });
+
+$("#smartDutyExpandBtn")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  if(activeSmartDutyState==="next") return;
+  setSmartDutyExpanded(true);
+});
+
+$("#smartDutyCollapseBtn")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  setSmartDutyExpanded(false);
+  $("#nextDutyCard")?.scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+
 $("#nextDutyCard")?.addEventListener("click",event=>{
   if(event.target.closest(".smart-duty-control")) return;
-  openDutyDetails();
+
+  // Next Duty remains a simple details card. Active/Completed Duty acts like
+  // a compact launcher: tap once to open the full operational workspace.
+  if(activeSmartDutyState!=="next" && !smartDutyExpanded){
+    setSmartDutyExpanded(true);
+    return;
+  }
+
+  if(activeSmartDutyState==="next"){
+    openDutyDetails();
+  }
 });
 
 document.querySelectorAll("[data-ops-now]").forEach(button=>{
