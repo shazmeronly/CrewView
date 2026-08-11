@@ -2369,18 +2369,43 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
   const clean=String(time||"").trim();
 
   if(clean){
-    const at=capturedNow ? Date.now() : inferManualUtcTimestamp(row,field,clean,record);
+    // Operational records are minute-precision. Do not let hidden seconds from
+    // a "Now" tap change Taxi/Block/Duty totals by one minute.
+    const rawAt=capturedNow ? Date.now() : inferManualUtcTimestamp(row,field,clean,record);
+    const at=Number.isFinite(rawAt) ? Math.floor(rawAt/60000)*60000 : null;
+    const shownTime=Number.isFinite(at) ? formatUtcHHMM(at) : clean;
     const airport=smartDutyEventAirport(row,field);
     record[field]={
-      utcTime:capturedNow ? currentUtcHHMM() : clean,
-      time:capturedNow ? currentUtcHHMM() : clean,
-      at:Number.isFinite(at) ? at : null,
+      utcTime:shownTime,
+      time:shownTime,
+      at,
       source:capturedNow ? "now" : "manual-utc",
       airport,
       timezone:airportTimezone(airport)
     };
+
+    // Company roster duty debrief is 45 minutes after block-in. Once On Chocks
+    // is entered, pre-fill Duty End/Released to the latest time: On Chocks +45.
+    // It remains editable if an actual release time later differs.
+    if(field==="onChocks" && Number.isFinite(at)){
+      const dutyEndAt=at+45*60000;
+      const dutyEndAirport=smartDutyEventAirport(row,"dutyEnd");
+      record.dutyEnd={
+        utcTime:formatUtcHHMM(dutyEndAt),
+        time:formatUtcHHMM(dutyEndAt),
+        at:dutyEndAt,
+        source:"auto-onchocks-plus-45",
+        airport:dutyEndAirport,
+        timezone:airportTimezone(dutyEndAirport)
+      };
+      record.completedAt=dutyEndAt;
+    }
   }else{
     delete record[field];
+    if(field==="onChocks" && record.dutyEnd?.source==="auto-onchocks-plus-45"){
+      delete record.dutyEnd;
+      record.completedAt=null;
+    }
   }
 
   record.updatedAt=Date.now();
@@ -2403,8 +2428,12 @@ function resetOperationalRecord(row){
 
 function durationBetweenOperationalEvents(startEvent,endEvent){
   if(!startEvent || !endEvent) return null;
-  if(Number.isFinite(startEvent.at) && Number.isFinite(endEvent.at) && endEvent.at>=startEvent.at){
-    return {minutes:Math.round((endEvent.at-startEvent.at)/60000),exact:true};
+  if(Number.isFinite(startEvent.at) && Number.isFinite(endEvent.at)){
+    // Normalize legacy v91-v94 records too, so previously captured hidden
+    // seconds cannot produce 07:34 when the displayed UTC times are 02:02-09:37.
+    const startAt=Math.floor(startEvent.at/60000)*60000;
+    const endAt=Math.floor(endEvent.at/60000)*60000;
+    if(endAt>=startAt) return {minutes:(endAt-startAt)/60000,exact:true};
   }
   return null;
 }
@@ -2546,7 +2575,8 @@ function applyOperationalOverlayToClassic(){
 
 function smartDutyPhase(row,record,role){
   if(role==="pilot" && smartDutyIsFlight(row)){
-    if(operationalEvent(record,"dutyEnd").time) return "COMPLETED";
+    const dutyEndEvent=operationalEvent(record,"dutyEnd");
+    if(Number.isFinite(dutyEndEvent.at) && dutyEndEvent.at<=Date.now()) return "COMPLETED";
     if(operationalEvent(record,"onChocks").time) return "POST FLIGHT";
     if(operationalEvent(record,"landing").time) return "TAXI IN";
     if(operationalEvent(record,"airborne").time) return "AIRBORNE";
