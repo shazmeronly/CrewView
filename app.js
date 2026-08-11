@@ -438,40 +438,49 @@ function validateKnownRoster(rows){
     ? VALIDATION_FIXTURES[officialRosterPeriod.key]
     : null;
 
-  if(!fixture){
-    return {
-      known:false,
-      passed:true,
-      message:"Roster converted. This month is not in the built-in validation set."
-    };
-  }
-
   const issues=[];
   const fingerprints=rosterFingerprint(rows);
 
-  if(officialFH!==fixture.fh){
-    issues.push(`Flying hours: expected ${fixture.fh}, found ${officialFH||"—"}`);
+  // Generic integrity check for every roster revision: the parsed row totals
+  // should reconcile with the official FH / DH values printed in the PDF.
+  const parsedFH=hhmm(rows.reduce((sum,row)=>sum+toMinutes(row.block),0));
+  const parsedDH=hhmm(rows.reduce((sum,row)=>sum+toMinutes(row.duty),0));
+
+  if(officialFH && parsedFH!==officialFH){
+    issues.push(`Parsed flying hours ${parsedFH} do not match roster total ${officialFH}`);
   }
-  if(officialDH!==fixture.dh){
-    issues.push(`Duty hours: expected ${fixture.dh}, found ${officialDH||"—"}`);
+  if(officialDH && parsedDH!==officialDH){
+    issues.push(`Parsed duty hours ${parsedDH} do not match roster total ${officialDH}`);
   }
 
-  fixture.required.forEach(([date,item,dep,arr,end])=>{
-    const found=fingerprints.some(line=>{
-      const fields=line.split("|");
-      return (
-        fields[0]===date &&
-        fields[2]===item &&
-        (!dep || fields[3]===dep) &&
-        (!arr || fields[4]===arr) &&
-        (!end || fields[5]===end)
-      );
+  // Exact fixtures are revision-specific. Only run their required-row checks
+  // when the current PDF has the same official monthly totals as that fixture.
+  // Airline rosters are amended during the month, so a newer revision must not
+  // be flagged as broken simply because its legitimate totals/times changed.
+  const sameKnownRevision=Boolean(
+    fixture &&
+    (!fixture.fh || !officialFH || fixture.fh===officialFH) &&
+    (!fixture.dh || !officialDH || fixture.dh===officialDH)
+  );
+
+  if(sameKnownRevision){
+    fixture.required.forEach(([date,item,dep,arr,end])=>{
+      const found=fingerprints.some(line=>{
+        const fields=line.split("|");
+        return (
+          fields[0]===date &&
+          fields[2]===item &&
+          (!dep || fields[3]===dep) &&
+          (!arr || fields[4]===arr) &&
+          (!end || fields[5]===end)
+        );
+      });
+
+      if(!found){
+        issues.push(`${date}: missing or incorrect ${item}`);
+      }
     });
-
-    if(!found){
-      issues.push(`${date}: missing or incorrect ${item}`);
-    }
-  });
+  }
 
   const duplicateKeys=new Set();
   const duplicates=[];
@@ -497,17 +506,24 @@ function validateKnownRoster(rows){
     issues.push(`Duplicate rows: ${[...new Set(duplicates)].join(", ")}`);
   }
 
+  const revisedKnownMonth=Boolean(fixture && !sameKnownRevision);
+  const label=fixture?.label || "Roster";
+
   return {
-    known:true,
+    known:Boolean(fixture),
+    revised:revisedKnownMonth,
     passed:issues.length===0,
-    label:fixture.label,
+    label,
     issues,
     message:issues.length
-      ? `${fixture.label} validation found ${issues.length} issue${issues.length===1?"":"s"}.`
-      : `${fixture.label} validation passed.`
+      ? `${label} validation found ${issues.length} issue${issues.length===1?"":"s"}.`
+      : revisedKnownMonth
+        ? `${label} revised roster validated successfully.`
+        : fixture
+          ? `${label} validation passed.`
+          : "Roster converted and integrity checks passed."
   };
 }
-
 
 function updateRosterSourceNote(){
   const note=$("#rosterSourceNote");
@@ -4398,6 +4414,13 @@ $("#clearBtn")?.addEventListener("click",event=>{
   clearTimeout(validationToastTimer);
   $("#validationToast")?.classList.remove("show","leaving");
   $("#validationToast")?.classList.add("hidden");
+
+  const validationResult=$("#validationResult");
+  if(validationResult){
+    validationResult.classList.add("hidden");
+    validationResult.classList.remove("pass","fail","neutral");
+    validationResult.innerHTML="";
+  }
 
   requestAnimationFrame(()=>{
     $("#uploadCard")?.scrollIntoView({
