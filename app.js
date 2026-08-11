@@ -49,6 +49,7 @@ const tbody=$("#rosterTable tbody"), status=$("#status");
 const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block","duty","ac"];
 let officialFH=null, officialDH=null;
 let officialRosterPeriod=null;
+let rosterTimeBasis="LT"; // iFlight LT (base-local) | SLT (station-local) | UTC
 
 const ROSTER_CACHE_KEY="crewview-roster-cache-v1";
 
@@ -80,6 +81,7 @@ function saveRosterSnapshot(rows){
       officialFH,
       officialDH,
       officialRosterPeriod:serializeRosterPeriod(officialRosterPeriod),
+      rosterTimeBasis,
       profile
     }));
   }catch(error){
@@ -1920,13 +1922,102 @@ function recoverMissingFlightRows(text, existingRows){
 let nextDutyTimer=null;
 let activeNextDuty=null;
 
+function baseAirportCode(){
+  return String($("#base")?.value||"KUL").trim().toUpperCase() || "KUL";
+}
+
+function addRosterDays(dateText,days){
+  const d=parseRosterDate(dateText);
+  if(!d) return dateText;
+  d.setDate(d.getDate()+Number(days||0));
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${String(d.getDate()).padStart(2,"0")}-${months[d.getMonth()]}-${d.getFullYear()}`;
+}
+
+function parseStationClock(value){
+  const text=String(value||"").trim();
+  const station=(text.match(/\b([A-Z]{3})\b/)||[])[1]||"";
+  const tm=text.match(/(\d{1,2}):(\d{2})/);
+  if(!tm) return null;
+  return {
+    station:station.toUpperCase(),
+    time:`${String(tm[1]).padStart(2,"0")}:${tm[2]}`,
+    nextDay:/\(\+1\)/.test(text)
+  };
+}
+
+function fixedClockElapsedMinutes(depText,arrText){
+  const dep=parseStationClock(depText), arr=parseStationClock(arrText);
+  if(!dep||!arr) return null;
+  const [dh,dm]=dep.time.split(":").map(Number);
+  const [ah,am]=arr.time.split(":").map(Number);
+  let diff=(ah*60+am)-(dh*60+dm)+(arr.nextDay?1440:0);
+  while(diff<0) diff+=1440;
+  return diff;
+}
+
+function localClockElapsedMinutes(row){
+  const dep=parseStationClock(row?.dep), arr=parseStationClock(row?.arr);
+  if(!dep||!arr||!dep.station||!arr.station) return null;
+  const depMs=zonedWallTimeToUtcMs(row.date,dep.time,airportTimezone(dep.station));
+  const arrDate=addRosterDays(row.date,arr.nextDay?1:0);
+  let arrMs=zonedWallTimeToUtcMs(arrDate,arr.time,airportTimezone(arr.station));
+  if(!Number.isFinite(depMs)||!Number.isFinite(arrMs)) return null;
+  while(arrMs<depMs) arrMs+=86400000;
+  return Math.round((arrMs-depMs)/60000);
+}
+
+function detectRosterTimeBasis(rows,pdfText){
+  const text=String(pdfText||"");
+  // Use an explicit label when the exporter includes one.
+  if(/(?:^|\s)SLT(?:\s|$)/i.test(text)) return "SLT";
+  if(/(?:^|\s)UTC(?:\s|$)|\bZULU\b/i.test(text)) return "UTC";
+
+  let localEvidence=0, fixedEvidence=0;
+  (rows||[]).forEach(row=>{
+    if(!/^MH\d+/i.test(String(row?.item||""))) return;
+    const block=toMinutes(row?.block);
+    if(!(block>0)) return;
+    const fixed=fixedClockElapsedMinutes(row.dep,row.arr);
+    const local=localClockElapsedMinutes(row);
+    if(!Number.isFinite(fixed)||!Number.isFinite(local)) return;
+    const fixedErr=Math.abs(fixed-block);
+    const localErr=Math.abs(local-block);
+    // Only count a sample when the timezone interpretation clearly separates.
+    if(localErr<=4 && fixedErr>=20) localEvidence++;
+    if(fixedErr<=4 && localErr>=20) fixedEvidence++;
+  });
+
+  // iFlight SLT means each station's local clock, so timezone-aware elapsed
+  // time matches the published block time on cross-zone sectors.
+  if(localEvidence>fixedEvidence && localEvidence>0) return "SLT";
+
+  /*
+   * iFlight LT is a single local reference (the crew/base local clock), so
+   * simple wall-clock subtraction matches block time. UTC is also fixed-zone;
+   * therefore an unlabeled UTC PDF is mathematically indistinguishable from
+   * LT from the rows alone. Explicit UTC labels are handled above.
+   */
+  if(fixedEvidence>0) return "LT";
+  return "LT";
+}
+
+function rosterScheduledUtcMs(dateText,timeText,airport=""){
+  const time=String(timeText||"").match(/(\d{1,2}):(\d{2})/);
+  const date=rosterDateComponents(dateText);
+  if(!time||!date) return null;
+  if(rosterTimeBasis==="UTC") return Date.UTC(date.year,date.month-1,date.day,Number(time[1]),Number(time[2]),0,0);
+  const zone=rosterTimeBasis==="SLT"
+    ? airportTimezone(airport||baseAirportCode())
+    : airportTimezone(baseAirportCode());
+  return zonedWallTimeToUtcMs(dateText,`${time[1]}:${time[2]}`,zone);
+}
+
 function dutyDateTime(row){
-  const d=parseRosterDate(row.date);
-  if(!d || !row.dutyStart) return null;
-  const m=String(row.dutyStart).match(/^(\d{1,2}):(\d{2})/);
-  if(!m) return null;
-  d.setHours(Number(m[1]),Number(m[2]),0,0);
-  return d;
+  if(!row?.date || !row?.dutyStart) return null;
+  const dep=(parseStationClock(row.dep)||{}).station || baseAirportCode();
+  const ms=rosterScheduledUtcMs(row.date,row.dutyStart,dep);
+  return Number.isFinite(ms) ? new Date(ms) : null;
 }
 
 function routeFromRow(row){
@@ -2215,9 +2306,8 @@ function zonedWallTimeToUtcMs(dateText,timeText,timeZone){
 
 function smartDutyReportUtcMs(row){
   if(!row) return null;
-  const airport=dutyDepartureAirport(row);
-  const timezone=airportTimezone(airport);
-  const resolved=zonedWallTimeToUtcMs(row.date,row.dutyStart,timezone);
+  const airport=dutyDepartureAirport(row)||baseAirportCode();
+  const resolved=rosterScheduledUtcMs(row.date,row.dutyStart,airport);
   if(Number.isFinite(resolved)) return resolved;
   const fallback=row._dt||dutyDateTime(row);
   return fallback instanceof Date ? fallback.getTime() : null;
@@ -3539,6 +3629,10 @@ async function parsePDF(file){
 
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
+  // Detect only the scheduled roster time basis. This does not alter the PDF
+  // parser, offline boot, service-worker strategy, or pilot actual UTC storage.
+  rosterTimeBasis=detectRosterTimeBasis(allRows,combinedText);
+  console.info("CrewView roster time basis:",rosterTimeBasis);
 
   if(!pairingMode){
     allRows.push(
@@ -4770,6 +4864,7 @@ function restoreCachedRoster(){
   officialFH=cached.officialFH||null;
   officialDH=cached.officialDH||null;
   officialRosterPeriod=deserializeRosterPeriod(cached.officialRosterPeriod);
+  rosterTimeBasis=["LT","SLT","UTC"].includes(cached.rosterTimeBasis) ? cached.rosterTimeBasis : "LT";
   Object.entries(cached.profile||{}).forEach(([id,value])=>{
     const input=$("#"+id);
     if(input) input.value=value||"";
