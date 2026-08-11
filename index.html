@@ -432,7 +432,15 @@
   <button class="btn primary" id="printBtn">Save PDF</button>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs" type="module"></script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js",{scope:"./"}).catch(error=>
+      console.warn("CrewView offline service worker could not register",error)
+    );
+  });
+}
+</script>
 <script type="module" src="app.js"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">

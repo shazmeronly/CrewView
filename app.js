@@ -50,6 +50,54 @@ const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block"
 let officialFH=null, officialDH=null;
 let officialRosterPeriod=null;
 
+const ROSTER_CACHE_KEY="crewview-roster-cache-v1";
+
+function serializeRosterPeriod(period){
+  if(!period) return null;
+  return {
+    start:period.start instanceof Date ? period.start.toISOString() : period.start,
+    end:period.end instanceof Date ? period.end.toISOString() : period.end
+  };
+}
+function deserializeRosterPeriod(period){
+  if(!period) return null;
+  const start=period.start ? new Date(period.start) : null;
+  const end=period.end ? new Date(period.end) : null;
+  return start instanceof Date && !Number.isNaN(start.getTime()) && end instanceof Date && !Number.isNaN(end.getTime())
+    ? {start,end}
+    : null;
+}
+function saveRosterSnapshot(rows){
+  try{
+    const profile={};
+    ["name","staff","rank","fleet","base"].forEach(id=>{
+      profile[id]=($("#"+id)?.value||"").trim();
+    });
+    localStorage.setItem(ROSTER_CACHE_KEY,JSON.stringify({
+      version:1,
+      savedAt:Date.now(),
+      rows:Array.isArray(rows)?rows:[],
+      officialFH,
+      officialDH,
+      officialRosterPeriod:serializeRosterPeriod(officialRosterPeriod),
+      profile
+    }));
+  }catch(error){
+    console.warn("CrewView could not save the parsed roster locally",error);
+  }
+}
+function clearRosterSnapshot(){
+  try{ localStorage.removeItem(ROSTER_CACHE_KEY); }catch(_error){}
+}
+function loadRosterSnapshot(){
+  try{
+    const data=JSON.parse(localStorage.getItem(ROSTER_CACHE_KEY)||"null");
+    return data && Array.isArray(data.rows) && data.rows.length ? data : null;
+  }catch(_error){
+    return null;
+  }
+}
+
 function dayName(dateStr){
   const m=dateStr.match(/(\d{2})-([A-Za-z]{3})-(\d{4})/); if(!m)return "";
   const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
@@ -191,6 +239,7 @@ function classifyRows(){
 function setRows(rows){
   const displayRows=prepareClassicDisplayRows(rows);
   tbody.innerHTML=displayRows.map(rowHTML).join("");
+  applyOperationalOverlayToClassic();
   classifyRows();
   updateStats();
   renderNextDuty();
@@ -200,7 +249,12 @@ function setRows(rows){
 function getRows(){
   return [...tbody.rows].map(tr=>{
     const row=Object.fromEntries(
-      [...tr.cells].map(td=>[td.dataset.k,td.textContent.trim()])
+      [...tr.cells].map(td=>[
+        td.dataset.k,
+        td.dataset.actualOverlay==="1"
+          ? (td.dataset.scheduledValue||"")
+          : td.textContent.trim()
+      ])
     );
 
     // Rehydrate blank repeated Date/Day cells so Calendar view, countdowns,
@@ -2336,6 +2390,7 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
 
   store[key]=record;
   saveOperationalStore(store);
+  applyOperationalOverlayToClassic();
 }
 
 function resetOperationalRecord(row){
@@ -2343,6 +2398,7 @@ function resetOperationalRecord(row){
   const store=loadOperationalStore();
   delete store[smartDutyKey(row)];
   saveOperationalStore(store);
+  applyOperationalOverlayToClassic();
 }
 
 function durationBetweenOperationalEvents(startEvent,endEvent){
@@ -2387,6 +2443,105 @@ function operationalMetrics(row,record){
     rosterDuty:rosterMinutes>0?{minutes:rosterMinutes,exact:true}:null,
     dutyDifference:actualDuty && rosterMinutes>0 ? actualDuty.minutes-rosterMinutes : null
   };
+}
+
+function classicOperationalRecord(row){
+  if(!row) return {};
+  const direct=operationalRecord(row);
+  if(Object.keys(direct).length) return direct;
+
+  // Completed-duty objects include route metadata that simple Classic rows do
+  // not always have (especially for overnight sectors). Match the stable duty
+  // identity first, then use the saved UTC record regardless of route suffix.
+  const staff=(($("#staff")?.value||"").trim()||"crew");
+  const prefix=[staff,row.date||"",row.dutyStart||"",row.item||""].map(v=>String(v||"").trim()).join("|")+"|";
+  const store=loadOperationalStore();
+  const match=Object.keys(store).find(key=>key.startsWith(prefix));
+  return match ? (store[match]||{}) : {};
+}
+
+function scheduledClassicRow(tr){
+  const row=Object.fromEntries([...tr.cells].map(td=>[
+    td.dataset.k,
+    td.dataset.actualOverlay==="1" ? (td.dataset.scheduledValue||"") : td.textContent.trim()
+  ]));
+  row.date=row.date||tr.dataset.actualDate||"";
+  row.day=row.day||tr.dataset.actualDay||dayName(row.date);
+  row._actualDate=tr.dataset.actualDate||row.date||"";
+  row._actualDay=tr.dataset.actualDay||row.day||dayName(row.date);
+  row._overnightContinuation=tr.dataset.overnightContinuation==="1";
+  return row;
+}
+
+function setClassicActualCell(tr,key,value){
+  const td=tr?.querySelector(`[data-k="${key}"]`);
+  if(!td || !value) return;
+  if(td.dataset.actualOverlay!=="1") td.dataset.scheduledValue=td.textContent.trim();
+  td.dataset.actualOverlay="1";
+  td.textContent=value;
+  td.title=td.dataset.scheduledValue ? `Scheduled: ${td.dataset.scheduledValue}` : "Actual operational value";
+}
+
+function clearClassicActualOverlay(){
+  [...tbody.rows].forEach(tr=>[...tr.cells].forEach(td=>{
+    if(td.dataset.actualOverlay==="1"){
+      td.textContent=td.dataset.scheduledValue||"";
+      delete td.dataset.actualOverlay;
+      delete td.dataset.scheduledValue;
+      td.removeAttribute("title");
+    }
+  }));
+}
+
+function classicActualStationTime(row,field,event){
+  if(!event || !Number.isFinite(event.at)) return "";
+  const airport=event.airport || smartDutyEventAirport(row,field);
+  const timezone=event.timezone || airportTimezone(airport);
+  const parts=timePartsInZone(event.at,timezone);
+  const delta=localDateDelta(row,event.at,timezone);
+  const marker=delta===0 ? "" : delta>0 ? `(+${delta})` : `(${delta})`;
+  return `${airport||""} ${parts.hour}:${parts.minute}${marker} ACT`.trim();
+}
+
+function applyOperationalOverlayToClassic(){
+  if(!tbody) return;
+  clearClassicActualOverlay();
+
+  let previousDuty=null;
+  let previousRecord=null;
+
+  [...tbody.rows].forEach(tr=>{
+    const row=scheduledClassicRow(tr);
+    const isFlight=/^MH\d+/i.test(String(row.item||"").trim());
+
+    if(isFlight && String(row.dutyStart||"").trim()){
+      previousDuty=row;
+      previousRecord=classicOperationalRecord(row);
+      const record=previousRecord;
+      const pushback=operationalEvent(record,"pushback");
+      const onChocks=operationalEvent(record,"onChocks");
+      const dutyEnd=operationalEvent(record,"dutyEnd");
+      const metrics=operationalMetrics(row,record);
+
+      if(Number.isFinite(pushback.at)) setClassicActualCell(tr,"dep",classicActualStationTime(row,"pushback",pushback));
+      if(Number.isFinite(onChocks.at) && String(row.arr||"").trim()) setClassicActualCell(tr,"arr",classicActualStationTime(row,"onChocks",onChocks));
+      if(metrics.block) setClassicActualCell(tr,"block",`${formatOperationalDuration(metrics.block)} ACT`);
+      if(metrics.actualDuty) setClassicActualCell(tr,"duty",`${formatOperationalDuration(metrics.actualDuty)} ACT`);
+      if(Number.isFinite(dutyEnd.at) && String(row.dutyEnd||"").trim()) setClassicActualCell(tr,"dutyEnd",classicActualStationTime(row,"dutyEnd",dutyEnd).replace(/^\S+\s+/,""));
+      return;
+    }
+
+    // Overnight arrival/duty-end values live on the following continuation
+    // row in Classic view, but belong to the preceding flight's UTC record.
+    if(row._overnightContinuation && previousDuty && previousRecord){
+      const onChocks=operationalEvent(previousRecord,"onChocks");
+      const dutyEnd=operationalEvent(previousRecord,"dutyEnd");
+      if(Number.isFinite(onChocks.at)) setClassicActualCell(tr,"arr",classicActualStationTime(previousDuty,"onChocks",onChocks));
+      if(Number.isFinite(dutyEnd.at)) setClassicActualCell(tr,"dutyEnd",classicActualStationTime(previousDuty,"dutyEnd",dutyEnd).replace(/^\S+\s+/,""));
+    }
+  });
+
+  if(fitEnabled) setTimeout(applyOnePageFit,0);
 }
 
 function smartDutyPhase(row,record,role){
@@ -3339,6 +3494,7 @@ async function parsePDF(file){
   if(finalDH) officialDH=finalDH[1];
 
   setRows(allRows);
+  saveRosterSnapshot(allRows);
   updateRosterSourceNote();
 
   const validation=validateKnownRoster(allRows);
@@ -4371,6 +4527,8 @@ $("#clearBtn")?.addEventListener("click",event=>{
 
   officialFH=null;
   officialDH=null;
+  officialRosterPeriod=null;
+  clearRosterSnapshot();
 
   if(nextDutyTimer){
     clearInterval(nextDutyTimer);
@@ -4429,6 +4587,40 @@ $("#clearBtn")?.addEventListener("click",event=>{
     });
   });
 });
+function restoreCachedRoster(){
+  if(document.body.classList.contains("roster-loaded")) return false;
+  const cached=loadRosterSnapshot();
+  if(!cached) return false;
+
+  officialFH=cached.officialFH||null;
+  officialDH=cached.officialDH||null;
+  officialRosterPeriod=deserializeRosterPeriod(cached.officialRosterPeriod);
+  Object.entries(cached.profile||{}).forEach(([id,value])=>{
+    const input=$("#"+id);
+    if(input) input.value=value||"";
+  });
+
+  setRows(cached.rows);
+  updateRosterSourceNote();
+  document.body.classList.add("roster-loaded");
+  $("#uploadCard")?.setAttribute("aria-hidden","true");
+  $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
+  $("#viewSwitcher")?.classList.remove("hidden");
+  $("#classicView")?.classList.remove("hidden");
+  $("#calendarView")?.classList.add("hidden");
+  document.body.classList.remove("calendar-mode");
+  crewViewMode="classic";
+  document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.classList.toggle("active",tab.dataset.view==="classic"));
+  updateCompactProfile();
+  status.textContent="Restored your last roster from this device.";
+  requestAnimationFrame(()=>{ resetInitialViewport(); applyOperationalOverlayToClassic(); });
+  return true;
+}
+
+// iOS may terminate a suspended Safari/PWA process. Restore the parsed roster
+// from local storage whenever a fresh page process starts.
+requestAnimationFrame(()=>restoreCachedRoster());
+
 window.addEventListener("resize",()=>{if(fitEnabled)applyOnePageFit()});
 $("#printBtn").onclick=()=>{
   document.body.classList.add("pdf-export");
