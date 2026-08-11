@@ -2133,7 +2133,8 @@ function smartDutyKey(row){
 }
 
 const SMART_DUTY_STORAGE_KEY="crewview-operational-times-v2-utc";
-const SMART_DUTY_TIME_MODE_KEY="crewview-operational-display-mode-v1";
+const SMART_DUTY_TIME_MODE_KEY="crewview-operational-display-mode-v2";
+const ROSTER_TIME_BASIS="slt"; // Current iFlight roster export: duty/report clock is Station Local Time.
 const SMART_DUTY_FIELDS=["pushback","airborne","landing","onChocks","dutyEnd"];
 
 function airportTimezone(code){
@@ -2213,10 +2214,17 @@ function zonedWallTimeToUtcMs(dateText,timeText,timeZone){
   return guess;
 }
 
+function rosterStationAirport(){
+  return (($("#base")?.value||"KUL").trim().toUpperCase()||"KUL");
+}
+
+function rosterStationTimezone(){
+  return airportTimezone(rosterStationAirport());
+}
+
 function smartDutyReportUtcMs(row){
   if(!row) return null;
-  const airport=dutyDepartureAirport(row);
-  const timezone=airportTimezone(airport);
+  const timezone=ROSTER_TIME_BASIS==="slt" ? rosterStationTimezone() : airportTimezone(dutyDepartureAirport(row));
   const resolved=zonedWallTimeToUtcMs(row.date,row.dutyStart,timezone);
   if(Number.isFinite(resolved)) return resolved;
   const fallback=row._dt||dutyDateTime(row);
@@ -2259,6 +2267,20 @@ function formatLocalOperationalTime(row,field,event){
   const delta=localDateDelta(row,event.at,timezone);
   const marker=delta===0 ? "" : delta>0 ? ` (+${delta})` : ` (${delta})`;
   return `${parts.hour}:${parts.minute}${marker}${airport?` ${airport}`:""}`;
+}
+
+function formatSltOperationalTime(row,event){
+  if(!event || !Number.isFinite(event.at)) return "SLT —";
+  const station=rosterStationAirport();
+  const timezone=rosterStationTimezone();
+  const parts=timePartsInZone(event.at,timezone);
+  const delta=localDateDelta(row,event.at,timezone);
+  const marker=delta===0 ? "" : delta>0 ? ` (+${delta})` : ` (${delta})`;
+  return `${parts.hour}:${parts.minute}${marker} ${station} SLT`;
+}
+
+function formatOperationalSecondaryTime(row,field,event){
+  return formatLocalOperationalTime(row,field,event).replace(/^Local\s*/, "LT ");
 }
 
 function loadOperationalStore(){
@@ -2798,16 +2820,16 @@ function shortDuration(ms){
 
 function smartDutyTimeDisplayMode(){
   const value=localStorage.getItem(SMART_DUTY_TIME_MODE_KEY);
-  return ["utc","local","both"].includes(value) ? value : "both";
+  return ["utc","lt","slt"].includes(value) ? value : "slt";
 }
 
 function applySmartDutyTimeDisplayMode(mode){
-  const value=["utc","local","both"].includes(mode) ? mode : "both";
+  const value=["utc","lt","slt"].includes(mode) ? mode : "slt";
   localStorage.setItem(SMART_DUTY_TIME_MODE_KEY,value);
   const panel=$("#pilotOpsPanel");
   if(panel){
     panel.dataset.timeMode=value;
-    panel.classList.remove("ops-mode-utc","ops-mode-local","ops-mode-both");
+    panel.classList.remove("ops-mode-utc","ops-mode-local","ops-mode-both","ops-mode-lt","ops-mode-slt");
     panel.classList.add(`ops-mode-${value}`);
   }
   document.querySelectorAll("[data-ops-time-mode]").forEach(button=>{
@@ -2832,6 +2854,13 @@ function setSmartDutyOperationalInputs(row){
     onChocks:"#opsOnChocksLocal",
     dutyEnd:"#opsDutyEndLocal"
   };
+  const sltIds={
+    pushback:"#opsPushbackLocalSlt",
+    airborne:"#opsAirborneLocalSlt",
+    landing:"#opsLandingLocalSlt",
+    onChocks:"#opsOnChocksLocalSlt",
+    dutyEnd:"#opsDutyEndLocalSlt"
+  };
 
   Object.entries(fieldIds).forEach(([field,selector])=>{
     const event=operationalEvent(record,field);
@@ -2841,21 +2870,28 @@ function setSmartDutyOperationalInputs(row){
     }
     const local=$(localIds[field]);
     if(local){
-      local.textContent=formatLocalOperationalTime(row,field,event);
+      local.textContent=event && Number.isFinite(event.at) ? formatLocalOperationalTime(row,field,event).replace(/^Local\s*/, "LT ") : "LT —";
       local.classList.toggle("has-time",Number.isFinite(event.at));
+    }
+    const slt=$(sltIds[field]);
+    if(slt){
+      slt.textContent=event && Number.isFinite(event.at) ? formatSltOperationalTime(row,event) : "SLT —";
+      slt.classList.toggle("has-time",Number.isFinite(event.at));
     }
   });
 
   const reportMs=smartDutyReportUtcMs(row);
-  const reportAirport=dutyDepartureAirport(row);
-  const reportZone=airportTimezone(reportAirport);
+  const reportAirport=ROSTER_TIME_BASIS==="slt" ? rosterStationAirport() : dutyDepartureAirport(row);
+  const reportZone=ROSTER_TIME_BASIS==="slt" ? rosterStationTimezone() : airportTimezone(reportAirport);
   const reportEvent=Number.isFinite(reportMs)
     ? {at:reportMs,airport:reportAirport,timezone:reportZone}
     : null;
   $("#opsReportUtc").textContent=Number.isFinite(reportMs)?`${formatUtcHHMM(reportMs)} UTC`:"—";
   $("#opsReportLocal").textContent=reportEvent
-    ? formatLocalOperationalTime(row,"pushback",reportEvent)
-    : "Local —";
+    ? formatLocalOperationalTime(row,"pushback",reportEvent).replace(/^Local\s*/, "LT ")
+    : "LT —";
+  const reportSlt=$("#opsReportLocalSlt");
+  if(reportSlt) reportSlt.textContent=reportEvent ? formatSltOperationalTime(row,reportEvent) : "SLT —";
 
   const metrics=operationalMetrics(row,record);
   $("#actualTaxiOut").textContent=formatOperationalDuration(metrics.taxiOut);
@@ -2873,12 +2909,13 @@ function setSmartDutyOperationalInputs(row){
     const depKnown=Boolean(AIRPORT_TIMEZONES[dep]);
     const arrKnown=Boolean(AIRPORT_TIMEZONES[arr]);
     timezoneStatus.textContent=depKnown&&arrKnown
-      ? `${dep} ${airportTimezone(dep)} · ${arr} ${airportTimezone(arr)}`
+      ? `SLT ${rosterStationAirport()} ${rosterStationTimezone()} · LT ${dep} ${airportTimezone(dep)} · ${arr} ${airportTimezone(arr)}`
       : "Airport timezone not found for one station; device timezone fallback is being used.";
     timezoneStatus.classList.toggle("warning",!(depKnown&&arrKnown));
   }
 
-  applySmartDutyTimeDisplayMode(smartDutyTimeDisplayMode());
+  const panel=$("#pilotOpsPanel");
+  if(panel){ panel.dataset.timeMode="all"; panel.classList.remove("ops-mode-utc","ops-mode-lt","ops-mode-slt"); panel.classList.add("ops-mode-all"); }
 }
 
 let smartDutyRenderSignature="";
