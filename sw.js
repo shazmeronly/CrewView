@@ -1,4 +1,4 @@
-const CACHE = "crewview-v103-roster-offline-fix";
+const CACHE = "crewview-smart-duty-v97";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
@@ -43,9 +43,14 @@ self.addEventListener("fetch", event => {
   // launched in airplane mode or after iOS has killed the previous process.
   if(event.request.mode==="navigate"){
     event.respondWith((async()=>{
-      const cached=(await caches.match("./index.html")) || (await caches.match("./"));
-      if(cached) return cached;
-      try{ return await fetch(event.request); }catch(_error){ return Response.error(); }
+      try{
+        const fresh=await fetch(event.request);
+        const cache=await caches.open(CACHE);
+        cache.put("./index.html",fresh.clone()).catch(()=>{});
+        return fresh;
+      }catch(_error){
+        return (await caches.match("./index.html")) || (await caches.match("./"));
+      }
     })());
     return;
   }
