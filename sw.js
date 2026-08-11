@@ -1,4 +1,4 @@
-const CACHE = "crewview-v102-roster-offline-recovery";
+const CACHE = "crewview-v103-roster-offline-fix";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
@@ -44,27 +44,8 @@ self.addEventListener("fetch", event => {
   if(event.request.mode==="navigate"){
     event.respondWith((async()=>{
       const cached=(await caches.match("./index.html")) || (await caches.match("./"));
-      if(cached){
-        // Refresh the shell in the background when online, but never block launch.
-        event.waitUntil((async()=>{
-          try{
-            const fresh=await fetch(event.request);
-            if(fresh && fresh.ok){
-              const cache=await caches.open(CACHE);
-              await cache.put("./index.html",fresh.clone());
-            }
-          }catch(_error){}
-        })());
-        return cached;
-      }
-      try{
-        const fresh=await fetch(event.request);
-        const cache=await caches.open(CACHE);
-        cache.put("./index.html",fresh.clone()).catch(()=>{});
-        return fresh;
-      }catch(_error){
-        return new Response("CrewView is not cached yet. Open it once while online.",{status:503,headers:{"Content-Type":"text/plain"}});
-      }
+      if(cached) return cached;
+      try{ return await fetch(event.request); }catch(_error){ return Response.error(); }
     })());
     return;
   }
