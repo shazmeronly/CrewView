@@ -1347,8 +1347,7 @@ function removeSyntheticOffRowsOnOvernightDates(rows){
     if(row._overnightContinuation) return true;
 
     const item=String(row.item||"").trim().toUpperCase();
-    const looksLikeSyntheticOff=
-      item==="D" &&
+    const noRosterContent=
       !String(row.dutyStart||"").trim() &&
       !String(row.dep||"").trim() &&
       !String(row.arr||"").trim() &&
@@ -1358,7 +1357,18 @@ function removeSyntheticOffRowsOnOvernightDates(rows){
       !String(row.duty||"").trim() &&
       !String(row.ac||"").trim();
 
-    return !looksLikeSyntheticOff;
+    // When an overnight continuation already represents this date, remove the
+    // synthetic calendar placeholder for the same date. Layover placeholders
+    // have their temporary "D" cleared again before this function runs, so
+    // checking only item === "D" leaves a second empty row (a visible gap).
+    // A genuine full layover day is preserved because it has no continuation
+    // row on that date.
+    const redundantSyntheticPlaceholder=
+      row._syntheticCalendarRow===true &&
+      noRosterContent &&
+      (item==="" || item==="D");
+
+    return !redundantSyntheticPlaceholder;
   });
 }
 
