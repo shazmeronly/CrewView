@@ -4682,15 +4682,12 @@ tbody tr.row-overnight-continuation + tr td{
 }
 
 /*
- * Classic view only: keep synthetic layover/calendar placeholder rows in the
- * DOM so Calendar view still has a complete date grid, but do not show those
- * empty placeholders in the Classic roster table. Overnight continuation rows
- * remain visible because they contain the next-day arrival/duty-end values.
+ * v107: Keep inferred layover/calendar dates visible in Classic view too.
+ * These rows intentionally show the real calendar date with blank duty cells,
+ * so multi-day pairings never skip a date (for example 24 -> 26 Aug).
+ * Calendar view continues to use the same synthetic row, so both views stay
+ * driven by one date-complete roster model.
  */
-body:not(.calendar-mode) #rosterTable tbody tr[data-synthetic-calendar-row="1"][data-layover-day="1"]:not([data-overnight-continuation="1"]){
-  display:none !important;
-}
-
 
 /* =========================================================
    SMART DUTY CARD v91
