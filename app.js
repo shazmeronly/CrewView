@@ -4132,7 +4132,9 @@ function moneyRM(value){
 function productivityAllowanceForDuty(row){
   if(!row) return 0;
   const gradeEl=$("#payGrade");
-  const grade=(gradeEl?.value)||inferredPayGrade();
+  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
+    ? gradeEl.value
+    : inferredPayGrade();
   const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
 
   const item=String(row.item||"").trim().toUpperCase();
