@@ -5224,3 +5224,88 @@ html[data-theme="dark"] .pay-subtabs{background:#101923}
 /* v121: keep Calendar navigation buttons above compact header chrome on iPhone */
 body.calendar-mode .calendar-mode-tabs{position:relative;z-index:42;pointer-events:auto!important}
 body.calendar-mode .calendar-mode-tabs button{position:relative;z-index:43;pointer-events:auto!important;touch-action:manipulation}
+
+
+/* v122 — iPhone Calendar header fit: keep theme toggle fully on-screen */
+@media(max-width:540px){
+  body.calendar-mode .calendar-app-header{
+    grid-template-columns:auto minmax(0,1fr) 38px !important;
+    gap:6px !important;
+    padding:12px 9px !important;
+    width:100% !important;
+    box-sizing:border-box !important;
+    overflow:hidden !important;
+  }
+
+  body.calendar-mode .calendar-brand{
+    gap:6px !important;
+    min-width:0 !important;
+  }
+
+  body.calendar-mode .calendar-brand-plane{
+    font-size:24px !important;
+  }
+
+  body.calendar-mode .calendar-brand strong{
+    font-size:18px !important;
+    white-space:nowrap !important;
+  }
+
+  body.calendar-mode .calendar-brand small{
+    display:none !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs{
+    width:100% !important;
+    min-width:0 !important;
+    justify-self:stretch !important;
+    padding:3px !important;
+    box-sizing:border-box !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs button{
+    flex:1 1 0 !important;
+    min-width:0 !important;
+    padding:8px 4px !important;
+    font-size:11px !important;
+    line-height:1 !important;
+    white-space:nowrap !important;
+  }
+
+  body.calendar-mode .calendar-header-actions{
+    display:flex !important;
+    width:38px !important;
+    min-width:38px !important;
+    justify-self:end !important;
+  }
+
+  body.calendar-mode .calendar-theme-toggle{
+    width:38px !important;
+    min-width:38px !important;
+    height:38px !important;
+    padding:0 !important;
+    border-radius:12px !important;
+    flex:0 0 38px !important;
+  }
+
+  body.calendar-mode .calendar-theme-toggle span:first-child{
+    font-size:17px !important;
+  }
+}
+
+/* Extra safety for narrower iPhones */
+@media(max-width:390px){
+  body.calendar-mode .calendar-app-header{
+    grid-template-columns:auto minmax(0,1fr) 36px !important;
+    padding-inline:7px !important;
+    gap:5px !important;
+  }
+  body.calendar-mode .calendar-brand-plane{font-size:22px !important}
+  body.calendar-mode .calendar-brand strong{font-size:16px !important}
+  body.calendar-mode .calendar-mode-tabs button{font-size:10px !important;padding-inline:3px !important}
+  body.calendar-mode .calendar-header-actions,
+  body.calendar-mode .calendar-theme-toggle{
+    width:36px !important;
+    min-width:36px !important;
+  }
+}
