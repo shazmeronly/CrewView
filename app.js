@@ -4129,7 +4129,7 @@ function flightDutyGroupsForLayover(){
     seen.add(key);
 
     const members=row._dutyGroup
-      ? rows.filter(r=>r._dutyGroup===row._dutyGroup)
+      ? rows.filter(r=>r._dutyGroup===row._dutyGroup || r._sourceDutyGroup===row._dutyGroup)
       : [row];
     const flights=members.filter(r=>/^MH\d+/i.test(String(r?.item||"")) && !r?._overnightContinuation);
     if(!flights.length) return;
