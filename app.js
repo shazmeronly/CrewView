@@ -6584,7 +6584,7 @@ function cvPdfBuildDirectBlob(){
     x:32,y:321,widths:[120,120,105,186],
     headers:["Date","Duty","Duty Hours","Productivity Amount"],
     rows:prodRows,rowH:prodRowH,headH:17,fontSize:6.7,
-    aligns:["center","center","center","right"]
+    aligns:["center","center","center","center"]
   });
 
   // Layover section starts naturally after productivity and is allowed
@@ -6604,7 +6604,7 @@ function cvPdfBuildDirectBlob(){
     x:32,y:layStart,widths:[118,263,150],
     headers:["Station","Region","Allowance"],
     rows:layRows,rowH:layRowH,headH:17,fontSize:6.9,
-    aligns:["center","center","right"]
+    aligns:["center","center","center"]
   });
 
   // Stronger final total row.
@@ -6614,17 +6614,9 @@ function cvPdfBuildDirectBlob(){
   p2.text(222.5,totalY+16.5,"Total Layover Allowance",8.8,{
     bold:true,align:"center",maxWidth:365
   });
-  p2.text(557,totalY+16.5,moneyRM(d.layoverAmount),9.8,{
-    bold:true,align:"right",maxWidth:140
+  p2.text(488,totalY+16.5,moneyRM(d.layoverAmount),9.8,{
+    bold:true,align:"center",maxWidth:140
   });
-
-  // Keep the short estimate note, but give it proper breathing room.
-  const noteY=Math.min(777,totalY+42);
-  p2.text(
-    32,noteY,
-    "Allowance figures are CrewView estimates based on the loaded roster.",
-    6.6,{color:"#444444",maxWidth:500}
-  );
 
   cvPdfDrawFooter(p2,2);
 
