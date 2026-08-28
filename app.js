@@ -3885,9 +3885,7 @@ async function parsePDF(file){
   $("#classicView")?.classList.remove("view-entering","view-leaving");
   $("#calendarView")?.classList.remove("view-entering","view-leaving");
   crewViewMode="classic";
-  $("#classicView")?.classList.remove("hidden");
-  $("#calendarView")?.classList.add("hidden");
-  $("#payView")?.classList.add("hidden");
+  setPrimaryRosterViewVisibility("classic");
   document.body.classList.remove("calendar-mode","pay-mode");
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
     tab.classList.toggle("active",tab.dataset.view==="classic")
@@ -4711,6 +4709,22 @@ function showValidationToast(message){
   },3000);
 }
 
+function setPrimaryRosterViewVisibility(view){
+  const classic=$("#classicView");
+  const calendar=$("#calendarView");
+  const pay=$("#payView");
+
+  [[classic,"classic"],[calendar,"calendar"],[pay,"pay"]].forEach(([element,name])=>{
+    if(!element) return;
+    const active=name===view;
+    element.classList.toggle("hidden",!active);
+    // Safari/PWA can briefly keep stale view CSS after a service-worker update.
+    // An explicit display override guarantees only the selected primary view is shown.
+    element.style.setProperty("display",active ? "block" : "none","important");
+    element.setAttribute("aria-hidden",active ? "false" : "true");
+  });
+}
+
 function switchRosterView(view){
   if(view===crewViewMode || document.body.classList.contains("view-switching")){
     return;
@@ -4745,23 +4759,17 @@ function switchRosterView(view){
         calendarCursor=loadedRosterMonth();
       }
       selectedCalendarDuty=null;
-      $("#calendarView")?.classList.remove("hidden");
-      $("#payView")?.classList.add("hidden");
-      $("#classicView")?.classList.add("hidden");
+      setPrimaryRosterViewVisibility("calendar");
       document.body.classList.add("calendar-mode");
       document.body.classList.remove("pay-mode");
       renderCalendarView({suppressAutoSelect:false});
     }else if(goingToPay){
-      $("#payView")?.classList.remove("hidden");
-      $("#classicView")?.classList.add("hidden");
-      $("#calendarView")?.classList.add("hidden");
+      setPrimaryRosterViewVisibility("pay");
       document.body.classList.remove("calendar-mode");
       document.body.classList.add("pay-mode");
       renderPayView();
     }else{
-      $("#classicView")?.classList.remove("hidden");
-      $("#calendarView")?.classList.add("hidden");
-      $("#payView")?.classList.add("hidden");
+      setPrimaryRosterViewVisibility("classic");
       document.body.classList.remove("calendar-mode","pay-mode");
       applyOnePageFit();
     }
@@ -5089,9 +5097,7 @@ function restoreCachedRoster(){
   $("#uploadCard")?.setAttribute("aria-hidden","true");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
-  $("#classicView")?.classList.remove("hidden");
-  $("#calendarView")?.classList.add("hidden");
-  $("#payView")?.classList.add("hidden");
+  setPrimaryRosterViewVisibility("classic");
   document.body.classList.remove("calendar-mode","pay-mode");
   crewViewMode="classic";
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.classList.toggle("active",tab.dataset.view==="classic"));
