@@ -4546,14 +4546,34 @@ function timelineDateInRosterPeriod(dateText){
 }
 
 function timelineFlightRoute(group){
+  const flights=group?.flights||[];
   const route=[];
-  (group?.flights||[]).forEach((row,index)=>{
-    const dep=(parseStationClock(row?.dep)||{}).station;
-    const arr=(parseStationClock(row?.arr)||{}).station;
+
+  flights.forEach((row,index)=>{
+    const depInfo=timelineClockLabel(row?.dep||row?._departure||"");
+    const arrInfo=timelineClockLabel(row?.arr||row?._arrival||"");
+    const dep=depInfo.station||String(row?._depStation||"").trim();
+    const arr=arrInfo.station||String(row?._arrStation||"").trim();
+
     if(index===0 && dep) route.push(dep);
     if(arr && route[route.length-1]!==arr) route.push(arr);
   });
-  return route.join(" → ") || `${group?.departure||"—"} → ${group?.destination||"—"}`;
+
+  if(route.length<2){
+    const first=flights[0]||{};
+    const last=flights[flights.length-1]||first;
+    const fallbackDep=
+      timelineClockLabel(first?.dep||first?._departure||"").station ||
+      String(group?.departure||first?._depStation||"").trim();
+    const fallbackArr=
+      timelineClockLabel(last?.arr||last?._arrival||"").station ||
+      String(group?.destination||last?._arrStation||"").trim();
+
+    if(fallbackDep && !route.includes(fallbackDep)) route.unshift(fallbackDep);
+    if(fallbackArr && route[route.length-1]!==fallbackArr) route.push(fallbackArr);
+  }
+
+  return route.length>=2 ? route.join(" → ") : (route[0]||"—");
 }
 
 function timelineDutyEnd(group){
@@ -4717,7 +4737,6 @@ function renderTimelineView(){
     const layover=event.layover;
     const hotel=layover ? (layover.hotel||"Hotel not listed") : "";
     const nextReport=layover ? formatLayoverLocal(layover.end,layover.airport) : "";
-    const totalAllowance=Number(event.productivity||0)+Number(layover?.amount||0);
 
     return `
       <div class="timeline-entry ${isNext?"is-next":""}" data-timeline-date="${esc(event.date)}">
@@ -4750,7 +4769,6 @@ function renderTimelineView(){
           <div class="timeline-money">
             <span>Productivity <strong>${moneyRM(event.productivity)}</strong></span>
             ${layover?`<span>Layover <strong>${moneyRM(layover.amount)}</strong></span>`:""}
-            <b>${moneyRM(totalAllowance)}</b>
           </div>` : ""}
 
           ${layover ? `
