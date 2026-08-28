@@ -5561,3 +5561,60 @@ body .calendar-selected.v125-duty-sheet.open{
   .smart-duty-allowance-row strong{font-size:16px}
   #nextDutyCard.state-active .pilot-ops-grid{grid-template-columns:1fr 1fr!important}
 }
+
+
+/* v130 — Smart Duty allowances: visible but operationally secondary */
+.smart-duty-allowance-compact{
+  margin:7px 20px 0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:0!important;
+  border:0!important;
+  border-top:1px solid rgba(255,255,255,.09)!important;
+  background:transparent!important;
+  border-radius:0!important;
+}
+.smart-duty-allowance-compact>div{
+  flex:0 1 auto!important;
+  display:flex!important;
+  align-items:baseline!important;
+  justify-content:center!important;
+  gap:7px!important;
+  padding:8px 15px 5px!important;
+  background:transparent!important;
+  border:0!important;
+}
+.smart-duty-allowance-compact>div+div{
+  border-left:1px solid rgba(255,255,255,.10)!important;
+}
+.smart-duty-allowance-compact small{
+  font-size:9px!important;
+  font-weight:600!important;
+  letter-spacing:.02em!important;
+  text-transform:none!important;
+  color:rgba(230,240,255,.64)!important;
+}
+.smart-duty-allowance-compact strong{
+  font-size:13px!important;
+  font-weight:800!important;
+  color:#6ee7b7!important;
+  white-space:nowrap!important;
+}
+#nextDutyCard.state-layover .smart-duty-allowance-compact{
+  border-top-color:rgba(192,132,252,.18)!important;
+}
+#nextDutyCard.state-layover .smart-duty-allowance-compact strong{
+  font-size:15px!important;
+  color:#34d399!important;
+}
+.smart-duty-state-overview .smart-duty-allowance-row{
+  display:none!important;
+}
+
+@media(max-width:480px){
+  .smart-duty-allowance-compact{margin-inline:14px!important}
+  .smart-duty-allowance-compact>div{padding-inline:10px!important;gap:5px!important}
+  .smart-duty-allowance-compact small{font-size:8px!important}
+  .smart-duty-allowance-compact strong{font-size:12px!important}
+}

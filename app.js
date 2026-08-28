@@ -4140,7 +4140,26 @@ function productivityAllowanceForDuty(row){
   if(!/^MH\d+/.test(item) || !["OP","PS","SFP"].includes(work)) return 0;
   if(isPayStandby(row) || isPayObservation(row)) return 0;
 
-  const minutes=toMinutes(row._totalDuty||row.duty);
+  // Match the exact duty grouping used by the Allowances-page breakdown.
+  // This avoids Smart Duty grouping metadata borrowing another duty's hours.
+  const dutyItems=new Set(
+    (row._sectors?.length ? row._sectors.map(s=>s.item) : [row.item])
+      .map(v=>String(v||"").trim().toUpperCase())
+      .filter(Boolean)
+  );
+
+  const grouped=payDutyGroups().find(group=>{
+    if(String(group.date||"")!==String(row.date||"")) return false;
+    return String(group.items||"")
+      .split(/\s*\/\s*/)
+      .map(v=>v.trim().toUpperCase())
+      .some(v=>dutyItems.has(v));
+  });
+
+  let minutes=grouped?.minutes||0;
+  if(!(minutes>0)) minutes=toMinutes(row.duty);
+  if(!(minutes>0)) minutes=toMinutes(row._totalDuty);
+
   return minutes>0 ? minutes/60*rule.pa : 0;
 }
 
@@ -4149,8 +4168,12 @@ function smartDutyClockParts(text){
   return m ? `${String(m[1]).padStart(2,"0")}:${m[2]}` : "—";
 }
 function smartDutyShortDate(dateText){
-  const d=parseRosterDate(dateText);
-  if(!d) return "—";
+  let d=parseRosterDate(dateText);
+  if(!d){
+    const m=String(dateText||"").match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(m) d=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
+  }
+  if(!d || Number.isNaN(d.getTime())) return "—";
   return `${String(d.getDate()).padStart(2,"0")} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]}`;
 }
 function smartDutyDateForNextDay(dateText,value){
