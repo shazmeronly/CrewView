@@ -5197,3 +5197,16 @@ body.pay-mode #printBtn{display:none!important}
 /* Keep Smart Duty + compact crew identity visible while reviewing Pay. */
 body.pay-mode #nextDutyCard,
 body.pay-mode #compactProfile{display:block}
+
+/* CrewView v112 — separate Productivity and Layover Allowance */
+.pay-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px;padding:5px;border:1px solid var(--line);border-radius:14px;background:var(--panel,#fff)}
+.pay-subtab{border:0;border-radius:10px;padding:10px 8px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:850;cursor:pointer}
+.pay-subtab.active{background:#2f80ed;color:#fff;box-shadow:0 4px 12px #2f80ed33}
+.pay-section-panel.hidden{display:none!important}
+.pay-layover-hero{border-radius:20px;padding:22px;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;display:grid;gap:6px;box-shadow:0 10px 28px #0f766e2b}
+.pay-layover-hero small{font-size:10px;font-weight:900;letter-spacing:.12em;opacity:.8}
+.pay-layover-hero strong{font-size:25px;line-height:1.15}
+.pay-layover-hero span{font-size:12px;opacity:.9}
+.pay-layover-card{margin-top:12px}
+body.pay-mode footer{display:none!important}
+html[data-theme="dark"] .pay-subtabs{background:#101923}

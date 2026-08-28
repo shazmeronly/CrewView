@@ -284,43 +284,59 @@
       </label>
     </header>
 
-    <section class="pay-total-card">
-      <small>ESTIMATED PRODUCTIVITY</small>
-      <strong id="payEstimatedTotal">RM0.00</strong>
-      <span>Productivity Allowance + applicable 80+ block-hour payment</span>
-    </section>
+    <nav class="pay-subtabs" aria-label="Pay categories">
+      <button type="button" class="pay-subtab active" data-pay-section="productivity">Productivity</button>
+      <button type="button" class="pay-subtab" data-pay-section="layover">Layover Allowance</button>
+    </nav>
 
-    <div class="pay-grid">
-      <article class="pay-card">
-        <div class="pay-card-title"><span>Productivity Allowance</span><b id="payPaAmount">RM0.00</b></div>
-        <div class="pay-metric"><strong id="payEligibleDuty">00:00</strong><small>eligible duty hours</small></div>
-        <p id="payPaFormula">—</p>
-        <small class="pay-rule">Operating and positioning flight duty only. Standby and observation duties are excluded.</small>
-      </article>
+    <div class="pay-section-panel" id="payProductivitySection" data-pay-panel="productivity">
+      <section class="pay-total-card">
+        <small>ESTIMATED PRODUCTIVITY</small>
+        <strong id="payEstimatedTotal">RM0.00</strong>
+        <span>Productivity Allowance + applicable 80+ block-hour payment</span>
+      </section>
 
-      <article class="pay-card">
-        <div class="pay-card-title"><span>80+ Block Hours</span><b id="pay80Amount">RM0.00</b></div>
-        <div class="pay-metric"><strong id="payBlockHours">00:00</strong><small>monthly flying block</small></div>
-        <p id="pay80Formula">No excess above 80:00</p>
-        <small class="pay-rule">Additional payment applies only to actual flying block time above 80:00 for the month.</small>
-      </article>
+      <div class="pay-grid">
+        <article class="pay-card">
+          <div class="pay-card-title"><span>Productivity Allowance</span><b id="payPaAmount">RM0.00</b></div>
+          <div class="pay-metric"><strong id="payEligibleDuty">00:00</strong><small>eligible duty hours</small></div>
+          <p id="payPaFormula">—</p>
+          <small class="pay-rule">Operating and positioning flight duty only. Standby and observation duties are excluded.</small>
+        </article>
 
-      <article class="pay-card pay-reference-card">
-        <div class="pay-card-title"><span>Daily / Meal Allowance</span><b>REFERENCE</b></div>
-        <p>CrewView can identify layover destinations, but automatic entitlement is kept separate until the complete duration/meal entitlement rule is encoded.</p>
-        <div class="pay-rate-chips"><span>ANZ RM600/day</span><span>Middle East RM550/day</span><span>SE Asia RM420/day</span><span>Malaysia RM130/day</span></div>
-      </article>
+        <article class="pay-card">
+          <div class="pay-card-title"><span>80+ Block Hours</span><b id="pay80Amount">RM0.00</b></div>
+          <div class="pay-metric"><strong id="payBlockHours">00:00</strong><small>monthly flying block</small></div>
+          <p id="pay80Formula">No excess above 80:00</p>
+          <small class="pay-rule">Additional payment applies only to actual flying block time above 80:00 for the month.</small>
+        </article>
 
-      <article class="pay-card pay-reference-card">
-        <div class="pay-card-title"><span>FDP Extension</span><b>READY NEXT</b></div>
-        <p>Kept out of the automatic total until CrewView can establish the applicable maximum scheduled FDP and crew complement for each flight.</p>
-      </article>
+        <article class="pay-card pay-reference-card">
+          <div class="pay-card-title"><span>FDP Extension</span><b>SEPARATE RULE</b></div>
+          <p>Kept out of the Productivity Allowance total until CrewView can establish the applicable maximum scheduled FDP and crew complement for each flight.</p>
+        </article>
+      </div>
+
+      <section class="pay-breakdown">
+        <div class="pay-breakdown-heading"><h3>Productivity breakdown</h3><span id="payDutyCount">0 duties</span></div>
+        <div id="payBreakdownList" class="pay-breakdown-list"></div>
+      </section>
     </div>
 
-    <section class="pay-breakdown">
-      <div class="pay-breakdown-heading"><h3>Productivity breakdown</h3><span id="payDutyCount">0 duties</span></div>
-      <div id="payBreakdownList" class="pay-breakdown-list"></div>
-    </section>
+    <div class="pay-section-panel hidden" id="payLayoverSection" data-pay-panel="layover">
+      <section class="pay-layover-hero">
+        <small>LAYOVER ALLOWANCE</small>
+        <strong>Separate from Productivity</strong>
+        <span>Calculated from layover destination, duration and applicable meal/daily entitlement rules.</span>
+      </section>
+
+      <article class="pay-card pay-reference-card pay-layover-card">
+        <div class="pay-card-title"><span>Daily / Meal Allowance</span><b>REFERENCE</b></div>
+        <p>CrewView will calculate layover allowance independently from Productivity Allowance. It will not be added to the Productivity total.</p>
+        <div class="pay-rate-chips"><span>ANZ RM600/day</span><span>Middle East RM550/day</span><span>SE Asia RM420/day</span><span>Malaysia RM130/day</span></div>
+        <small class="pay-rule">Automatic layover amount remains disabled until the complete duration and meal entitlement rules are encoded.</small>
+      </article>
+    </div>
 
     <p class="pay-disclaimer">Estimate only. CrewView is not an official payroll statement. Actual company payroll and eligibility rules prevail.</p>
   </div>

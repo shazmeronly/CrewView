@@ -4011,12 +4011,32 @@ function moneyRM(value){
   return `RM${Number(value||0).toLocaleString("en-MY",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 }
 
+let paySubview="productivity";
+
+function switchPaySubview(section){
+  const next=section==="layover" ? "layover" : "productivity";
+  paySubview=next;
+  document.querySelectorAll(".pay-subtab[data-pay-section]").forEach(button=>{
+    const active=button.dataset.paySection===next;
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-selected",active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-pay-panel]").forEach(panel=>{
+    const active=panel.dataset.payPanel===next;
+    panel.classList.toggle("hidden",!active);
+    panel.setAttribute("aria-hidden",active ? "false" : "true");
+  });
+  try{localStorage.setItem("crewview-pay-section",next);}catch(_error){}
+}
+
 function renderPayView(){
   const gradeEl=$("#payGrade");
   if(!gradeEl) return;
   if(!gradeEl.dataset.userSelected){
     gradeEl.value=inferredPayGrade();
   }
+  const savedPaySection=(()=>{try{return localStorage.getItem("crewview-pay-section");}catch(_error){return null;}})();
+  switchPaySubview(savedPaySection||paySubview);
   const grade=gradeEl.value;
   const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
   const duties=payDutyGroups();
@@ -5135,6 +5155,10 @@ window.addEventListener("load",()=>{document.body.classList.add("fit-mode");appl
 
 requestAnimationFrame(syncCalendarThemeButton);
 
+
+document.querySelectorAll(".pay-subtab[data-pay-section]").forEach(button=>
+  button.addEventListener("click",()=>switchPaySubview(button.dataset.paySection))
+);
 
 $("#payGrade")?.addEventListener("change",event=>{
   event.currentTarget.dataset.userSelected="1";
