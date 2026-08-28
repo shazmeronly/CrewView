@@ -2962,7 +2962,7 @@ function getSmartDutySelection(rows){
   const layoverDuty=[...candidates].reverse().find(duty=>{
     if(reportMs(duty)>nowMs) return false;
     const l=layoverForDuty(duty);
-    return l && l.start.getTime()<=nowMs && nowMs<l.end.getTime();
+    return l && Number.isFinite(l.start) && Number.isFinite(l.end) && l.start<=nowMs && nowMs<l.end;
   });
   if(layoverDuty) return {row:layoverDuty,state:"layover",layover:layoverForDuty(layoverDuty)};
 
@@ -3189,7 +3189,7 @@ function refreshSmartDutyCard(force=false){
     if(dutyLayover){
       $("#smartDutyLayoverStation").textContent=`Layover in ${dutyLayover.airport}`;
       $("#smartDutyHotel").textContent=dutyLayover.hotel||"Hotel not listed";
-      const remain=Math.max(0,Math.round((dutyLayover.end.getTime()-Date.now())/60000));
+      const remain=Math.max(0,Math.round((Number(dutyLayover.end)-Date.now())/60000));
       $("#smartDutyLayoverDuration").textContent=state==="layover"?`${hhmm(remain)} remaining`:hhmm(dutyLayover.durationMinutes);
     }
     if(state==="layover" && dutyLayover){
