@@ -8228,3 +8228,86 @@ body.pdf-export #payView{
     -webkit-text-fill-color:#159cff!important;
   }
 }
+
+
+/* =========================================================
+   CrewView v163 — remove blank PDF pages
+   Natural content height + one explicit break after Page 1.
+   ========================================================= */
+@media print{
+
+  /* Undo all fixed-height page sizing from earlier PDF builds. */
+  #cvPdfDocument .cv-pdf-page{
+    display:block!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    margin:0!important;
+    padding:0!important;
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+    break-before:auto!important;
+    page-break-before:auto!important;
+    break-after:auto!important;
+    page-break-after:auto!important;
+  }
+
+  /* Roster = PDF page 1. Exactly one forced break after it. */
+  #cvPdfDocument .cv-pdf-roster-page{
+    break-after:page!important;
+    page-break-after:always!important;
+  }
+
+  /* Allowance report begins immediately on PDF page 2.
+     Do not add another before/after page that could create blanks. */
+  #cvPdfDocument .cv-pdf-allowance-page{
+    break-before:auto!important;
+    page-break-before:auto!important;
+    break-after:auto!important;
+    page-break-after:auto!important;
+  }
+
+  /* Override the old generic adjacent-page rule. */
+  #cvPdfDocument .cv-pdf-page + .cv-pdf-page{
+    break-before:auto!important;
+    page-break-before:auto!important;
+  }
+
+  /* Static footers: they end each report rather than stretching
+     the report to a synthetic page height. */
+  #cvPdfDocument .cv-pdf-page-footer{
+    position:static!important;
+    display:flex!important;
+    justify-content:space-between!important;
+    align-items:center!important;
+    margin-top:5mm!important;
+    padding-top:2mm!important;
+    border-top:.3mm solid #111!important;
+  }
+
+  /* Keep logical sections together where possible, without protecting
+     the entire page and triggering Safari overflow pagination. */
+  #cvPdfDocument .cv-pdf-page-head,
+  #cvPdfDocument .cv-pdf-crew,
+  #cvPdfDocument .cv-pdf-roster-summary,
+  #cvPdfDocument .cv-pdf-allowance-cards,
+  #cvPdfDocument .cv-pdf-summary-table,
+  #cvPdfDocument .cv-pdf-section-title{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  #cvPdfDocument .cv-pdf-roster-table,
+  #cvPdfDocument .cv-pdf-productivity-table,
+  #cvPdfDocument .cv-pdf-layover-table{
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+
+  #cvPdfDocument table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+}
