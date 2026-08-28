@@ -5073,6 +5073,10 @@ document.querySelectorAll("[data-calendar-mode='classic']").forEach(button=>
   button.addEventListener("click",()=>switchRosterView("classic"))
 );
 
+document.querySelectorAll("[data-calendar-mode='pay']").forEach(button=>
+  button.addEventListener("click",()=>switchRosterView("pay"))
+);
+
 $("#calendarPrev")?.addEventListener("click",()=>{
   if(!calendarCursor) return;
   calendarCursor=new Date(
