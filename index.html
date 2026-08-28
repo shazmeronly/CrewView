@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=163">
+<link rel="stylesheet" href="style.css?v=164">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -653,10 +653,10 @@
       <tbody id="cvPdfRosterRows"></tbody>
     </table>
 
-    <footer class="cv-pdf-page-footer">
+    <div class="cv-pdf-page-footer">
       <span>CrewView · Your roster. Your time. Your view.</span>
       <span>Page 1 of 2</span>
-    </footer>
+    </div>
   </section>
 
   <section class="cv-pdf-page cv-pdf-allowance-page">
@@ -710,7 +710,7 @@
       </thead>
       <tbody id="cvPdfLayoverRows"></tbody>
       <tfoot>
-        <tr><th colspan="2">Total Layover Allowance</th><th id="cvPdfLayoverFooterTotal">RM0.00</th></tr>
+        <tr class="cv-pdf-layover-total"><th colspan="2">Total Layover Allowance</th><th id="cvPdfLayoverFooterTotal">RM0.00</th></tr>
       </tfoot>
     </table>
 
@@ -718,10 +718,10 @@
       Allowance figures are CrewView estimates based on the loaded roster.
     </p>
 
-    <footer class="cv-pdf-page-footer">
+    <div class="cv-pdf-page-footer">
       <span>CrewView · Your roster. Your time. Your view.</span>
       <span>Page 2 of 2</span>
-    </footer>
+    </div>
   </section>
 </section>
 
@@ -758,7 +758,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=163"></script>
+<script type="module" src="app.js?v=164"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>

@@ -8311,3 +8311,62 @@ body.pdf-export #payView{
     page-break-inside:avoid!important;
   }
 }
+
+
+/* =========================================================
+   CrewView v164 — PDF footer + layover total polish
+   ========================================================= */
+@media print{
+
+  /* PDF report footer must never inherit the app's dark sticky footer. */
+  #cvPdfDocument .cv-pdf-page-footer{
+    position:static!important;
+    display:flex!important;
+    justify-content:space-between!important;
+    align-items:center!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+    margin:5mm 0 0!important;
+    padding:2mm 0 0!important;
+    border-top:.3mm solid #111!important;
+    background:#fff!important;
+    background-color:#fff!important;
+    color:#222!important;
+    -webkit-text-fill-color:#222!important;
+    font-size:1.95mm!important;
+    font-weight:500!important;
+    line-height:1!important;
+    box-shadow:none!important;
+    z-index:auto!important;
+  }
+
+  #cvPdfDocument .cv-pdf-page-footer span{
+    display:inline!important;
+    background:transparent!important;
+    color:#222!important;
+    -webkit-text-fill-color:#222!important;
+    font-size:1.95mm!important;
+    font-weight:500!important;
+  }
+
+  /* Make Total Layover Allowance clearly read as a total, not tiny footer text. */
+  #cvPdfDocument .cv-pdf-layover-table tfoot .cv-pdf-layover-total th{
+    height:7.2mm!important;
+    padding:1.1mm 1.5mm!important;
+    background:#f3f3f3!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    font-size:2.55mm!important;
+    line-height:1.1!important;
+    font-weight:900!important;
+    border:.25mm solid #888!important;
+    text-align:center!important;
+  }
+
+  #cvPdfDocument #cvPdfLayoverFooterTotal{
+    font-size:2.8mm!important;
+    font-weight:900!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+  }
+}
