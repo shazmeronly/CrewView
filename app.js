@@ -497,10 +497,23 @@ function validateKnownRoster(rows){
   const issues=[];
   const fingerprints=rosterFingerprint(rows);
 
-  // Generic integrity check for every roster revision: the parsed row totals
-  // should reconcile with the official FH / DH values printed in the PDF.
-  const parsedFH=hhmm(rows.reduce((sum,row)=>sum+toMinutes(row.block),0));
-  const parsedDH=hhmm(rows.reduce((sum,row)=>sum+toMinutes(row.duty),0));
+  // Generic integrity check for every roster revision: only rows inside the
+  // official roster period belong to the printed monthly FH / DH totals.
+  // Carry-over return sectors from the next month remain visible in CrewView
+  // but must not contaminate this month's validation.
+  const validationRows=rows.filter(row=>{
+    if(!officialRosterPeriod) return true;
+    const date=parseRosterDate(row.date);
+    if(!date) return false;
+    return date>=officialRosterPeriod.start && date<=officialRosterPeriod.end;
+  });
+
+  const parsedFH=hhmm(
+    validationRows.reduce((sum,row)=>sum+toMinutes(row.block),0)
+  );
+  const parsedDH=hhmm(
+    validationRows.reduce((sum,row)=>sum+toMinutes(row.duty),0)
+  );
 
   if(officialFH && parsedFH!==officialFH){
     issues.push(`Parsed flying hours ${parsedFH} do not match roster total ${officialFH}`);
@@ -659,6 +672,62 @@ function closest(items, xMin,xMax, y, tol=9){
               .sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").trim();
 }
 function cleanTime(v){return v.replace(/\s+/g,"").replace("(+ 1)","(+1)")}
+
+/*
+ * Some iFlight multi-sector rows omit Duty Report / Duty Hrs on the second
+ * sector. On those continuation rows the PDF columns can shift one cell left:
+ *   Duty End -> block, Flying Hrs -> duty.
+ * Detect that layout by checking whether the parsed "block" is actually a
+ * clock time shortly after arrival, then restore the values to their correct
+ * columns. This keeps normal single-sector and already-correct rows untouched.
+ */
+function normalizePilotContinuationColumns(rows){
+  const clockMinutes=value=>{
+    const matches=[...String(value||"").matchAll(/(\d{1,2}):(\d{2})/g)];
+    if(!matches.length) return null;
+    const match=matches[matches.length-1];
+    const hours=Number(match[1]);
+    const minutes=Number(match[2]);
+    if(hours>23 || minutes>59) return null;
+    return hours*60+minutes;
+  };
+
+  return rows.map(sourceRow=>{
+    const row={...sourceRow};
+    const isFlight=/^MH\d{2,4}$/i.test(String(row.item||"").trim());
+    const isContinuation=Boolean(
+      row._pilotContinuation ||
+      Number(row._sectorIndex||0)>0 ||
+      (row._dutyGroup && !String(row.dutyStart||"").trim())
+    );
+
+    if(
+      !isFlight ||
+      !isContinuation ||
+      row._overnightContinuation ||
+      String(row.dutyEnd||"").trim() ||
+      !String(row.block||"").trim() ||
+      !String(row.duty||"").trim()
+    ) return row;
+
+    const arrival=clockMinutes(row.arr);
+    const candidateDutyEnd=clockMinutes(row.block);
+    if(arrival===null || candidateDutyEnd===null) return row;
+
+    const minutesAfterArrival=(candidateDutyEnd-arrival+1440)%1440;
+
+    // A normal post-flight duty end is expected shortly after arrival. The
+    // wide 3-hour ceiling also covers unusual delays without confusing a real
+    // flight-duration value for a clock time.
+    if(minutesAfterArrival<=180){
+      row.dutyEnd=row.block;
+      row.block=row.duty;
+      row.duty="";
+    }
+
+    return row;
+  });
+}
 function buildRows(items,w,h,pageNumber=1){
   const X={
     date:[0.02,0.09],
@@ -3721,6 +3790,10 @@ async function parsePDF(file){
       }
     });
   }
+
+  // Repair iFlight multi-sector continuation rows whose Duty End / Flying Hrs
+  // columns were shifted by the PDF text geometry.
+  allRows=normalizePilotContinuationColumns(allRows);
 
   allRows=markRemainingBlankDaysAsOff(allRows);
 
