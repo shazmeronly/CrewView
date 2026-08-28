@@ -6154,172 +6154,133 @@ function cvPdfText(value,fallback="—"){
 
 function cvPdfMonthLabel(){
   const month=loadedRosterMonth();
-  if(month){
-    return month.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
-  }
+  if(month) return month.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
   const first=getRows().map(r=>parseRosterDate(r.date)).find(Boolean);
   return first ? first.toLocaleDateString("en-GB",{month:"long",year:"numeric"}) : "Roster";
 }
 
 function cvPdfGeneratedLabel(){
   const now=new Date();
-  return `Generated ${now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} ${now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false})}`;
+  return `Generated: ${now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} ${now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false})}`;
 }
 
-function cvPdfAllowanceForRow(row,seenProductivity,seenLayover){
-  const parts=[];
-  const item=String(row?.item||"").trim().toUpperCase();
-
-  if(/^MH\d+/.test(item) && !row?._overnightContinuation){
-    const dutyKey=row._dutyGroup || [
-      row.date||"",
-      row.dutyStart||"",
-      item
-    ].join("|");
-
-    if(!seenProductivity.has(dutyKey)){
-      const prod=Number(productivityAllowanceForDuty(row)||0);
-      if(prod>0){
-        parts.push(`Prod ${moneyRM(prod)}`);
-        seenProductivity.add(dutyKey);
-      }
-    }
-
-    const layover=layoverForDuty(row);
-    if(layover){
-      const layKey=[
-        layover.airport||"",
-        layover.fromDate||"",
-        layover.start||""
-      ].join("|");
-      if(!seenLayover.has(layKey) && Number(layover.amount||0)>0){
-        parts.push(`Layover ${moneyRM(layover.amount)}`);
-        seenLayover.add(layKey);
-      }
-    }
-  }
-
-  return parts.join(" + ") || "—";
+function cvPdfOfficialRows(){
+  const rows=getRows();
+  if(!officialRosterPeriod) return rows;
+  return rows.filter(row=>{
+    const d=parseRosterDate(row.date);
+    return d && d>=officialRosterPeriod.start && d<=officialRosterPeriod.end;
+  });
 }
 
-function cvPdfRowClass(row){
-  const item=String(row?.item||"").trim().toUpperCase();
-  const work=String(row?.work||"").trim().toUpperCase();
-
-  if(item==="D" || item==="OFF" || item.startsWith("DO")) return "is-off";
-  if(
-    item==="DSA" ||
-    item.includes("TRAIN") ||
-    item.includes("SIM") ||
-    item.includes("LPC") ||
-    item.includes("OPC") ||
-    item.includes("ETOPS") ||
-    item.includes("LVO") ||
-    item.includes("GROUND") ||
-    item.includes("COURSE")
-  ) return "is-training";
-  if(work==="PS" || work==="SFP") return "is-positioning";
-  if(/^MH\d+/.test(item)) return "is-flight";
-  return "is-neutral";
+function cvPdfOffDayCount(rows){
+  const dates=new Set();
+  rows.forEach(row=>{
+    const item=String(row?.item||"").trim().toUpperCase();
+    if((item==="D" || item==="OFF") && row.date) dates.add(row.date);
+  });
+  return dates.size;
 }
 
 function buildCrewViewPdfDocument(){
   const doc=$("#cvPdfDocument");
-  const body=$("#cvPdfRows");
-  if(!doc||!body) return;
+  const rosterBody=$("#cvPdfRosterRows");
+  const productivityBody=$("#cvPdfProductivityRows");
+  const layoverBody=$("#cvPdfLayoverRows");
+  if(!doc||!rosterBody||!productivityBody||!layoverBody) return;
 
-  const rows=getRows();
-  const seenProductivity=new Set();
-  const seenLayover=new Set();
+  const rows=cvPdfOfficialRows();
 
   const name=($("#name")?.value||"").trim()||"Crew Member";
   const staff=($("#staff")?.value||"").trim();
   const rank=($("#rank")?.value||"").trim();
   const fleet=($("#fleet")?.value||"").trim();
   const base=($("#base")?.value||"").trim();
+  const meta=[staff,rank,fleet,base].filter(Boolean).join(" · ")||"—";
 
-  $("#cvPdfName").textContent=name.toUpperCase();
-  $("#cvPdfMeta").textContent=[staff,rank,fleet,base].filter(Boolean).join(" · ")||"—";
+  const month=cvPdfMonthLabel();
+  const generated=cvPdfGeneratedLabel();
 
-  const period=cvPdfMonthLabel();
-  $("#cvPdfMonth").textContent=period;
-  $("#cvPdfGenerated").textContent=cvPdfGeneratedLabel();
-  $("#cvPdfFooterPeriod").textContent=period;
+  $("#cvPdfRosterMonth").textContent=month;
+  $("#cvPdfAllowanceMonth").textContent=month;
+  $("#cvPdfRosterGenerated").textContent=generated;
+  $("#cvPdfAllowanceGenerated").textContent=generated;
+  $("#cvPdfRosterName").textContent=name.toUpperCase();
+  $("#cvPdfAllowanceName").textContent=name.toUpperCase();
+  $("#cvPdfRosterMeta").textContent=meta;
+  $("#cvPdfAllowanceMeta").textContent=meta;
 
-  const flightMinutes=rows.reduce((sum,row)=>{
-    if(officialRosterPeriod){
-      const d=parseRosterDate(row.date);
-      if(!d || d<officialRosterPeriod.start || d>officialRosterPeriod.end) return sum;
-    }
-    return sum+toMinutes(row.block);
-  },0);
-
-  const dutyMinutes=rows.reduce((sum,row)=>{
-    if(officialRosterPeriod){
-      const d=parseRosterDate(row.date);
-      if(!d || d<officialRosterPeriod.start || d>officialRosterPeriod.end) return sum;
-    }
-    return sum+toMinutes(row.duty);
-  },0);
-
-  const offDates=new Set(
-    rows
-      .filter(row=>{
-        const item=String(row.item||"").trim().toUpperCase();
-        return item==="D" || item==="OFF" || item.startsWith("DO");
-      })
-      .map(row=>row.date)
-      .filter(Boolean)
-  );
-
-  const gradeEl=$("#payGrade");
-  if(gradeEl && !gradeEl.dataset.userSelected){
-    gradeEl.value=inferredPayGrade();
-  }
-  const grade=gradeEl?.value || inferredPayGrade();
-  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
-  const payDuties=payDutyGroups();
-  const eligibleMinutes=payDuties.reduce((sum,d)=>sum+d.minutes,0);
-  const blockMinutes=payMonthlyBlockMinutes();
-  const excessMinutes=Math.max(0,blockMinutes-80*60);
-  const productivityTotal=(eligibleMinutes/60*rule.pa)+(excessMinutes/60*rule.over80);
-  const layoverTotal=calculateLayoverAllowances().reduce((sum,l)=>sum+Number(l.amount||0),0);
+  const flightMinutes=rows.reduce((sum,row)=>sum+toMinutes(row.block),0);
+  const dutyMinutes=rows.reduce((sum,row)=>sum+toMinutes(row.duty),0);
 
   $("#cvPdfFlightTotal").textContent=hhmm(flightMinutes);
   $("#cvPdfDutyTotal").textContent=hhmm(dutyMinutes);
-  $("#cvPdfOffDays").textContent=String(offDates.size);
-  $("#cvPdfAllowanceTotal").textContent=moneyRM(productivityTotal+layoverTotal);
+  $("#cvPdfOffDays").textContent=String(cvPdfOffDayCount(rows));
 
-  body.innerHTML=rows.map(row=>{
-    const date=cvPdfText(row.date);
-    const day=cvPdfText(row.day,"");
-    const report=cvPdfText(row.dutyStart);
-
-    const item=cvPdfText(row.item);
-    const work=String(row.work||"").trim();
-    const dutyHtml=work && work!=="—"
-      ? `<strong>${esc(item)}</strong><small>${esc(work)}</small>`
-      : `<strong>${esc(item)}</strong>`;
-
-    const dep=cvPdfText(row.dep,"");
-    const arr=cvPdfText(row.arr,"");
-    const route=[dep,arr].filter(Boolean).join(" → ") || "—";
-
-    const allowance=cvPdfAllowanceForRow(row,seenProductivity,seenLayover);
-
-    return `<tr class="${cvPdfRowClass(row)}">
-      <td><strong>${esc(date)}</strong>${day?`<small>${esc(day)}</small>`:""}</td>
-      <td>${esc(report)}</td>
-      <td>${dutyHtml}</td>
-      <td class="cv-pdf-route">${esc(route)}</td>
+  // PAGE 1: exact Classic View roster fields. No allowance data.
+  rosterBody.innerHTML=rows.map(row=>`
+    <tr>
+      <td>${esc(cvPdfText(row.date))}</td>
+      <td>${esc(cvPdfText(row.day))}</td>
+      <td>${esc(cvPdfText(row.dutyStart))}</td>
+      <td>${esc(cvPdfText(row.item))}</td>
+      <td>${esc(cvPdfText(row.dep))}</td>
+      <td>${esc(cvPdfText(row.arr))}</td>
       <td>${esc(cvPdfText(row.dutyEnd))}</td>
+      <td>${esc(cvPdfText(row.work))}</td>
       <td>${esc(cvPdfText(row.block))}</td>
       <td>${esc(cvPdfText(row.duty))}</td>
       <td>${esc(cvPdfText(row.ac))}</td>
-      <td class="cv-pdf-money">${esc(allowance)}</td>
-    </tr>`;
-  }).join("");
+    </tr>
+  `).join("");
 
+  // PAGE 2: allowance calculations only.
+  const gradeEl=$("#payGrade");
+  if(gradeEl && !gradeEl.dataset.userSelected) gradeEl.value=inferredPayGrade();
+
+  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
+    ? gradeEl.value
+    : inferredPayGrade();
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+
+  const duties=payDutyGroups();
+  const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
+  const blockMinutes=payMonthlyBlockMinutes();
+  const excessMinutes=Math.max(0,blockMinutes-80*60);
+
+  const productivityAmount=eligibleMinutes/60*rule.pa;
+  const over80Amount=excessMinutes/60*rule.over80;
+
+  const layovers=calculateLayoverAllowances();
+  const layoverAmount=layovers.reduce((sum,l)=>sum+Number(l.amount||0),0);
+  const estimatedTotal=productivityAmount+over80Amount+layoverAmount;
+
+  $("#cvPdfEstimatedAllowance").textContent=moneyRM(estimatedTotal);
+  $("#cvPdfProductivityAllowance").textContent=moneyRM(productivityAmount);
+  $("#cvPdfLayoverAllowance").textContent=moneyRM(layoverAmount);
+  $("#cvPdfGrade").textContent=`${grade} · ${rule.label}`;
+  $("#cvPdfEligibleDuty").textContent=hhmm(eligibleMinutes);
+  $("#cvPdfMonthlyBlock").textContent=hhmm(blockMinutes);
+  $("#cvPdfOver80").textContent=moneyRM(over80Amount);
+
+  productivityBody.innerHTML=duties.length ? duties.map(d=>`
+    <tr>
+      <td>${esc(cvPdfText(d.date))}</td>
+      <td>${esc(cvPdfText(d.items,"Flight"))}</td>
+      <td>${esc(hhmm(d.minutes))}</td>
+      <td>${esc(moneyRM(d.minutes/60*rule.pa))}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="4">No eligible operating or positioning flight duty found.</td></tr>`;
+
+  layoverBody.innerHTML=layovers.length ? layovers.map(l=>`
+    <tr>
+      <td>${esc(cvPdfText(l.airport))}</td>
+      <td>${esc(cvPdfText(l.region))}</td>
+      <td>${esc(moneyRM(l.amount))}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="3">No qualifying layover found.</td></tr>`;
+
+  $("#cvPdfLayoverFooterTotal").textContent=moneyRM(layoverAmount);
   doc.setAttribute("aria-hidden","false");
 }
 

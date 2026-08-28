@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=160">
+<link rel="stylesheet" href="style.css?v=161">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -609,58 +609,121 @@
 </main>
 
 <section class="cv-pdf-document" id="cvPdfDocument" aria-hidden="true">
-  <header class="cv-pdf-header">
-    <div class="cv-pdf-brand">
-      <img src="crewview-mark-final.png" alt="">
-      <strong><span>Crew</span><b>View</b></strong>
+  <section class="cv-pdf-page cv-pdf-roster-page">
+    <div class="cv-pdf-page-head">
+      <div class="cv-pdf-brand">
+        <img src="crewview-mark-final.png" alt="">
+        <strong><span>Crew</span><b>View</b></strong>
+      </div>
+      <div class="cv-pdf-page-title">Roster Summary</div>
+      <div class="cv-pdf-period">
+        <strong id="cvPdfRosterMonth">—</strong>
+        <small id="cvPdfRosterGenerated">Generated —</small>
+      </div>
     </div>
+    <div class="cv-pdf-rule"></div>
 
-    <div class="cv-pdf-title">
-      <strong>Roster Summary</strong>
-      <small>Your roster. Your time. Your view.</small>
-    </div>
+    <section class="cv-pdf-crew">
+      <strong id="cvPdfRosterName">—</strong>
+      <span id="cvPdfRosterMeta">—</span>
+    </section>
 
-    <div class="cv-pdf-period">
-      <strong id="cvPdfMonth">—</strong>
-      <small id="cvPdfGenerated">Generated —</small>
-    </div>
-  </header>
+    <section class="cv-pdf-roster-summary">
+      <div><small>Roster Flight Hours</small><strong id="cvPdfFlightTotal">00:00</strong></div>
+      <div><small>Duty Hours</small><strong id="cvPdfDutyTotal">00:00</strong></div>
+      <div><small>Off Days</small><strong id="cvPdfOffDays">0</strong></div>
+    </section>
 
-  <section class="cv-pdf-crew">
-    <div>
-      <strong id="cvPdfName">—</strong>
-      <span id="cvPdfMeta">—</span>
-    </div>
+    <table class="cv-pdf-roster-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Day</th>
+          <th>Duty Start</th>
+          <th>Item</th>
+          <th>Dep/Start</th>
+          <th>Arr/End</th>
+          <th>Duty End</th>
+          <th>Work Type</th>
+          <th>Block Hrs</th>
+          <th>Duty Hrs</th>
+          <th>A/C</th>
+        </tr>
+      </thead>
+      <tbody id="cvPdfRosterRows"></tbody>
+    </table>
+
+    <footer class="cv-pdf-page-footer">
+      <span>CrewView · Your roster. Your time. Your view.</span>
+      <span>Page 1 of 2</span>
+    </footer>
   </section>
 
-  <section class="cv-pdf-summary">
-    <div><small>Roster Flight Hours</small><strong id="cvPdfFlightTotal">00:00</strong></div>
-    <div><small>Duty Hours</small><strong id="cvPdfDutyTotal">00:00</strong></div>
-    <div><small>Off Days</small><strong id="cvPdfOffDays">0</strong></div>
-    <div><small>Estimated Allowances</small><strong id="cvPdfAllowanceTotal">RM0.00</strong></div>
+  <section class="cv-pdf-page cv-pdf-allowance-page">
+    <div class="cv-pdf-page-head">
+      <div class="cv-pdf-brand">
+        <img src="crewview-mark-final.png" alt="">
+        <strong><span>Crew</span><b>View</b></strong>
+      </div>
+      <div class="cv-pdf-page-title">Allowance Report</div>
+      <div class="cv-pdf-period">
+        <strong id="cvPdfAllowanceMonth">—</strong>
+        <small id="cvPdfAllowanceGenerated">Generated —</small>
+      </div>
+    </div>
+    <div class="cv-pdf-rule"></div>
+
+    <section class="cv-pdf-crew">
+      <strong id="cvPdfAllowanceName">—</strong>
+      <span id="cvPdfAllowanceMeta">—</span>
+    </section>
+
+    <section class="cv-pdf-allowance-cards">
+      <div><small>Estimated Allowances</small><strong id="cvPdfEstimatedAllowance">RM0.00</strong></div>
+      <div><small>Productivity Allowance</small><strong id="cvPdfProductivityAllowance">RM0.00</strong></div>
+      <div><small>Layover Allowance</small><strong id="cvPdfLayoverAllowance">RM0.00</strong></div>
+      <div><small>Grade</small><strong id="cvPdfGrade">—</strong></div>
+    </section>
+
+    <h2 class="cv-pdf-section-title">Allowance Summary</h2>
+    <table class="cv-pdf-summary-table">
+      <tbody>
+        <tr><th>Eligible Duty Hours</th><td id="cvPdfEligibleDuty">00:00</td></tr>
+        <tr><th>Monthly Flying Block</th><td id="cvPdfMonthlyBlock">00:00</td></tr>
+        <tr><th>80+ Block Hours Payment</th><td id="cvPdfOver80">RM0.00</td></tr>
+        <tr><th>FDP Extension</th><td>Separate Rule</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="cv-pdf-section-title">Productivity Breakdown</h2>
+    <table class="cv-pdf-productivity-table">
+      <thead>
+        <tr><th>Date</th><th>Duty</th><th>Duty Hours</th><th>Productivity Amount</th></tr>
+      </thead>
+      <tbody id="cvPdfProductivityRows"></tbody>
+    </table>
+
+    <h2 class="cv-pdf-section-title">Layover Breakdown</h2>
+    <table class="cv-pdf-layover-table">
+      <thead>
+        <tr><th>Station</th><th>Region</th><th>Allowance</th></tr>
+      </thead>
+      <tbody id="cvPdfLayoverRows"></tbody>
+      <tfoot>
+        <tr><th colspan="2">Total Layover Allowance</th><th id="cvPdfLayoverFooterTotal">RM0.00</th></tr>
+      </tfoot>
+    </table>
+
+    <p class="cv-pdf-note">
+      Allowance figures are CrewView estimates based on the loaded roster.
+      Hotel information is excluded from this report.
+    </p>
+
+    <footer class="cv-pdf-page-footer">
+      <span>CrewView · Your roster. Your time. Your view.</span>
+      <span>Page 2 of 2</span>
+    </footer>
   </section>
-
-  <table class="cv-pdf-table" aria-label="CrewView roster PDF">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Report</th>
-        <th>Duty</th>
-        <th>Route / Times</th>
-        <th>Duty End</th>
-        <th>Flight Hrs</th>
-        <th>Duty Hrs</th>
-        <th>A/C</th>
-        <th>Allowances</th>
-      </tr>
-    </thead>
-    <tbody id="cvPdfRows"></tbody>
-  </table>
-
-  <footer class="cv-pdf-footer">
-    <span>CrewView · Your roster. Your time. Your view.</span>
-    <span id="cvPdfFooterPeriod">—</span>
-  </footer>
 </section>
 
 <footer>
@@ -696,7 +759,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=160"></script>
+<script type="module" src="app.js?v=161"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>

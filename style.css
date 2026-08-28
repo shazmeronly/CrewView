@@ -7675,3 +7675,366 @@ body.pdf-export #payView{
     print-color-adjust:exact!important;
   }
 }
+
+
+/* =========================================================
+   CrewView v161 — approved two-page PDF design
+   Logo/wordmark retain approved colour.
+   All report content is black/white/grey.
+   ========================================================= */
+
+.cv-pdf-document{display:none}
+
+@media print{
+  @page{size:A4 portrait;margin:7mm}
+
+  html,body{
+    margin:0!important;
+    padding:0!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    background:#fff!important;
+    color:#111!important;
+    overflow:visible!important;
+  }
+
+  body.pdf-export > *:not(#cvPdfDocument){display:none!important}
+
+  #cvPdfDocument{
+    display:block!important;
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif!important;
+    background:#fff!important;
+    color:#111!important;
+  }
+
+  .cv-pdf-page{
+    display:flex!important;
+    flex-direction:column!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-height:276mm!important;
+    margin:0!important;
+    padding:0!important;
+    background:#fff!important;
+  }
+
+  .cv-pdf-page + .cv-pdf-page{
+    break-before:page!important;
+    page-break-before:always!important;
+  }
+
+  .cv-pdf-page-head{
+    display:grid!important;
+    grid-template-columns:1fr auto 1fr!important;
+    align-items:center!important;
+    gap:3mm!important;
+    min-height:14mm!important;
+  }
+
+  .cv-pdf-brand{
+    display:flex!important;
+    align-items:center!important;
+    gap:1.7mm!important;
+  }
+
+  .cv-pdf-brand img{
+    width:10.8mm!important;
+    height:10.8mm!important;
+    object-fit:contain!important;
+  }
+
+  .cv-pdf-brand strong{
+    display:flex!important;
+    align-items:baseline!important;
+    font-size:5.8mm!important;
+    line-height:1!important;
+    letter-spacing:-.32mm!important;
+    font-weight:900!important;
+    white-space:nowrap!important;
+  }
+
+  .cv-pdf-brand strong span{
+    color:#0b2d5b!important;
+    -webkit-text-fill-color:#0b2d5b!important;
+  }
+
+  .cv-pdf-brand strong b{
+    color:#159cff!important;
+    -webkit-text-fill-color:#159cff!important;
+  }
+
+  .cv-pdf-page-title{
+    font-size:4.9mm!important;
+    font-weight:900!important;
+    color:#111!important;
+    text-align:center!important;
+    white-space:nowrap!important;
+  }
+
+  .cv-pdf-period{
+    text-align:right!important;
+    color:#111!important;
+  }
+
+  .cv-pdf-period strong{
+    display:block!important;
+    font-size:3.7mm!important;
+    line-height:1!important;
+    font-weight:900!important;
+  }
+
+  .cv-pdf-period small{
+    display:block!important;
+    margin-top:.8mm!important;
+    font-size:1.95mm!important;
+    line-height:1!important;
+    color:#333!important;
+  }
+
+  .cv-pdf-rule{
+    border-top:.35mm solid #111!important;
+    margin:1.5mm 0 3.2mm!important;
+  }
+
+  .cv-pdf-crew{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:.7mm!important;
+    min-height:10mm!important;
+    margin:0 0 2.8mm!important;
+    padding:0!important;
+    border:0!important;
+    background:#fff!important;
+  }
+
+  .cv-pdf-crew strong{
+    color:#111!important;
+    font-size:3.35mm!important;
+    line-height:1!important;
+    font-weight:900!important;
+  }
+
+  .cv-pdf-crew span{
+    color:#222!important;
+    font-size:2.55mm!important;
+    line-height:1!important;
+  }
+
+  .cv-pdf-roster-summary{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:3.5mm!important;
+    margin:0 0 3.2mm!important;
+  }
+
+  .cv-pdf-roster-summary > div,
+  .cv-pdf-allowance-cards > div{
+    box-sizing:border-box!important;
+    border:.3mm solid #777!important;
+    border-radius:1.6mm!important;
+    background:#fafafa!important;
+    color:#111!important;
+  }
+
+  .cv-pdf-roster-summary > div{
+    min-height:15.5mm!important;
+    padding:2.5mm 3mm!important;
+  }
+
+  .cv-pdf-roster-summary small,
+  .cv-pdf-allowance-cards small{
+    display:block!important;
+    color:#222!important;
+    font-size:2.1mm!important;
+    line-height:1!important;
+  }
+
+  .cv-pdf-roster-summary strong{
+    display:block!important;
+    margin-top:1.3mm!important;
+    color:#111!important;
+    font-size:4.7mm!important;
+    line-height:1!important;
+    font-weight:900!important;
+  }
+
+  .cv-pdf-roster-table,
+  .cv-pdf-summary-table,
+  .cv-pdf-productivity-table,
+  .cv-pdf-layover-table{
+    width:100%!important;
+    border-collapse:collapse!important;
+    table-layout:fixed!important;
+    color:#111!important;
+    background:#fff!important;
+  }
+
+  .cv-pdf-roster-table{font-size:1.72mm!important}
+
+  .cv-pdf-roster-table th{
+    height:5.4mm!important;
+    padding:.65mm .45mm!important;
+    border:.22mm solid #888!important;
+    background:#f1f1f1!important;
+    color:#111!important;
+    font-size:1.65mm!important;
+    font-weight:900!important;
+    line-height:1!important;
+    text-align:center!important;
+    white-space:nowrap!important;
+  }
+
+  .cv-pdf-roster-table td{
+    height:5.25mm!important;
+    padding:.55mm .55mm!important;
+    border:.2mm solid #aaa!important;
+    background:#fff!important;
+    color:#111!important;
+    line-height:1!important;
+    vertical-align:middle!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:clip!important;
+  }
+
+  .cv-pdf-roster-table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  .cv-pdf-roster-table th:nth-child(1){width:12.5%!important}
+  .cv-pdf-roster-table th:nth-child(2){width:6.1%!important}
+  .cv-pdf-roster-table th:nth-child(3){width:8.8%!important}
+  .cv-pdf-roster-table th:nth-child(4){width:7.8%!important}
+  .cv-pdf-roster-table th:nth-child(5){width:12.8%!important}
+  .cv-pdf-roster-table th:nth-child(6){width:12.8%!important}
+  .cv-pdf-roster-table th:nth-child(7){width:9.4%!important}
+  .cv-pdf-roster-table th:nth-child(8){width:9.2%!important}
+  .cv-pdf-roster-table th:nth-child(9){width:8.1%!important}
+  .cv-pdf-roster-table th:nth-child(10){width:8.1%!important}
+  .cv-pdf-roster-table th:nth-child(11){width:4.4%!important}
+
+  .cv-pdf-allowance-cards{
+    display:grid!important;
+    grid-template-columns:repeat(4,1fr)!important;
+    gap:2.5mm!important;
+    margin:0 0 4mm!important;
+  }
+
+  .cv-pdf-allowance-cards > div{
+    min-height:16mm!important;
+    padding:2.5mm 2.7mm!important;
+  }
+
+  .cv-pdf-allowance-cards strong{
+    display:block!important;
+    margin-top:1.5mm!important;
+    color:#111!important;
+    font-size:3.7mm!important;
+    line-height:1.05!important;
+    font-weight:900!important;
+  }
+
+  .cv-pdf-section-title{
+    margin:0 0 1.6mm!important;
+    color:#111!important;
+    font-size:3.65mm!important;
+    line-height:1!important;
+    font-weight:900!important;
+  }
+
+  .cv-pdf-summary-table{
+    margin:0 0 4mm!important;
+    font-size:2.45mm!important;
+  }
+
+  .cv-pdf-summary-table th,
+  .cv-pdf-summary-table td{
+    height:7.3mm!important;
+    padding:1mm 2.3mm!important;
+    border:.22mm solid #999!important;
+    background:#fff!important;
+    color:#111!important;
+    text-align:left!important;
+  }
+
+  .cv-pdf-summary-table th{width:50%!important;font-weight:650!important}
+
+  .cv-pdf-productivity-table{
+    margin:0 0 4mm!important;
+    font-size:2.35mm!important;
+  }
+
+  .cv-pdf-productivity-table th,
+  .cv-pdf-layover-table th{
+    padding:1.25mm 1.4mm!important;
+    border:.22mm solid #888!important;
+    background:#f1f1f1!important;
+    color:#111!important;
+    font-weight:900!important;
+    text-align:center!important;
+  }
+
+  .cv-pdf-productivity-table td{
+    height:6.2mm!important;
+    padding:.9mm 1.4mm!important;
+    border:.2mm solid #aaa!important;
+    background:#fff!important;
+    color:#111!important;
+    text-align:center!important;
+  }
+
+  .cv-pdf-productivity-table th:nth-child(1){width:25%!important}
+  .cv-pdf-productivity-table th:nth-child(2){width:25%!important}
+  .cv-pdf-productivity-table th:nth-child(3){width:22%!important}
+  .cv-pdf-productivity-table th:nth-child(4){width:28%!important}
+
+  .cv-pdf-layover-table{
+    margin:0!important;
+    font-size:2.4mm!important;
+  }
+
+  .cv-pdf-layover-table td,
+  .cv-pdf-layover-table tfoot th{
+    height:6.4mm!important;
+    padding:.9mm 1.5mm!important;
+    border:.2mm solid #aaa!important;
+    background:#fff!important;
+    color:#111!important;
+    text-align:center!important;
+  }
+
+  .cv-pdf-layover-table tfoot th{font-weight:900!important}
+  .cv-pdf-layover-table th:nth-child(1){width:22%!important}
+  .cv-pdf-layover-table th:nth-child(2){width:48%!important}
+  .cv-pdf-layover-table th:nth-child(3){width:30%!important}
+
+  .cv-pdf-note{
+    margin:4mm 0 0!important;
+    color:#333!important;
+    font-size:2mm!important;
+    line-height:1.35!important;
+  }
+
+  .cv-pdf-page-footer{
+    display:flex!important;
+    justify-content:space-between!important;
+    align-items:center!important;
+    margin-top:auto!important;
+    padding-top:2.4mm!important;
+    border-top:.3mm solid #111!important;
+    color:#222!important;
+    font-size:1.9mm!important;
+    line-height:1!important;
+  }
+
+  #cvPdfDocument *{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+}
