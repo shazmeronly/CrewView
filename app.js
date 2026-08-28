@@ -712,13 +712,35 @@ function normalizePilotContinuationColumns(rows){
     if(
       !isFlight ||
       row._overnightContinuation ||
-      String(row.dutyEnd||"").trim() ||
       !String(row.block||"").trim() ||
       !String(row.duty||"").trim()
     ) return row;
 
     const arrival=clockMinutes(row.arr);
     const candidateDutyEnd=clockMinutes(row.block);
+    const parsedDutyEnd=clockMinutes(row.dutyEnd);
+
+    /*
+     * September-style second sector:
+     *   Arr/End   Duty End   Block Hrs   Duty Hrs
+     *   KUL16:00  16:45      16:45       02:55
+     *
+     * Duty End has already landed in the correct column, but the same clock
+     * is duplicated into Block Hrs and the real Flying Hrs is shifted into
+     * Duty Hrs. Detect that duplicate explicitly.
+     */
+    if(
+      parsedDutyEnd!==null &&
+      candidateDutyEnd!==null &&
+      parsedDutyEnd===candidateDutyEnd
+    ){
+      row.block=row.duty;
+      row.duty="";
+      return row;
+    }
+
+    // Older shifted layout: Duty End was not populated at all.
+    if(String(row.dutyEnd||"").trim()) return row;
     if(arrival===null || candidateDutyEnd===null) return row;
 
     const minutesAfterArrival=(candidateDutyEnd-arrival+1440)%1440;
