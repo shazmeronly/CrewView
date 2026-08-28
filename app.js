@@ -6152,8 +6152,10 @@ $("#printBtn").onclick=()=>{
   fitEnabled=true;
   applyOnePageFit();
 
-  // Give Safari time to apply the export-only layout.
-  setTimeout(()=>window.print(),180);
+  // Keep print inside the user's tap gesture so iOS Safari
+  // does not classify it as automatic printing.
+  void document.body.offsetHeight;
+  window.print();
 };
 
 window.addEventListener("beforeprint",()=>{
