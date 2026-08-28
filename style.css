@@ -5447,3 +5447,29 @@ html[data-theme="light"] .v125-meals span{color:#334155!important}
   .v125-meta-grid strong{font-size:12px}
   .v125-layover-grid{grid-template-columns:1fr 1fr}
 }
+
+
+/* v127 — viewport-centered Duty Details modal */
+body .calendar-selected.v125-duty-sheet{
+  left:50% !important;
+  right:auto !important;
+  width:min(620px,calc(100vw - 14px)) !important;
+  max-width:620px !important;
+  margin:0 !important;
+  transform:translateX(-50%) !important;
+  box-sizing:border-box !important;
+}
+body .calendar-selected.v125-duty-sheet.open{
+  transform:translateX(-50%) !important;
+}
+@media(max-width:420px){
+  body .calendar-selected.v125-duty-sheet{
+    left:50% !important;
+    right:auto !important;
+    width:calc(100vw - 12px) !important;
+    transform:translateX(-50%) !important;
+  }
+  body .calendar-selected.v125-duty-sheet.open{
+    transform:translateX(-50%) !important;
+  }
+}

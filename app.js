@@ -1666,7 +1666,14 @@ function extractPilotHotelAssignments(pdfText){
 function applyPilotHotelAssignments(rows,pdfText){
   const assignments=extractPilotHotelAssignments(pdfText);
   return rows.map(row=>{
-    const hit=assignments.find(x=>x.date===String(row?.date||"").trim()&&x.item===String(row?.item||"").trim().toUpperCase());
+    const date=String(row?.date||"").trim();
+    const item=String(row?.item||"").trim().toUpperCase();
+    if(!item) return row;
+
+    const exact=assignments.find(x=>x.date===date && x.item===item);
+    const byFlight=assignments.find(x=>x.item===item);
+    const hit=exact||byFlight;
+
     return hit?{...row,_hotel:hit.hotel}:row;
   });
 }
@@ -3807,7 +3814,7 @@ async function parsePDF(file){
     combinedText
   );
 
-  if(!pairingMode) allRows=applyPilotHotelAssignments(allRows,combinedText);
+  allRows=applyPilotHotelAssignments(allRows,combinedText);
 
   allRows=fillEveryDay(
     allRows,
