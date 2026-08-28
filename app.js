@@ -4616,7 +4616,16 @@ function timelineDateInRosterPeriod(dateText){
   const d=parseRosterDate(dateText);
   if(!d) return false;
   if(!officialRosterPeriod) return true;
-  return d>=officialRosterPeriod.start && d<=officialRosterPeriod.end;
+
+  // Timeline is a continuity view, not a monthly totals view.
+  // iFlight rosters can include the first duty/duties of the following month
+  // so an outstation pairing can be completed. Keep those parsed carry-over
+  // rows visible for up to 7 days after the official roster month.
+  // This does NOT change official FH/DH validation or monthly allowance totals.
+  const timelineEnd=new Date(officialRosterPeriod.end.getTime());
+  timelineEnd.setDate(timelineEnd.getDate()+7);
+
+  return d>=officialRosterPeriod.start && d<=timelineEnd;
 }
 
 function timelineClockLabel(value){
