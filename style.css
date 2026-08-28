@@ -5716,3 +5716,141 @@ body.calendar-mode .calendar-mode-tabs button{min-width:0!important}
 }
 @media(max-width:365px){.cv-tl-item{grid-template-columns:42px 15px minmax(0,1fr)}.cv-tl-flight-strip{margin-left:69px;padding-inline:6px}.cv-tl-stage{grid-template-columns:53px 14px minmax(0,1fr)}.cv-tl-flight-money span{gap:3px 6px}.view-tab{font-size:9.2px!important}}
 
+
+
+/* v139 Timeline polish: header-safe scrolling, stronger Today button, tighter flight cards */
+body.timeline-mode{
+  /* Gives scrolling content a clean clipping boundary beneath the sticky CrewView header. */
+  --timeline-header-safe-top: 88px;
+}
+
+body.timeline-mode header.app-header,
+body.timeline-mode .app-header{
+  position:sticky!important;
+  top:0!important;
+  z-index:1200!important;
+  isolation:isolate;
+}
+
+/* Solid backdrop prevents timeline cards from showing through the sticky header. */
+body.timeline-mode header.app-header::after,
+body.timeline-mode .app-header::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:inherit;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+
+/* Keep the four-way view switcher above timeline content as well. */
+body.timeline-mode .view-switcher{
+  position:sticky!important;
+  top:var(--timeline-header-safe-top)!important;
+  z-index:1150!important;
+  background:var(--bg,#0b1118);
+  padding-top:8px!important;
+  padding-bottom:8px!important;
+  margin-bottom:10px!important;
+}
+
+/* Mask anything that tries to scroll behind the header / view switcher area. */
+body.timeline-mode .view-switcher::before{
+  content:"";
+  position:absolute;
+  left:-12px;
+  right:-12px;
+  top:-18px;
+  bottom:-6px;
+  z-index:-1;
+  background:var(--bg,#0b1118);
+}
+
+/* Timeline content begins below the sticky UI and does not visually collide with it. */
+body.timeline-mode #timelineView{
+  position:relative;
+  z-index:1;
+}
+
+body.timeline-mode .timeline-shell{
+  padding-top:6px!important;
+}
+
+/* Today button: readable in both themes */
+body.timeline-mode .timeline-today{
+  background:#17212d!important;
+  color:#f8fafc!important;
+  border:1px solid rgba(148,163,184,.35)!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.18)!important;
+  min-width:76px;
+}
+
+body.timeline-mode .timeline-today:active{
+  transform:scale(.97);
+}
+
+html[data-theme="light"] body.timeline-mode .timeline-today{
+  background:#0f172a!important;
+  color:#ffffff!important;
+  border-color:#0f172a!important;
+}
+
+/* Slightly tighter flight cards — preserve hierarchy, reduce vertical drag. */
+body.timeline-mode .timeline-flight-card{
+  border-radius:18px!important;
+}
+
+body.timeline-mode .timeline-flight-head{
+  padding:12px 14px!important;
+}
+
+body.timeline-mode .timeline-flight-body{
+  padding:8px 14px 10px!important;
+}
+
+body.timeline-mode .timeline-flight-step{
+  padding:5px 0!important;
+}
+
+body.timeline-mode .timeline-flight-path{
+  margin:6px 0 7px!important;
+  padding:8px 12px!important;
+  min-height:70px!important;
+}
+
+body.timeline-mode .timeline-flight-footer{
+  padding:10px 14px!important;
+}
+
+body.timeline-mode .timeline-flight-footer > div{
+  min-height:auto!important;
+}
+
+/* Reduce gaps between timeline events without making the feed cramped. */
+body.timeline-mode .timeline-entry,
+body.timeline-mode .travel-timeline-entry{
+  margin-bottom:10px!important;
+}
+
+@media(max-width:620px){
+  body.timeline-mode{
+    --timeline-header-safe-top: 84px;
+  }
+
+  body.timeline-mode .view-switcher{
+    top:84px!important;
+  }
+
+  body.timeline-mode .timeline-flight-head{
+    padding:10px 12px!important;
+  }
+
+  body.timeline-mode .timeline-flight-body{
+    padding:7px 12px 9px!important;
+  }
+
+  body.timeline-mode .timeline-flight-footer{
+    padding:9px 12px!important;
+  }
+}
