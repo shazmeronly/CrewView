@@ -645,13 +645,13 @@ function parseHeader(text){
   // internal text order, even though it is visually shown on the same header.
   // Search the complete extracted text instead of only the text after the date range.
   let person=head.match(
-    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,3})(?=\s|Roster Report|FH|$)/i
+    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,4})(?=\s|Roster Report|FH|$)/i
   );
 
   // Fallback when PDF.js drops the vertical bars.
   if(!person){
     person=head.match(
-      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,3})(?=\s+Roster Report|\s+FH\s*:|$)/i
+      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,4})(?=\s+Roster Report|\s+FH\s*:|$)/i
     );
   }
 
