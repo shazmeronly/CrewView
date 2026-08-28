@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=158">
+<link rel="stylesheet" href="style.css?v=160">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -607,6 +607,62 @@
 </section>
 
 </main>
+
+<section class="cv-pdf-document" id="cvPdfDocument" aria-hidden="true">
+  <header class="cv-pdf-header">
+    <div class="cv-pdf-brand">
+      <img src="crewview-mark-final.png" alt="">
+      <strong><span>Crew</span><b>View</b></strong>
+    </div>
+
+    <div class="cv-pdf-title">
+      <strong>Roster Summary</strong>
+      <small>Your roster. Your time. Your view.</small>
+    </div>
+
+    <div class="cv-pdf-period">
+      <strong id="cvPdfMonth">—</strong>
+      <small id="cvPdfGenerated">Generated —</small>
+    </div>
+  </header>
+
+  <section class="cv-pdf-crew">
+    <div>
+      <strong id="cvPdfName">—</strong>
+      <span id="cvPdfMeta">—</span>
+    </div>
+  </section>
+
+  <section class="cv-pdf-summary">
+    <div><small>Roster Flight Hours</small><strong id="cvPdfFlightTotal">00:00</strong></div>
+    <div><small>Duty Hours</small><strong id="cvPdfDutyTotal">00:00</strong></div>
+    <div><small>Off Days</small><strong id="cvPdfOffDays">0</strong></div>
+    <div><small>Estimated Allowances</small><strong id="cvPdfAllowanceTotal">RM0.00</strong></div>
+  </section>
+
+  <table class="cv-pdf-table" aria-label="CrewView roster PDF">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Report</th>
+        <th>Duty</th>
+        <th>Route / Times</th>
+        <th>Duty End</th>
+        <th>Flight Hrs</th>
+        <th>Duty Hrs</th>
+        <th>A/C</th>
+        <th>Allowances</th>
+      </tr>
+    </thead>
+    <tbody id="cvPdfRows"></tbody>
+  </table>
+
+  <footer class="cv-pdf-footer">
+    <span>CrewView · Your roster. Your time. Your view.</span>
+    <span id="cvPdfFooterPeriod">—</span>
+  </footer>
+</section>
+
 <footer>
   <button class="btn primary" id="printBtn">Save PDF</button>
 </footer>
@@ -640,7 +696,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=158"></script>
+<script type="module" src="app.js?v=160"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>
