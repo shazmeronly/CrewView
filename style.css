@@ -5854,3 +5854,25 @@ body.timeline-mode .travel-timeline-entry{
     padding:9px 12px!important;
   }
 }
+
+
+/* v140 Timeline nav overlap fix
+   Keep only the CrewView app header sticky.
+   The four-view switcher scrolls normally so it never covers Timeline cards. */
+body.timeline-mode .view-switcher{
+  position:relative!important;
+  top:auto!important;
+  z-index:10!important;
+  background:transparent!important;
+  padding-top:5px!important;
+  padding-bottom:5px!important;
+  margin-bottom:14px!important;
+}
+
+body.timeline-mode .view-switcher::before{
+  content:none!important;
+}
+
+body.timeline-mode #timelineView{
+  scroll-margin-top:96px;
+}
