@@ -6413,3 +6413,86 @@ body.calendar-mode .calendar-brand-plane{display:none!important}
     flex-basis:24px!important;
   }
 }
+
+
+/* v154 — sketch-matched CrewView branding */
+.crewview-brand{
+  gap:10px!important;
+}
+.crewview-brand-mark{
+  width:39px!important;
+  height:39px!important;
+  flex:0 0 39px!important;
+  object-fit:contain!important;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.22))!important;
+}
+.crewview-brand h1{
+  font-weight:800!important;
+  letter-spacing:-.045em!important;
+}
+.crewview-word-view{
+  background:linear-gradient(135deg,#22C6FF 0%,#0D6EFD 100%)!important;
+  -webkit-background-clip:text!important;
+  background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;
+}
+
+/* Match the premium deep-navy header from the approved brand board. */
+body > header,
+.app-header{
+  background:
+    radial-gradient(circle at 20% 0%,rgba(23,123,210,.24),transparent 42%),
+    linear-gradient(120deg,#092642 0%,#0A3559 100%)!important;
+}
+
+.calendar-brand-mark{
+  width:31px!important;
+  height:31px!important;
+  flex:0 0 31px!important;
+  object-fit:contain!important;
+}
+
+.crewview-splash-inner{
+  width:auto!important;
+  display:grid!important;
+  justify-items:center!important;
+  gap:9px!important;
+}
+.crewview-splash-mark{
+  width:118px!important;
+  height:118px!important;
+  object-fit:contain!important;
+  filter:drop-shadow(0 18px 36px rgba(13,110,253,.28))!important;
+}
+.crewview-splash-name{
+  display:flex!important;
+  font-size:34px!important;
+  font-weight:820!important;
+  letter-spacing:-.05em!important;
+}
+.crewview-splash-name span{color:#fff!important}
+.crewview-splash-name b{
+  background:linear-gradient(135deg,#22C6FF,#0D6EFD)!important;
+  -webkit-background-clip:text!important;
+  background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;
+}
+.crewview-splash-inner > small{
+  display:block!important;
+  color:#B8CBE0!important;
+  font-size:11px!important;
+  letter-spacing:.04em!important;
+}
+
+@media(max-width:540px){
+  .crewview-brand-mark{
+    width:37px!important;
+    height:37px!important;
+    flex-basis:37px!important;
+  }
+  .calendar-brand-mark{
+    width:27px!important;
+    height:27px!important;
+    flex-basis:27px!important;
+  }
+}
