@@ -5210,3 +5210,6 @@ body.pay-mode #compactProfile{display:block}
 .pay-layover-card{margin-top:12px}
 body.pay-mode footer{display:none!important}
 html[data-theme="dark"] .pay-subtabs{background:#101923}
+
+/* v113 layover allowance engine */
+.layover-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.layover-breakdown{margin-top:12px}.layover-breakdown-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}.layover-breakdown-row:last-child{border-bottom:0}.layover-main strong{font-size:13px}.layover-main small{display:block;color:var(--muted);font-size:10px;line-height:1.45;margin-top:3px}.pay-layover-hero #layoverEstimatedTotal{font-size:34px}.pay-layover-card{margin-top:12px}@media(max-width:620px){.layover-summary-grid{grid-template-columns:1fr}.layover-breakdown-row{grid-template-columns:minmax(0,1fr) auto}}

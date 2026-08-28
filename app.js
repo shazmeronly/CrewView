@@ -4062,8 +4062,167 @@ function renderPayView(){
   $("#payBreakdownList").innerHTML=duties.length ? duties.map(d=>{
     const amount=d.minutes/60*rule.pa;
     return `<div class="pay-breakdown-row"><div><strong>${esc(d.date)} · ${esc(d.items||"Flight")}</strong><small>${esc(d.route)}</small></div><span class="pay-breakdown-hours">${hhmm(d.minutes)}</span><span class="pay-breakdown-amount">${moneyRM(amount)}</span></div>`;
-  }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';
+  }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';  renderLayoverAllowance();
 }
+
+
+
+/* Layover Allowance — destination-local meal entitlement.
+ * Rule supplied by user/company material:
+ * - travel time is time spent at destination and excludes flight time;
+ * - calculation starts at Duty End Time at station and ends at next Reporting Time;
+ * - entitlement is based on destination local time encroaching the meal windows:
+ *   Breakfast 07:01-09:00, Lunch 12:01-14:00, Dinner 19:01-21:00.
+ * Daily rate equals the sum of the three meal rates for the region.
+ */
+const LAYOVER_RATES={
+  "Australia / New Zealand":{daily:600,breakfast:120,lunch:180,dinner:300},
+  "North America":{daily:440,breakfast:88,lunch:132,dinner:220},
+  "Western Europe":{daily:550,breakfast:110,lunch:165,dinner:275},
+  "Central and Eastern Europe":{daily:430,breakfast:86,lunch:129,dinner:215},
+  "South America":{daily:470,breakfast:94,lunch:141,dinner:235},
+  "East Asia":{daily:430,breakfast:86,lunch:129,dinner:215},
+  "South East Asia":{daily:420,breakfast:84,lunch:126,dinner:210},
+  "South Asia":{daily:310,breakfast:62,lunch:93,dinner:155},
+  "Central Asia":{daily:470,breakfast:94,lunch:141,dinner:235},
+  "Middle East":{daily:550,breakfast:110,lunch:165,dinner:275},
+  "Pacific Islands":{daily:490,breakfast:98,lunch:147,dinner:245},
+  "South Africa":{daily:400,breakfast:80,lunch:120,dinner:200},
+  "Malaysia":{daily:130,breakfast:26,lunch:39,dinner:65}
+};
+
+function layoverRegionForAirport(airport){
+  const code=String(airport||"").trim().toUpperCase();
+  const zone=airportTimezone(code);
+  if(zone==="Asia/Kuala_Lumpur") return "Malaysia";
+  if(zone.startsWith("Australia/") || ["Pacific/Auckland","Pacific/Chatham"].includes(zone)) return "Australia / New Zealand";
+  if(["Asia/Tokyo","Asia/Seoul","Asia/Shanghai","Asia/Hong_Kong","Asia/Macau","Asia/Taipei","Asia/Pyongyang","Asia/Ulaanbaatar"].includes(zone)) return "East Asia";
+  if(["Asia/Singapore","Asia/Bangkok","Asia/Ho_Chi_Minh","Asia/Phnom_Penh","Asia/Vientiane","Asia/Jakarta","Asia/Makassar","Asia/Jayapura","Asia/Manila","Asia/Yangon","Asia/Brunei","Asia/Dili"].includes(zone)) return "South East Asia";
+  if(["Asia/Kolkata","Asia/Dhaka","Asia/Colombo","Asia/Karachi","Asia/Kathmandu","Indian/Maldives","Asia/Thimphu"].includes(zone)) return "South Asia";
+  if(["Asia/Riyadh","Asia/Dubai","Asia/Qatar","Asia/Bahrain","Asia/Kuwait","Asia/Muscat","Asia/Amman","Asia/Beirut","Asia/Damascus","Asia/Jerusalem","Asia/Tehran","Asia/Baku"].includes(zone)) return "Middle East";
+  if(["Asia/Almaty","Asia/Aqtobe","Asia/Atyrau","Asia/Bishkek","Asia/Tashkent","Asia/Samarkand","Asia/Dushanbe","Asia/Ashgabat"].includes(zone)) return "Central Asia";
+  if(zone.startsWith("Europe/")){
+    const eastern=new Set(["Europe/Budapest","Europe/Belgrade","Europe/Bucharest","Europe/Vilnius","Europe/Istanbul","Europe/Tallinn","Europe/Warsaw","Europe/Ljubljana","Europe/Riga","Europe/Skopje","Europe/Bratislava","Europe/Sofia","Europe/Vienna","Europe/Zagreb","Europe/Prague","Europe/Kyiv","Europe/Moscow"]);
+    return eastern.has(zone) ? "Central and Eastern Europe" : "Western Europe";
+  }
+  if(zone.startsWith("Africa/") || zone.startsWith("Indian/Mauritius") || zone.startsWith("Indian/Reunion")) return "South Africa";
+  if(zone.startsWith("Pacific/")) return "Pacific Islands";
+  const southAmerica=new Set(["America/Sao_Paulo","America/Argentina/Buenos_Aires","America/Argentina/Cordoba","America/Argentina/Mendoza","America/Santiago","America/Lima","America/Bogota","America/Guayaquil","America/La_Paz","America/Montevideo","America/Caracas","America/Asuncion","America/Cuiaba","America/Fortaleza"]);
+  if(southAmerica.has(zone)) return "South America";
+  if(zone.startsWith("America/")) return "North America";
+  return null;
+}
+
+function flightDutyGroupsForLayover(){
+  const rows=getRows();
+  const groups=[];
+  const seen=new Set();
+  rows.forEach((row,index)=>{
+    const item=String(row?.item||"").trim().toUpperCase();
+    if(!/^MH\d+/.test(item) || row?._overnightContinuation) return;
+    const key=row._dutyGroup || [row.date,row.dutyStart,index].join("|");
+    if(seen.has(key)) return;
+    seen.add(key);
+    const members=row._dutyGroup ? rows.filter(r=>r._dutyGroup===row._dutyGroup) : [row];
+    const flights=members.filter(r=>/^MH\d+/i.test(String(r?.item||"")) && !r?._overnightContinuation);
+    if(!flights.length) return;
+    const anchor=members.find(r=>String(r?.dutyStart||"").trim()) || row;
+    const report=smartDutyReportUtcMs(anchor);
+    const dutyMinutes=toMinutes(anchor?._totalDuty||anchor?.duty||members.find(r=>toMinutes(r?.duty)>0)?.duty);
+    if(!Number.isFinite(report) || !(dutyMinutes>0)) return;
+    const last=flights[flights.length-1];
+    const first=flights[0];
+    const destination=(parseStationClock(last?.arr)||{}).station;
+    const departure=(parseStationClock(first?.dep)||{}).station;
+    if(!destination || !departure) return;
+    groups.push({key,anchor,members,flights,report,end:report+dutyMinutes*60000,departure,destination});
+  });
+  return groups.sort((a,b)=>a.report-b.report);
+}
+
+function ymdFromZoneParts(parts){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${String(parts.day).padStart(2,"0")}-${months[Number(parts.month)-1]}-${parts.year}`;
+}
+
+function enumerateLocalDatesBetween(startMs,endMs,timeZone){
+  const start=timePartsInZone(startMs,timeZone), end=timePartsInZone(endMs,timeZone);
+  let cursor=Date.UTC(Number(start.year),Number(start.month)-1,Number(start.day));
+  const stop=Date.UTC(Number(end.year),Number(end.month)-1,Number(end.day));
+  const out=[];
+  while(cursor<=stop){
+    const d=new Date(cursor);
+    const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    out.push(`${String(d.getUTCDate()).padStart(2,"0")}-${months[d.getUTCMonth()]}-${d.getUTCFullYear()}`);
+    cursor+=86400000;
+  }
+  return out;
+}
+
+function mealEntitlementsForLayover(startMs,endMs,airport,region){
+  const rate=LAYOVER_RATES[region];
+  if(!rate || !Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs<=startMs) return [];
+  const zone=airportTimezone(airport);
+  const windows=[
+    {key:"breakfast",label:"Breakfast",start:"07:01",end:"09:00"},
+    {key:"lunch",label:"Lunch",start:"12:01",end:"14:00"},
+    {key:"dinner",label:"Dinner",start:"19:01",end:"21:00"}
+  ];
+  const result=[];
+  enumerateLocalDatesBetween(startMs,endMs,zone).forEach(dateText=>{
+    windows.forEach(window=>{
+      const mealStart=zonedWallTimeToUtcMs(dateText,window.start,zone);
+      const mealEnd=zonedWallTimeToUtcMs(dateText,window.end,zone);
+      if(Number.isFinite(mealStart) && Number.isFinite(mealEnd) && startMs<mealEnd && endMs>mealStart){
+        result.push({date:dateText,key:window.key,label:window.label,amount:rate[window.key]});
+      }
+    });
+  });
+  return result;
+}
+
+function formatLayoverLocal(timestamp,airport){
+  const parts=timePartsInZone(timestamp,airportTimezone(airport));
+  return `${parts.day}-${parts.month}-${parts.year} ${parts.hour}:${parts.minute}`;
+}
+
+function calculateLayoverAllowances(){
+  const groups=flightDutyGroupsForLayover();
+  const base=baseAirportCode();
+  const layovers=[];
+  groups.forEach((group,index)=>{
+    if(group.destination===base) return;
+    const next=groups.slice(index+1).find(candidate=>candidate.report>group.end && candidate.departure===group.destination);
+    if(!next) return;
+    const region=layoverRegionForAirport(group.destination);
+    if(!region || !LAYOVER_RATES[region]) return;
+    const meals=mealEntitlementsForLayover(group.end,next.report,group.destination,region);
+    const amount=meals.reduce((sum,meal)=>sum+Number(meal.amount||0),0);
+    layovers.push({
+      airport:group.destination,region,start:group.end,end:next.report,
+      durationMinutes:Math.max(0,Math.round((next.report-group.end)/60000)),
+      meals,amount,fromItems:group.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / "),
+      nextItems:next.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / ")
+    });
+  });
+  return layovers;
+}
+
+function renderLayoverAllowance(){
+  const totalEl=$("#layoverEstimatedTotal");
+  if(!totalEl) return;
+  const layovers=calculateLayoverAllowances();
+  const total=layovers.reduce((sum,l)=>sum+l.amount,0);
+  const mealsCount=layovers.reduce((sum,l)=>sum+l.meals.length,0);
+  totalEl.textContent=moneyRM(total);
+  $("#layoverStayCount").textContent=`${layovers.length} ${layovers.length===1?"layover":"layovers"}`;
+  $("#layoverMealCount").textContent=`${mealsCount} qualifying ${mealsCount===1?"meal":"meals"}`;
+  $("#layoverBreakdownList").innerHTML=layovers.length ? layovers.map(l=>{
+    const mealText=l.meals.length ? l.meals.map(m=>`${m.label} ${moneyRM(m.amount)}`).join(" · ") : "No meal window encroached";
+    return `<div class="layover-breakdown-row"><div class="layover-main"><strong>${esc(l.airport)} · ${esc(l.region)}</strong><small>Duty End ${esc(formatLayoverLocal(l.start,l.airport))} → Report ${esc(formatLayoverLocal(l.end,l.airport))}</small><small>${hhmm(l.durationMinutes)} at destination · ${esc(mealText)}</small></div><span class="pay-breakdown-amount">${moneyRM(l.amount)}</span></div>`;
+  }).join("") : '<div class="pay-empty">No qualifying layover found between Duty End and the next Report Time in this roster.</div>';
+}
+
 
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";

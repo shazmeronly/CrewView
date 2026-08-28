@@ -325,16 +325,25 @@
 
     <div class="pay-section-panel hidden" id="payLayoverSection" data-pay-panel="layover">
       <section class="pay-layover-hero">
-        <small>LAYOVER ALLOWANCE</small>
-        <strong>Separate from Productivity</strong>
-        <span>Calculated from layover destination, duration and applicable meal/daily entitlement rules.</span>
+        <small>ESTIMATED LAYOVER ALLOWANCE</small>
+        <strong id="layoverEstimatedTotal">RM0.00</strong>
+        <span>Duty End at destination → next Report Time · destination local time</span>
+      </section>
+
+      <div class="layover-summary-grid">
+        <article class="pay-card"><div class="pay-card-title"><span>Detected stays</span><b id="layoverStayCount">0 layovers</b></div><p>Only outstation stays with a following report from the same station are included.</p></article>
+        <article class="pay-card"><div class="pay-card-title"><span>Meal entitlements</span><b id="layoverMealCount">0 qualifying meals</b></div><p>Breakfast 07:01–09:00 · Lunch 12:01–14:00 · Dinner 19:01–21:00, local time.</p></article>
+      </div>
+
+      <section class="pay-breakdown layover-breakdown">
+        <div class="pay-breakdown-heading"><h3>Layover breakdown</h3><span>Meal-by-meal</span></div>
+        <div id="layoverBreakdownList" class="pay-breakdown-list"></div>
       </section>
 
       <article class="pay-card pay-reference-card pay-layover-card">
-        <div class="pay-card-title"><span>Daily / Meal Allowance</span><b>REFERENCE</b></div>
-        <p>CrewView will calculate layover allowance independently from Productivity Allowance. It will not be added to the Productivity total.</p>
-        <div class="pay-rate-chips"><span>ANZ RM600/day</span><span>Middle East RM550/day</span><span>SE Asia RM420/day</span><span>Malaysia RM130/day</span></div>
-        <small class="pay-rule">Automatic layover amount remains disabled until the complete duration and meal entitlement rules are encoded.</small>
+        <div class="pay-card-title"><span>Regional rates</span><b>REFERENCE</b></div>
+        <div class="pay-rate-chips"><span>ANZ RM600/day</span><span>North America RM440/day</span><span>Western Europe RM550/day</span><span>Central/Eastern Europe RM430/day</span><span>South America RM470/day</span><span>East Asia RM430/day</span><span>SE Asia RM420/day</span><span>South Asia RM310/day</span><span>Central Asia RM470/day</span><span>Middle East RM550/day</span><span>Pacific Islands RM490/day</span><span>South Africa RM400/day</span><span>Malaysia RM130/day</span></div>
+        <small class="pay-rule">A full day rate is the sum of Breakfast + Lunch + Dinner. CrewView calculates each qualifying meal window separately.</small>
       </article>
     </div>
 
