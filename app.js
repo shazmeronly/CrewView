@@ -4011,23 +4011,6 @@ function moneyRM(value){
   return `RM${Number(value||0).toLocaleString("en-MY",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 }
 
-let paySubview="productivity";
-
-function switchPaySubview(section){
-  const next=section==="layover" ? "layover" : "productivity";
-  paySubview=next;
-  document.querySelectorAll(".pay-subtab[data-pay-section]").forEach(button=>{
-    const active=button.dataset.paySection===next;
-    button.classList.toggle("active",active);
-    button.setAttribute("aria-selected",active ? "true" : "false");
-  });
-  document.querySelectorAll("[data-pay-panel]").forEach(panel=>{
-    const active=panel.dataset.payPanel===next;
-    panel.classList.toggle("hidden",!active);
-    panel.setAttribute("aria-hidden",active ? "false" : "true");
-  });
-  try{localStorage.setItem("crewview-pay-section",next);}catch(_error){}
-}
 
 function renderPayView(){
   const gradeEl=$("#payGrade");
@@ -4035,8 +4018,6 @@ function renderPayView(){
   if(!gradeEl.dataset.userSelected){
     gradeEl.value=inferredPayGrade();
   }
-  const savedPaySection=(()=>{try{return localStorage.getItem("crewview-pay-section");}catch(_error){return null;}})();
-  switchPaySubview(savedPaySection||paySubview);
   const grade=gradeEl.value;
   const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
   const duties=payDutyGroups();
@@ -4062,7 +4043,10 @@ function renderPayView(){
   $("#payBreakdownList").innerHTML=duties.length ? duties.map(d=>{
     const amount=d.minutes/60*rule.pa;
     return `<div class="pay-breakdown-row"><div><strong>${esc(d.date)} · ${esc(d.items||"Flight")}</strong><small>${esc(d.route)}</small></div><span class="pay-breakdown-hours">${hhmm(d.minutes)}</span><span class="pay-breakdown-amount">${moneyRM(amount)}</span></div>`;
-  }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';  renderLayoverAllowance();
+  }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';
+  const layoverTotal=renderLayoverAllowance();
+  const combinedEl=$("#payCombinedTotal");
+  if(combinedEl) combinedEl.textContent=moneyRM(total+Number(layoverTotal||0));
 }
 
 
@@ -4328,8 +4312,9 @@ function renderLayoverAllowance(){
   $("#layoverBreakdownList").innerHTML=layovers.length ? layovers.map(l=>{
     const mealText=l.meals.length ? l.meals.map(m=>`${m.label} ${moneyRM(m.amount)}`).join(" · ") : "No meal window encroached";
     return `<div class="layover-breakdown-row"><div class="layover-main"><strong>${esc(l.airport)} · ${esc(l.region)}</strong><small>Duty End ${esc(formatLayoverLocal(l.start,l.airport))} → Report ${esc(formatLayoverLocal(l.end,l.airport))}</small><small>${hhmm(l.durationMinutes)} at destination · ${esc(mealText)}</small></div><span class="pay-breakdown-amount">${moneyRM(l.amount)}</span></div>`;
-  }).join("") : '<div class="pay-empty">No qualifying layover found between Duty End and the next Report Time in this roster.</div>';
+  }).join("") : '<div class="pay-empty">No qualifying layover found between Duty End and the next Report Time in this roster.</div>';  return total;
 }
+
 
 
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */

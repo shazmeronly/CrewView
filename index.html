@@ -284,12 +284,7 @@
       </label>
     </header>
 
-    <nav class="pay-subtabs" aria-label="Pay categories">
-      <button type="button" class="pay-subtab active" data-pay-section="productivity">Productivity</button>
-      <button type="button" class="pay-subtab" data-pay-section="layover">Layover Allowance</button>
-    </nav>
-
-    <div class="pay-section-panel" id="payProductivitySection" data-pay-panel="productivity">
+    <div class="pay-section-panel pay-unified-section" id="payProductivitySection">
       <section class="pay-total-card">
         <small>ESTIMATED PRODUCTIVITY</small>
         <strong id="payEstimatedTotal">RM0.00</strong>
@@ -323,7 +318,7 @@
       </section>
     </div>
 
-    <div class="pay-section-panel hidden" id="payLayoverSection" data-pay-panel="layover">
+    <div class="pay-section-panel pay-unified-section" id="payLayoverSection">
       <section class="pay-layover-hero">
         <small>ESTIMATED LAYOVER ALLOWANCE</small>
         <strong id="layoverEstimatedTotal">RM0.00</strong>
@@ -346,6 +341,12 @@
         <small class="pay-rule">A full day rate is the sum of Breakfast + Lunch + Dinner. CrewView calculates each qualifying meal window separately.</small>
       </article>
     </div>
+
+
+    <section class="pay-combined-total" aria-label="Estimated variable allowances total">
+      <div><small>ESTIMATED VARIABLE ALLOWANCES</small><span>Productivity + Layover Allowance</span></div>
+      <strong id="payCombinedTotal">RM0.00</strong>
+    </section>
 
     <p class="pay-disclaimer">Estimate only. CrewView is not an official payroll statement. Actual company payroll and eligibility rules prevail.</p>
   </div>
