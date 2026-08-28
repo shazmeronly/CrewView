@@ -4537,7 +4537,7 @@ function renderLayoverAllowance(){
 
 
 
-/* CrewView Timeline — chronological operational feed. */
+/* CrewView Timeline v138 — travel-day timeline with separate layover/off-day events. */
 function timelineDateInRosterPeriod(dateText){
   const d=parseRosterDate(dateText);
   if(!d) return false;
@@ -4545,35 +4545,39 @@ function timelineDateInRosterPeriod(dateText){
   return d>=officialRosterPeriod.start && d<=officialRosterPeriod.end;
 }
 
+function timelineClockLabel(value){
+  const text=String(value||"").trim();
+  const split=parseStationClock(text);
+  return {
+    station:split?.station||"",
+    time:split?.time||text||"—",
+    nextDay:Boolean(split?.nextDay)
+  };
+}
+
+function timelineClockDisplay(value){
+  const clock=timelineClockLabel(value);
+  return `${clock.time}${clock.nextDay?" (+1)":""}`;
+}
+
 function timelineFlightRoute(group){
   const flights=group?.flights||[];
   const route=[];
-
   flights.forEach((row,index)=>{
-    const depInfo=timelineClockLabel(row?.dep||row?._departure||"");
-    const arrInfo=timelineClockLabel(row?.arr||row?._arrival||"");
-    const dep=depInfo.station||String(row?._depStation||"").trim();
-    const arr=arrInfo.station||String(row?._arrStation||"").trim();
-
+    const dep=timelineClockLabel(row?.dep||row?._departure||"").station || String(row?._depStation||"").trim();
+    const arr=timelineClockLabel(row?.arr||row?._arrival||"").station || String(row?._arrStation||"").trim();
     if(index===0 && dep) route.push(dep);
     if(arr && route[route.length-1]!==arr) route.push(arr);
   });
-
   if(route.length<2){
     const first=flights[0]||{};
     const last=flights[flights.length-1]||first;
-    const fallbackDep=
-      timelineClockLabel(first?.dep||first?._departure||"").station ||
-      String(group?.departure||first?._depStation||"").trim();
-    const fallbackArr=
-      timelineClockLabel(last?.arr||last?._arrival||"").station ||
-      String(group?.destination||last?._arrStation||"").trim();
-
-    if(fallbackDep && !route.includes(fallbackDep)) route.unshift(fallbackDep);
-    if(fallbackArr && route[route.length-1]!==fallbackArr) route.push(fallbackArr);
+    const dep=timelineClockLabel(first?.dep||first?._departure||"").station || String(group?.departure||"").trim();
+    const arr=timelineClockLabel(last?.arr||last?._arrival||"").station || String(group?.destination||"").trim();
+    if(dep && !route.length) route.push(dep);
+    if(arr && route[route.length-1]!==arr) route.push(arr);
   }
-
-  return route.length>=2 ? route.join(" → ") : (route[0]||"—");
+  return route.length ? route.join(" → ") : "—";
 }
 
 function timelineDutyEnd(group){
@@ -4589,14 +4593,55 @@ function timelineFinalArrival(group){
 }
 
 function timelineAircraft(group){
-  const values=[...new Set((group?.flights||[])
-    .map(r=>String(r?.ac||"").trim())
-    .filter(Boolean))];
+  const values=[...new Set((group?.flights||[]).map(r=>String(r?.ac||"").trim()).filter(Boolean))];
   return values.join(" / ") || "—";
 }
 
 function timelineBlockMinutes(group){
   return (group?.flights||[]).reduce((sum,row)=>sum+toMinutes(row?.block),0);
+}
+
+function timelineDurationHuman(minutes){
+  const total=Math.max(0,Math.round(Number(minutes)||0));
+  const hours=Math.floor(total/60), mins=total%60;
+  if(!hours) return `${mins}m`;
+  if(!mins) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+}
+
+function timelineDateParts(dateText){
+  const d=parseRosterDate(dateText);
+  if(!d) return {day:"—",weekday:"",month:""};
+  return {
+    day:String(d.getDate()).padStart(2,"0"),
+    weekday:d.toLocaleDateString("en-US",{weekday:"short"}).toUpperCase(),
+    month:d.toLocaleDateString("en-US",{month:"short"}).toUpperCase()
+  };
+}
+
+function timelineDateFromTimestamp(timestamp,airport){
+  if(!Number.isFinite(timestamp)) return "";
+  return ymdFromZoneParts(timePartsInZone(timestamp,airportTimezone(airport)));
+}
+
+function timelineMealGroups(layover){
+  const groups=new Map();
+  (layover?.meals||[]).forEach(meal=>{
+    const key=String(meal.label||meal.key||"Meal");
+    if(!groups.has(key)) groups.set(key,{label:key,count:0,amount:0});
+    const item=groups.get(key);
+    item.count+=1;
+    item.amount+=Number(meal.amount||0);
+  });
+  return [...groups.values()];
+}
+
+function timelineOffDayRows(){
+  return getRows().filter(row=>{
+    if(!timelineDateInRosterPeriod(row?.date)) return false;
+    if(row?._overnightContinuation || row?._syntheticCalendarRow) return false;
+    return calendarCategory(row)==="off";
+  });
 }
 
 function timelineGroundEventRows(){
@@ -4618,186 +4663,196 @@ function timelineEvents(){
   flightDutyGroupsForLayover().forEach(group=>{
     const row=group.anchor;
     if(!timelineDateInRosterPeriod(row?.date)) return;
-
-    const items=[...new Set((group.flights||[])
-      .map(r=>String(r?.item||"").trim())
-      .filter(Boolean))];
-
+    const items=[...new Set((group.flights||[]).map(r=>String(r?.item||"").trim()).filter(Boolean))];
     const layover=layovers.find(l=>{
       const fromItems=String(l.fromItems||"").split(/\s*\/\s*/);
-      return l.fromDate===String(row.date||"") &&
-        items.some(item=>fromItems.includes(item));
+      return l.fromDate===String(row.date||"") && items.some(item=>fromItems.includes(item));
     }) || layoverForDuty(row);
-
-    const dutyMinutes=toMinutes(
-      row?.duty ||
-      (group.members||[]).find(r=>toMinutes(r?.duty)>0)?.duty
-    );
+    const dutyMinutes=toMinutes(row?.duty || (group.members||[]).find(r=>toMinutes(r?.duty)>0)?.duty);
+    const firstFlight=group.flights?.[0]||row;
+    const finalArrival=timelineFinalArrival(group);
+    const dep=timelineClockLabel(firstFlight?.dep||"");
+    const arr=timelineClockLabel(finalArrival);
 
     events.push({
       type:"flight",
       date:String(row.date||""),
-      day:String(row.day||dayName(row.date)||""),
       sort:Number(group.order||0),
       item:items.join(" / ")||String(row.item||""),
       route:timelineFlightRoute(group),
       report:String(row.dutyStart||"—"),
-      departure:String(group.flights?.[0]?.dep||"—"),
-      arrival:timelineFinalArrival(group),
+      reportStation:dep.station||group.departure||"",
+      departure:String(firstFlight?.dep||"—"),
+      arrival:finalArrival,
       dutyEnd:timelineDutyEnd(group),
-      work:[...new Set((group.flights||[]).map(r=>String(r?.work||"").trim()).filter(Boolean))].join(" / ")||"—",
+      dutyEndStation:arr.station||group.destination||"",
+      work:[...new Set((group.flights||[]).map(r=>String(r?.work||"").trim()).filter(Boolean))].join(" / ")||"FLIGHT",
       aircraft:timelineAircraft(group),
       blockMinutes:timelineBlockMinutes(group),
       dutyMinutes,
       productivity:productivityAllowanceForDuty(row),
       layover
     });
+
+    if(layover){
+      events.push({
+        type:"layover",
+        date:timelineDateFromTimestamp(layover.start,layover.airport)||String(row.date||""),
+        sort:Number(layover.start||group.order||0)+1,
+        layover
+      });
+    }
   });
 
   timelineGroundEventRows().forEach((row,index)=>{
     const date=parseRosterDate(row.date);
     const tm=String(row.dutyStart||"").match(/(\d{1,2}):(\d{2})/);
     const sort=(date?.getTime()||0)+(tm?(Number(tm[1])*60+Number(tm[2]))*60000:index);
-
     events.push({
       type:"ground",
       date:String(row.date||""),
-      day:String(row.day||dayName(row.date)||""),
       sort,
       item:String(row.item||"Duty"),
-      route:String(row.work||calendarCategory(row)||"Ground Duty"),
+      category:calendarCategory(row),
       report:String(row.dutyStart||"—"),
       departure:String(row.dep||"—"),
       arrival:String(row.arr||"—"),
       dutyEnd:String(row.dutyEnd||"—"),
-      work:String(row.work||"—"),
-      aircraft:String(row.ac||"—"),
-      blockMinutes:toMinutes(row.block),
       dutyMinutes:toMinutes(row.duty),
-      productivity:0,
-      layover:null
+      work:String(row.work||"")
+    });
+  });
+
+  timelineOffDayRows().forEach((row,index)=>{
+    const date=parseRosterDate(row.date);
+    events.push({
+      type:"off",
+      date:String(row.date||""),
+      sort:(date?.getTime()||0)+12*60*60000+index,
+      item:String(row.item||"D")
     });
   });
 
   return events.sort((a,b)=>a.sort-b.sort);
 }
 
-function timelineDateLabel(dateText,dayText){
-  const d=parseRosterDate(dateText);
-  if(!d) return dateText||"—";
-  return `${String(d.getDate()).padStart(2,"0")} ${d.toLocaleString("en-US",{month:"short"}).toUpperCase()} · ${(dayText||dayName(dateText)||"").toUpperCase()}`;
+function timelineDateRail(dateText,isToday=false){
+  const p=timelineDateParts(dateText);
+  return `<div class="cv-tl-date">${isToday?'<b>TODAY</b>':''}<strong>${esc(p.day)}</strong><span>${esc(p.weekday)}</span><small>${esc(p.month)}</small></div>`;
 }
 
-function timelineClockLabel(value){
-  const text=String(value||"").trim();
-  const split=parseStationClock(text);
-  return {
-    station:split?.station||"",
-    time:split?.time||text||"—"
-  };
+function timelineIsToday(dateText){
+  const d=parseRosterDate(dateText);
+  const now=new Date();
+  return Boolean(d && d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate());
+}
+
+function timelineFlightCard(event){
+  const dep=timelineClockLabel(event.departure);
+  const arr=timelineClockLabel(event.arrival);
+  const routeParts=String(event.route||"").split(" → ").filter(Boolean);
+  const origin=routeParts[0]||event.reportStation||dep.station||"—";
+  const destination=routeParts[routeParts.length-1]||event.dutyEndStation||arr.station||"—";
+  const aircraft=event.aircraft&&event.aircraft!=="—"?event.aircraft:"A/C";
+  const layoverAmount=Number(event.layover?.amount||0);
+  return `<article class="cv-tl-card cv-tl-flight-card">
+    <header class="cv-tl-flight-head">
+      <span class="cv-tl-icon cv-tl-icon-flight">✈</span>
+      <div class="cv-tl-flight-title"><strong>${esc(event.item)}</strong><span>${esc(event.route)}</span></div>
+      <span class="cv-tl-aircraft">${esc(aircraft)}</span>
+    </header>
+    <div class="cv-tl-stages">
+      <div class="cv-tl-stage cv-tl-stage-report"><time>${esc(event.report)}</time><i></i><div><strong>Report</strong><small>${esc(event.reportStation||origin)}</small></div></div>
+      <div class="cv-tl-stage cv-tl-stage-dep"><time>${esc(timelineClockDisplay(event.departure))}</time><i></i><div><strong>Departure</strong><small>${esc(dep.station||origin)}</small></div></div>
+      <div class="cv-tl-flight-strip"><span>${esc(origin)}</span><b>✈</b><em>${event.blockMinutes?timelineDurationHuman(event.blockMinutes):"En Route"}</em><span>${esc(destination)}</span></div>
+      <div class="cv-tl-stage cv-tl-stage-arr"><time>${esc(timelineClockDisplay(event.arrival))}</time><i></i><div><strong>Arrival</strong><small>${esc(arr.station||destination)}</small></div></div>
+      <div class="cv-tl-stage cv-tl-stage-end"><time>${esc(timelineClockDisplay(event.dutyEnd))}</time><i></i><div><strong>Duty End</strong><small>${esc(event.dutyEndStation||destination)}</small></div></div>
+    </div>
+    <div class="cv-tl-flight-footer">
+      <div><small>BLOCK TIME</small><strong>${event.blockMinutes?hhmm(event.blockMinutes):"—"}</strong></div>
+      <div><small>DUTY TIME</small><strong>${event.dutyMinutes?hhmm(event.dutyMinutes):"—"}</strong></div>
+      <div class="cv-tl-flight-money"><small>ALLOWANCES</small><span>${event.productivity?`Prod <strong>${moneyRM(event.productivity)}</strong>`:""}${layoverAmount?`<em>Layover <strong>${moneyRM(layoverAmount)}</strong></em>`:""}</span></div>
+    </div>
+  </article>`;
+}
+
+function timelineLayoverCard(event){
+  const l=event.layover;
+  const hotel=String(l?.hotel||"").trim()||"Hotel not listed";
+  const nextLocal=formatLayoverLocal(l.end,l.airport);
+  const groups=timelineMealGroups(l);
+  const mealHtml=groups.length?groups.map(group=>{
+    const icon=group.label.toLowerCase().includes("breakfast")?"☕":group.label.toLowerCase().includes("lunch")?"🍴":"◒";
+    const count=group.count>1?` ×${group.count}`:"";
+    return `<div><span>${icon}</span><small>${esc(group.label)}${count}</small><strong>${moneyRM(group.amount)}</strong></div>`;
+  }).join(""):'<div class="cv-tl-no-meal"><small>No qualifying meal window</small></div>';
+  const active=Date.now()>=l.start && Date.now()<l.end;
+  const remain=active?timelineDurationHuman(Math.max(0,Math.round((l.end-Date.now())/60000))):"";
+  return `<article class="cv-tl-card cv-tl-layover-card">
+    <header class="cv-tl-layover-head">
+      <span class="cv-tl-icon cv-tl-icon-layover">☾</span>
+      <div><strong>${esc(l.airport)} Layover</strong><span>${esc(l.region||"")}</span></div>
+      <b>${timelineDurationHuman(l.durationMinutes)}</b>
+    </header>
+    <div class="cv-tl-layover-core">
+      <div><small>HOTEL</small><strong>🏨 ${esc(hotel)}</strong></div>
+      <div><small>${active?"NEXT REPORT IN":"NEXT REPORT · LOCAL"}</small><strong>${active?esc(remain):esc(nextLocal)}</strong>${active?`<span>${esc(nextLocal)}</span>`:""}</div>
+    </div>
+    <div class="cv-tl-layover-allowance"><small>LAYOVER ALLOWANCE</small><strong>${moneyRM(l.amount)}</strong></div>
+    <div class="cv-tl-meals">${mealHtml}</div>
+  </article>`;
+}
+
+function timelineGroundCard(event){
+  const dep=timelineClockLabel(event.departure), arr=timelineClockLabel(event.arrival);
+  const label=event.category==="standby"?"Standby":event.category==="training"?"Training / Ground Duty":"Ground Duty";
+  return `<article class="cv-tl-card cv-tl-ground-card">
+    <header><span class="cv-tl-icon cv-tl-icon-ground">▣</span><div><strong>${esc(event.item)}</strong><span>${esc(label)}</span></div></header>
+    <div class="cv-tl-ground-times"><span><small>START</small><strong>${esc(event.report)}</strong></span><span><small>END</small><strong>${esc(event.dutyEnd||arr.time||"—")}</strong></span><span><small>DUTY</small><strong>${event.dutyMinutes?hhmm(event.dutyMinutes):"—"}</strong></span></div>
+  </article>`;
+}
+
+function timelineOffCard(){
+  return `<article class="cv-tl-card cv-tl-off-card"><span class="cv-tl-icon cv-tl-icon-off">☀</span><div><strong>OFF DAY</strong><span>No duties scheduled</span></div></article>`;
 }
 
 function renderTimelineView(){
   const list=$("#timelineList");
   if(!list) return;
-
   const events=timelineEvents();
-  const layovers=events.filter(e=>e.layover);
-  const allowanceTotal=events.reduce(
-    (sum,e)=>sum+Number(e.productivity||0)+Number(e.layover?.amount||0),
-    0
-  );
-
   const month=loadedRosterMonth();
-  $("#timelineMonthLabel").textContent=month
-    ? month.toLocaleDateString("en-US",{month:"long",year:"numeric"})
-    : "Loaded roster";
-  $("#timelineDutyCount").textContent=events.length;
-  $("#timelineLayoverCount").textContent=layovers.length;
-  $("#timelineAllowanceTotal").textContent=moneyRM(allowanceTotal);
-
+  const monthLabel=month?month.toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase():"LOADED ROSTER";
+  $("#timelineMonthLabel").textContent=monthLabel;
   if(!events.length){
-    list.innerHTML='<div class="timeline-empty">No duties found in this roster.</div>';
+    list.innerHTML='<div class="timeline-empty">No roster events found.</div>';
     return;
   }
 
   const now=Date.now();
   let nextMarked=false;
-
-  list.innerHTML=events.map((event,index)=>{
-    const dep=timelineClockLabel(event.departure);
-    const arr=timelineClockLabel(event.arrival);
-    const eventStart=event.sort||0;
-    const isNext=!nextMarked && eventStart>=now;
+  list.innerHTML=events.map(event=>{
+    const isNext=!nextMarked && Number(event.sort||0)>=now;
     if(isNext) nextMarked=true;
-
-    const category=event.type==="flight" ? "flight" : calendarCategory({
-      item:event.item,work:event.work
-    });
-    const layover=event.layover;
-    const hotel=layover ? (layover.hotel||"Hotel not listed") : "";
-    const nextReport=layover ? formatLayoverLocal(layover.end,layover.airport) : "";
-
-    return `
-      <div class="timeline-entry ${isNext?"is-next":""}" data-timeline-date="${esc(event.date)}">
-        <div class="timeline-rail" aria-hidden="true"><span></span></div>
-        <article class="timeline-event timeline-${esc(category)}">
-          <div class="timeline-event-top">
-            <div>
-              <small>${esc(timelineDateLabel(event.date,event.day))}</small>
-              <strong>${esc(event.item)}</strong>
-            </div>
-            <span class="timeline-badge">${esc(event.type==="flight"?(event.work||"FLIGHT"):(event.route||"DUTY"))}</span>
-          </div>
-
-          <div class="timeline-route">${event.type==="flight"?"✈":"▣"} <strong>${esc(event.route)}</strong></div>
-
-          <div class="timeline-times">
-            <div><small>REPORT</small><strong>${esc(event.report)}</strong></div>
-            <div><small>DEP</small><strong>${esc(dep.time)}</strong><span>${esc(dep.station)}</span></div>
-            <div><small>ARR</small><strong>${esc(arr.time)}</strong><span>${esc(arr.station)}</span></div>
-            <div><small>DUTY END</small><strong>${esc(event.dutyEnd)}</strong></div>
-          </div>
-
-          <div class="timeline-metrics">
-            <span><small>Block</small><strong>${event.blockMinutes?hhmm(event.blockMinutes):"—"}</strong></span>
-            <span><small>Duty</small><strong>${event.dutyMinutes?hhmm(event.dutyMinutes):"—"}</strong></span>
-            <span><small>A/C</small><strong>${esc(event.aircraft)}</strong></span>
-          </div>
-
-          ${event.type==="flight" ? `
-          <div class="timeline-money">
-            <span>Productivity <strong>${moneyRM(event.productivity)}</strong></span>
-            ${layover?`<span>Layover <strong>${moneyRM(layover.amount)}</strong></span>`:""}
-          </div>` : ""}
-
-          ${layover ? `
-          <div class="timeline-layover">
-            <div class="timeline-hotel">
-              <span>🏨</span>
-              <div><small>LAYOVER IN ${esc(layover.airport)}</small><strong>${esc(hotel)}</strong></div>
-            </div>
-            <div class="timeline-layover-meta">
-              <span><small>AT DESTINATION</small><strong>${hhmm(layover.durationMinutes)}</strong></span>
-              <span><small>NEXT REPORT · LOCAL</small><strong>${esc(nextReport)}</strong></span>
-            </div>
-          </div>` : ""}
-        </article>
-      </div>`;
+    const today=timelineIsToday(event.date);
+    const card=event.type==="flight"?timelineFlightCard(event):event.type==="layover"?timelineLayoverCard(event):event.type==="off"?timelineOffCard():timelineGroundCard(event);
+    return `<div class="cv-tl-item cv-tl-${event.type} ${isNext?"is-next":""}" data-timeline-date="${esc(event.date)}">
+      ${timelineDateRail(event.date,today)}
+      <div class="cv-tl-spine"><span></span></div>
+      ${card}
+    </div>`;
   }).join("");
 }
 
 function scrollTimelineToToday(){
-  const today=new Date();
-  const monthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const key=`${String(today.getDate()).padStart(2,"0")}-${monthNames[today.getMonth()]}-${today.getFullYear()}`;
+  const now=new Date();
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const key=`${String(now.getDate()).padStart(2,"0")}-${months[now.getMonth()]}-${now.getFullYear()}`;
   const exact=document.querySelector(`[data-timeline-date="${key}"]`);
-  const target=exact || document.querySelector(".timeline-entry.is-next") || document.querySelector(".timeline-entry");
+  const target=exact||document.querySelector(".cv-tl-item.is-next")||document.querySelector(".cv-tl-item");
   target?.scrollIntoView({behavior:"smooth",block:"center"});
 }
 
 $("#timelineToday")?.addEventListener("click",scrollTimelineToToday);
-
 
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";

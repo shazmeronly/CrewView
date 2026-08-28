@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=137">
+<link rel="stylesheet" href="style.css?v=138">
 </head>
 <body>
 <header>
@@ -380,27 +380,12 @@
 
 <section class="timeline-view hidden" id="timelineView" aria-label="Roster timeline view">
   <div class="timeline-shell">
-    <header class="timeline-header">
-      <div>
-        <span class="timeline-eyebrow">CREWVIEW TIMELINE</span>
-        <h2>Timeline</h2>
-        <p id="timelineMonthLabel">Your roster in chronological order</p>
-      </div>
+    <div class="timeline-monthbar">
+      <div class="timeline-month-title"><span aria-hidden="true">▣</span><strong id="timelineMonthLabel">LOADED ROSTER</strong></div>
       <button type="button" class="timeline-today" id="timelineToday">Today</button>
-    </header>
-
-    <div class="timeline-summary">
-      <div><strong id="timelineDutyCount">0</strong><small>Duties</small></div>
-      <div><strong id="timelineLayoverCount">0</strong><small>Layovers</small></div>
-      <div><strong id="timelineAllowanceTotal">RM0.00</strong><small>Est. Allowances</small></div>
     </div>
-
     <div class="timeline-list" id="timelineList"></div>
-
-    <p class="timeline-note">
-      Timeline uses the loaded roster. Hotel names appear only when provided in the roster.
-      Allowances are estimates based on the rules currently encoded in CrewView.
-    </p>
+    <p class="timeline-note">Hotels are shown only when provided by the roster. Allowance figures are CrewView estimates.</p>
   </div>
 </section>
 
@@ -597,7 +582,7 @@ if("serviceWorker" in navigator){
   });
 }
 </script>
-<script type="module" src="app.js?v=137"></script>
+<script type="module" src="app.js?v=138"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>
