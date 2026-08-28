@@ -5473,3 +5473,91 @@ body .calendar-selected.v125-duty-sheet.open{
     transform:translateX(-50%) !important;
   }
 }
+
+
+/* v128 Smart Duty three-state redesign */
+.smart-duty-state-overview{
+  margin:10px 20px 0;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  overflow:hidden;
+  background:rgba(1,18,39,.26);
+}
+.smart-duty-timing-row{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  padding:12px 8px;
+}
+.smart-duty-timing-row>div{
+  display:grid;gap:3px;text-align:center;padding:0 8px;
+  border-right:1px solid rgba(255,255,255,.10)
+}
+.smart-duty-timing-row>div:last-child{border-right:0}
+.smart-duty-timing-row small,.smart-duty-allowance-row small{
+  font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(230,240,255,.72)
+}
+.smart-duty-timing-row strong{font-size:14px;color:#fff}
+.smart-duty-timing-row span{font-size:10px;color:rgba(230,240,255,.66)}
+
+.smart-duty-route-status{
+  display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+  padding:14px 12px;border-bottom:1px solid rgba(255,255,255,.09)
+}
+.smart-duty-route-status>div:first-child,.smart-duty-route-status>div:last-child{display:flex;gap:7px;align-items:center}
+.smart-duty-route-status strong{font-size:12px;color:#dbeafe;white-space:nowrap}
+.smart-duty-route-line{display:flex;align-items:center;gap:7px;min-width:0}
+.smart-duty-route-line i{height:1px;flex:1;background:linear-gradient(90deg,#22c55e,#a855f7)}
+.smart-duty-route-line b{font-size:9px;color:#c4b5fd;white-space:nowrap}
+
+.smart-duty-allowance-row{
+  display:grid;grid-template-columns:1fr 1fr;
+  border-top:1px solid rgba(255,255,255,.08)
+}
+.smart-duty-allowance-row>div{
+  text-align:center;padding:12px 10px;display:grid;gap:4px
+}
+.smart-duty-allowance-row>div+div{border-left:1px solid rgba(255,255,255,.10)}
+.smart-duty-allowance-row strong{font-size:18px;color:#34d399}
+
+#nextDutyCard.state-active{
+  background:linear-gradient(145deg,#231048,#111b3b 68%,#152d50)!important;
+  border-color:rgba(168,85,247,.42)!important;
+}
+#nextDutyCard.state-layover{
+  background:linear-gradient(145deg,#30104f,#18133d 72%,#251348)!important;
+  border-color:rgba(192,132,252,.5)!important;
+}
+#nextDutyCard.state-layover .smart-duty-state-overview{background:rgba(36,16,66,.45)}
+#nextDutyCard.state-layover .smart-duty-timing-row{display:grid!important}
+#nextDutyCard.state-layover .smart-duty-route-status{display:none!important}
+
+#nextDutyCard.state-active .smart-duty-expand-btn{
+  margin-top:8px!important;
+}
+#nextDutyCard.state-active.smart-duty-expanded .smart-duty-live{
+  margin-top:10px;
+  border-top:1px solid rgba(255,255,255,.10);
+}
+
+/* Keep the operational "fill in hours" workspace prominent during duty */
+#nextDutyCard.state-active .pilot-ops-panel{
+  margin-top:10px!important;
+  border-radius:14px!important;
+  background:rgba(5,12,30,.38)!important;
+}
+#nextDutyCard.state-active .pilot-ops-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+#nextDutyCard.state-active .ops-duty-end-field{grid-column:1/-1}
+
+@media(max-width:480px){
+  .smart-duty-state-overview{margin-inline:14px}
+  .smart-duty-timing-row{padding:10px 3px}
+  .smart-duty-timing-row>div{padding-inline:4px}
+  .smart-duty-timing-row strong{font-size:12px}
+  .smart-duty-timing-row small{font-size:8px}
+  .smart-duty-allowance-row strong{font-size:16px}
+  #nextDutyCard.state-active .pilot-ops-grid{grid-template-columns:1fr 1fr!important}
+}

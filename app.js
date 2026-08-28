@@ -3129,6 +3129,54 @@ function setSmartDutyExpanded(expanded){
   }
 }
 
+
+function renderSmartDutyStateOverview(row,state,dutyLayover){
+  const depText=String(row.dep||"");
+  const arrText=String(row._arrival||row.arr||"");
+  const dutyEndText=String(row._finalDutyEnd||row.dutyEnd||"");
+  const depDate=row.date;
+  const arrDate=smartDutyDateForNextDay(row.date,arrText);
+  const endDate=smartDutyDateForNextDay(row.date,dutyEndText);
+
+  $("#smartDutyDepTime").textContent=smartDutyClockParts(depText);
+  $("#smartDutyDepDate").textContent=smartDutyShortDate(depDate);
+  $("#smartDutyArrTime").textContent=smartDutyClockParts(arrText);
+  $("#smartDutyArrDate").textContent=smartDutyShortDate(arrDate);
+  $("#smartDutyEndTime").textContent=smartDutyClockParts(dutyEndText);
+  $("#smartDutyEndDate").textContent=smartDutyShortDate(endDate);
+
+  if(dutyLayover){
+    const nextParts=formatLayoverLocal(dutyLayover.end,dutyLayover.airport).split(" ");
+    $("#smartDutyNextReportTime").textContent=nextParts.pop()||"—";
+    $("#smartDutyNextReportDate").textContent=smartDutyShortDate(nextParts.join(" "));
+  }else{
+    $("#smartDutyNextReportTime").textContent="—";
+    $("#smartDutyNextReportDate").textContent="—";
+  }
+
+  $("#smartDutyProductivityAllowance").textContent=moneyRM(productivityAllowanceForDuty(row));
+  $("#smartDutyLayoverAllowance").textContent=moneyRM(dutyLayover?.amount||0);
+
+  const routeStatus=$("#smartDutyRouteStatus");
+  const timingRow=$("#smartDutyTimingRow");
+  routeStatus?.classList.toggle("hidden",state!=="active");
+  timingRow?.classList.toggle("hidden",state==="active");
+
+  if(state==="active"){
+    const record=operationalRecord(row);
+    const pushback=operationalEvent(record,"pushback");
+    const landing=operationalEvent(record,"landing");
+    const dep=Number.isFinite(pushback.at) ? `${pushback.time} UTC` : `Dep ${smartDutyClockParts(depText)}`;
+    const arr=Number.isFinite(landing.at) ? `${landing.time} UTC` : `Arr ${smartDutyClockParts(arrText)}`;
+    $("#smartDutyRouteStatusLeft").textContent=dep;
+    $("#smartDutyRouteStatusRight").textContent=arr;
+    $("#smartDutyRouteStatusCenter").textContent=smartDutyPhase(row,record,smartCrewRole());
+  }
+
+  const overview=$("#smartDutyStateOverview");
+  overview?.classList.toggle("layover-state",state==="layover");
+}
+
 function refreshSmartDutyCard(force=false){
   const card=$("#nextDutyCard");
   if(!card) return;
@@ -3192,6 +3240,7 @@ function refreshSmartDutyCard(force=false){
     $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
     $("#nextDutyAircraft").textContent=row.ac||"—";
     const dutyLayover=selectionLayover||layoverForDuty(row);
+    renderSmartDutyStateOverview(row,state,dutyLayover);
     $("#smartDutyLayoverStrip")?.classList.toggle("hidden",!dutyLayover);
     if(dutyLayover){
       $("#smartDutyLayoverStation").textContent=`Layover in ${dutyLayover.airport}`;
@@ -3273,6 +3322,8 @@ function refreshSmartDutyCard(force=false){
   if(role==="pilot" && smartDutyIsFlight(row)){
     setSmartDutyOperationalInputs(row);
   }
+
+  renderSmartDutyStateOverview(row,state,selectionLayover||layoverForDuty(row));
 
   if(state==="active"){
     $("#smartDutyCountdownLabel").textContent="Elapsed";
@@ -4076,6 +4127,35 @@ function moneyRM(value){
   return `RM${Number(value||0).toLocaleString("en-MY",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 }
 
+
+
+function productivityAllowanceForDuty(row){
+  if(!row) return 0;
+  const gradeEl=$("#payGrade");
+  const grade=(gradeEl?.value)||inferredPayGrade();
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+
+  const item=String(row.item||"").trim().toUpperCase();
+  const work=String(row.work||"").trim().toUpperCase();
+  if(!/^MH\d+/.test(item) || !["OP","PS","SFP"].includes(work)) return 0;
+  if(isPayStandby(row) || isPayObservation(row)) return 0;
+
+  const minutes=toMinutes(row._totalDuty||row.duty);
+  return minutes>0 ? minutes/60*rule.pa : 0;
+}
+
+function smartDutyClockParts(text){
+  const m=String(text||"").match(/(\d{1,2}):(\d{2})/);
+  return m ? `${String(m[1]).padStart(2,"0")}:${m[2]}` : "—";
+}
+function smartDutyShortDate(dateText){
+  const d=parseRosterDate(dateText);
+  if(!d) return "—";
+  return `${String(d.getDate()).padStart(2,"0")} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]}`;
+}
+function smartDutyDateForNextDay(dateText,value){
+  return /\(\+1\)/.test(String(value||"")) ? addRosterDays(dateText,1) : dateText;
+}
 
 function renderPayView(){
   const gradeEl=$("#payGrade");
