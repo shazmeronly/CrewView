@@ -6496,3 +6496,330 @@ body > header,
     flex-basis:27px!important;
   }
 }
+
+
+/* =========================================================
+   CrewView v156 — clean branded A4 landscape PDF export
+   Final override intentionally sits at the end of style.css.
+   ========================================================= */
+
+.pdf-brand-header{display:none}
+
+@media print{
+  @page{
+    size:A4 landscape;
+    margin:7mm;
+  }
+
+  html,
+  body{
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+    margin:0!important;
+    padding:0!important;
+    background:#fff!important;
+  }
+
+  body{
+    color:#102033!important;
+  }
+
+  /* App-only UI must never appear in the exported roster. */
+  body > header,
+  header,
+  #uploadCard,
+  .upload-card,
+  #nextDutyCard,
+  #viewSwitcher,
+  .view-switcher,
+  .calendar-view,
+  #calendarView,
+  #timelineView,
+  #payView,
+  .pay-view,
+  footer,
+  .help,
+  .status,
+  .theme-toggle,
+  #profileForm,
+  .actions,
+  .calendar-header{
+    display:none!important;
+  }
+
+  main{
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+  }
+
+  #classicView{
+    display:block!important;
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  /* Branded print header */
+  .pdf-brand-header{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    width:100%!important;
+    min-height:12mm!important;
+    margin:0 0 2.5mm!important;
+    padding:0 1mm 2mm!important;
+    border-bottom:.45mm solid #159CFF!important;
+    break-inside:avoid!important;
+  }
+
+  .pdf-brand-lockup{
+    display:flex!important;
+    align-items:center!important;
+    gap:2mm!important;
+  }
+
+  .pdf-brand-lockup img{
+    display:block!important;
+    width:9.5mm!important;
+    height:9.5mm!important;
+    object-fit:contain!important;
+  }
+
+  .pdf-brand-lockup strong{
+    display:flex!important;
+    align-items:baseline!important;
+    font-size:6mm!important;
+    line-height:1!important;
+    letter-spacing:-.35mm!important;
+    font-weight:850!important;
+  }
+
+  .pdf-brand-lockup strong span{
+    color:#102033!important;
+  }
+
+  .pdf-brand-lockup strong b{
+    color:#0D6EFD!important;
+    font-weight:850!important;
+  }
+
+  .pdf-brand-copy{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-end!important;
+    gap:.5mm!important;
+    line-height:1.15!important;
+  }
+
+  .pdf-brand-copy strong{
+    color:#102033!important;
+    font-size:3.2mm!important;
+  }
+
+  .pdf-brand-copy small{
+    color:#64748b!important;
+    font-size:2.15mm!important;
+  }
+
+  /* Crew identity strip */
+  .compact-profile,
+  #compactProfile{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    width:100%!important;
+    min-height:7mm!important;
+    margin:0 0 2mm!important;
+    padding:1.6mm 2.4mm!important;
+    border:.35mm solid #334b63!important;
+    border-radius:1.7mm!important;
+    background:#0f1a25!important;
+    box-shadow:none!important;
+    break-inside:avoid!important;
+  }
+
+  #compactName{
+    color:#fff!important;
+    -webkit-text-fill-color:#fff!important;
+    font-size:2.65mm!important;
+    font-weight:850!important;
+  }
+
+  #compactMeta{
+    color:#dbe5ef!important;
+    -webkit-text-fill-color:#dbe5ef!important;
+    font-size:2.25mm!important;
+  }
+
+  #resultCard{
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:2mm!important;
+    border:.35mm solid #283d53!important;
+    border-radius:2mm!important;
+    background:#0f1a25!important;
+    box-shadow:none!important;
+    break-inside:avoid!important;
+    overflow:hidden!important;
+  }
+
+  .legend{
+    display:flex!important;
+    align-items:center!important;
+    flex-wrap:wrap!important;
+    gap:1.2mm 2.5mm!important;
+    margin:0 0 1.5mm!important;
+    padding:0!important;
+    color:#d7e2ed!important;
+    font-size:2.05mm!important;
+    line-height:1!important;
+  }
+
+  .legend-item{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:.8mm!important;
+  }
+
+  .swatch{
+    width:2.2mm!important;
+    height:2.2mm!important;
+    border-radius:.55mm!important;
+  }
+
+  .fit-shell,
+  .table-wrap,
+  .scale-stage{
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    overflow:visible!important;
+    transform:none!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  #rosterTable,
+  table{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    table-layout:fixed!important;
+    border-collapse:collapse!important;
+    font-size:2.15mm!important;
+    color:#e6edf5!important;
+  }
+
+  #rosterTable th,
+  #rosterTable td{
+    height:4.15mm!important;
+    min-height:0!important;
+    padding:.42mm .65mm!important;
+    border-right:.22mm solid #405368!important;
+    border-bottom:.22mm solid #405368!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:clip!important;
+    line-height:1.03!important;
+    vertical-align:middle!important;
+  }
+
+  #rosterTable th{
+    position:static!important;
+    background:#604a16!important;
+    color:#fff7d7!important;
+    font-size:1.85mm!important;
+    font-weight:850!important;
+    text-align:center!important;
+  }
+
+  /* Keep current CrewView roster cell colours in print. */
+  #rosterTable tbody td:nth-child(1){background:#1e5f91!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(2){background:#59488b!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(3){background:#7b621a!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(4){background:#17603d!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(5),
+  #rosterTable tbody td:nth-child(6),
+  #rosterTable tbody td:nth-child(7){background:#176279!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(8){background:#435060!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(9),
+  #rosterTable tbody td:nth-child(10){background:#834817!important;color:#fff!important}
+  #rosterTable tbody td:nth-child(11){background:#4a5563!important;color:#fff!important}
+
+  #rosterTable tbody tr.row-off td{
+    background:#4a5665!important;
+    color:#fff!important;
+  }
+
+  #rosterTable tbody tr.row-training td{
+    background:#8c174d!important;
+    color:#fff!important;
+  }
+
+  #rosterTable tbody tr.row-positioning td{
+    background:#167b73!important;
+    color:#fff!important;
+  }
+
+  #rosterTable tbody tr.row-empty td:not(:nth-child(1)):not(:nth-child(2)),
+  #rosterTable tbody tr[data-blank-calendar="1"] td:not(:nth-child(1)):not(:nth-child(2)){
+    background:#536170!important;
+    color:#e7edf4!important;
+  }
+
+  .summary,
+  .compact-summary{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    width:100%!important;
+    gap:1.5mm!important;
+    margin:1.6mm 0 0!important;
+  }
+
+  .stat{
+    min-height:9mm!important;
+    padding:1.3mm 2mm!important;
+    border:.3mm solid #40556d!important;
+    border-radius:1.6mm!important;
+    background:#0d1824!important;
+    box-shadow:none!important;
+  }
+
+  .stat small{
+    color:#aebdcb!important;
+    font-size:1.9mm!important;
+  }
+
+  .stat strong{
+    display:block!important;
+    margin-top:.6mm!important;
+    color:#fff!important;
+    font-size:3.3mm!important;
+    line-height:1!important;
+  }
+
+  *{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+}
+
+/* Hide navigation immediately while Safari is preparing the print preview. */
+body.pdf-export #viewSwitcher,
+body.pdf-export .view-switcher,
+body.pdf-export .calendar-view,
+body.pdf-export #calendarView,
+body.pdf-export #timelineView,
+body.pdf-export #payView{
+  display:none!important;
+}
