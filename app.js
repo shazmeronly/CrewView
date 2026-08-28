@@ -3887,7 +3887,8 @@ async function parsePDF(file){
   crewViewMode="classic";
   $("#classicView")?.classList.remove("hidden");
   $("#calendarView")?.classList.add("hidden");
-  document.body.classList.remove("calendar-mode");
+  $("#payView")?.classList.add("hidden");
+  document.body.classList.remove("calendar-mode","pay-mode");
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
     tab.classList.toggle("active",tab.dataset.view==="classic")
   );
@@ -3927,6 +3928,124 @@ async function parsePDF(file){
 }
 
 
+
+
+
+/* CrewView Pay — roster-driven productivity estimate.
+ * Source rules supplied from MAB Pilot Guidebook rev 01.3.0 (01-Jun-2025):
+ * PA is based on applicable actual duty hours of operating/positioning flights;
+ * standby and observation are excluded. 80+ payment uses actual flying block
+ * above 80 hours. Roster values are used as an estimate until actuals exist.
+ */
+const PAY_RULES={
+  "C2-P":{pa:240,over80:95,label:"Captain"},
+  "C1-P":{pa:130,over80:75,label:"First Officer"},
+  "D2-P":{pa:130,over80:75,label:"Second Officer"},
+  "D1-P":{pa:105,over80:75,label:"Cadet Pilot"}
+};
+
+function inferredPayGrade(){
+  const rank=String($("#rank")?.value||"").trim().toUpperCase();
+  if(["CPT","CAPT","CMDR","CP"].includes(rank)) return "C2-P";
+  if(["SO"].includes(rank)) return "D2-P";
+  if(["CADET","CPILOT"].includes(rank)) return "D1-P";
+  return "C1-P";
+}
+
+function isPayStandby(row){
+  const item=String(row?.item||"").trim().toUpperCase();
+  return item.includes("SBY") || /^S[1-4](?:-|$)/.test(item) || item.includes("STANDBY");
+}
+
+function isPayObservation(row){
+  const item=String(row?.item||"").trim().toUpperCase();
+  const work=String(row?.work||"").trim().toUpperCase();
+  return item.includes("OBS") || work==="OBS" || work==="OBSERVATION";
+}
+
+function isPayEligibleFlight(row){
+  if(!row || row._overnightContinuation || isPayStandby(row) || isPayObservation(row)) return false;
+  const item=String(row.item||"").trim().toUpperCase();
+  const work=String(row.work||"").trim().toUpperCase();
+  return /^MH\d+/.test(item) && ["OP","PS","SFP"].includes(work);
+}
+
+function payDutyGroups(){
+  const rows=getRows();
+  const groups=[];
+  const seen=new Set();
+  rows.forEach((row,index)=>{
+    if(!isPayEligibleFlight(row)) return;
+    const key=row._dutyGroup || [row.date,row.dutyStart,index].join("|");
+    if(seen.has(key)) return;
+    seen.add(key);
+    const members=row._dutyGroup ? rows.filter(r=>r._dutyGroup===row._dutyGroup) : [row];
+    const eligible=members.filter(isPayEligibleFlight);
+    if(!eligible.length) return;
+    const dutyMinutes=toMinutes(row.duty || members.find(r=>toMinutes(r.duty)>0)?.duty);
+    if(dutyMinutes<=0) return;
+    const items=eligible.map(r=>String(r.item||"").trim()).filter(Boolean);
+    const routeParts=[];
+    eligible.forEach((r,i)=>{
+      const dep=(parseStationClock(r.dep)||{}).station;
+      const arr=(parseStationClock(r.arr)||{}).station;
+      if(i===0 && dep) routeParts.push(dep);
+      if(arr) routeParts.push(arr);
+    });
+    groups.push({
+      key,date:row.date||"",items:[...new Set(items)].join(" / "),
+      route:routeParts.join(" → ")||routeFromRow(row),minutes:dutyMinutes
+    });
+  });
+  return groups;
+}
+
+function payMonthlyBlockMinutes(){
+  return getRows().reduce((sum,row)=>{
+    if(!officialRosterPeriod) return sum+toMinutes(row.block);
+    const d=parseRosterDate(row.date);
+    if(!d || d<officialRosterPeriod.start || d>officialRosterPeriod.end) return sum;
+    return sum+toMinutes(row.block);
+  },0);
+}
+
+function moneyRM(value){
+  return `RM${Number(value||0).toLocaleString("en-MY",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+}
+
+function renderPayView(){
+  const gradeEl=$("#payGrade");
+  if(!gradeEl) return;
+  if(!gradeEl.dataset.userSelected){
+    gradeEl.value=inferredPayGrade();
+  }
+  const grade=gradeEl.value;
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  const duties=payDutyGroups();
+  const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
+  const blockMinutes=payMonthlyBlockMinutes();
+  const excessMinutes=Math.max(0,blockMinutes-80*60);
+  const paAmount=eligibleMinutes/60*rule.pa;
+  const over80Amount=excessMinutes/60*rule.over80;
+  const total=paAmount+over80Amount;
+  const month=loadedRosterMonth();
+
+  $("#payMonthLabel").textContent=month ? `${monthFormatter.format(month)} · roster estimate` : "Estimated from your loaded roster";
+  $("#payEstimatedTotal").textContent=moneyRM(total);
+  $("#payPaAmount").textContent=moneyRM(paAmount);
+  $("#payEligibleDuty").textContent=hhmm(eligibleMinutes);
+  $("#payPaFormula").textContent=`${hhmm(eligibleMinutes)} × ${moneyRM(rule.pa)}/hour · ${grade}`;
+  $("#pay80Amount").textContent=moneyRM(over80Amount);
+  $("#payBlockHours").textContent=hhmm(blockMinutes);
+  $("#pay80Formula").textContent=excessMinutes>0
+    ? `${hhmm(excessMinutes)} above 80:00 × ${moneyRM(rule.over80)}/hour`
+    : "No excess above 80:00";
+  $("#payDutyCount").textContent=`${duties.length} ${duties.length===1?"duty":"duties"}`;
+  $("#payBreakdownList").innerHTML=duties.length ? duties.map(d=>{
+    const amount=d.minutes/60*rule.pa;
+    return `<div class="pay-breakdown-row"><div><strong>${esc(d.date)} · ${esc(d.items||"Flight")}</strong><small>${esc(d.route)}</small></div><span class="pay-breakdown-hours">${hhmm(d.minutes)}</span><span class="pay-breakdown-amount">${moneyRM(amount)}</span></div>`;
+  }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';
+}
 
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";
@@ -4602,6 +4721,7 @@ function switchRosterView(view){
 
   const previousView=crewViewMode;
   const goingToCalendar=view==="calendar";
+  const goingToPay=view==="pay";
 
   crewViewScrollPositions[previousView]=window.scrollY||0;
   clearTimeout(crewViewTransitionTimer);
@@ -4624,16 +4744,25 @@ function switchRosterView(view){
       if(!calendarCursor){
         calendarCursor=loadedRosterMonth();
       }
-
       selectedCalendarDuty=null;
       $("#calendarView")?.classList.remove("hidden");
+      $("#payView")?.classList.add("hidden");
       $("#classicView")?.classList.add("hidden");
       document.body.classList.add("calendar-mode");
+      document.body.classList.remove("pay-mode");
       renderCalendarView({suppressAutoSelect:false});
+    }else if(goingToPay){
+      $("#payView")?.classList.remove("hidden");
+      $("#classicView")?.classList.add("hidden");
+      $("#calendarView")?.classList.add("hidden");
+      document.body.classList.remove("calendar-mode");
+      document.body.classList.add("pay-mode");
+      renderPayView();
     }else{
       $("#classicView")?.classList.remove("hidden");
       $("#calendarView")?.classList.add("hidden");
-      document.body.classList.remove("calendar-mode");
+      $("#payView")?.classList.add("hidden");
+      document.body.classList.remove("calendar-mode","pay-mode");
       applyOnePageFit();
     }
 
@@ -4962,7 +5091,8 @@ function restoreCachedRoster(){
   $("#viewSwitcher")?.classList.remove("hidden");
   $("#classicView")?.classList.remove("hidden");
   $("#calendarView")?.classList.add("hidden");
-  document.body.classList.remove("calendar-mode");
+  $("#payView")?.classList.add("hidden");
+  document.body.classList.remove("calendar-mode","pay-mode");
   crewViewMode="classic";
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.classList.toggle("active",tab.dataset.view==="classic"));
   updateCompactProfile();
@@ -4998,3 +5128,9 @@ window.addEventListener("afterprint",()=>{
 window.addEventListener("load",()=>{document.body.classList.add("fit-mode");applyOnePageFit()});
 
 requestAnimationFrame(syncCalendarThemeButton);
+
+
+$("#payGrade")?.addEventListener("change",event=>{
+  event.currentTarget.dataset.userSelected="1";
+  renderPayView();
+});
