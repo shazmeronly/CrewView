@@ -6450,8 +6450,9 @@ function cvPdfDrawFooter(page,pageNumber){
 
 function cvPdfDrawCard(page,x,y,w,h,label,value,valueSize=13){
   page.rect(x,y,w,h,{fill:"#FAFAFA",stroke:"#888888",width:.55});
-  page.text(x+9,y+14,label,6.3,{color:"#333333",maxWidth:w-18});
-  page.text(x+9,y+32,value,valueSize,{bold:true,maxWidth:w-18});
+  page.text(x+9,y+15,label,6.5,{color:"#333333",maxWidth:w-18});
+  const valueY=y+Math.min(h-11,36);
+  page.text(x+9,valueY,value,valueSize,{bold:true,maxWidth:w-18});
 }
 
 function cvPdfDrawTable(page,{x,y,widths,headers,rows,rowH=16,headH=15,fontSize=5.3,aligns=[]}){
@@ -6544,16 +6545,19 @@ function cvPdfBuildDirectBlob(){
   cvPdfDrawFooter(p1,1);
 
   cvPdfDrawBrand(p2,"Allowance Report",d.month,d.generated);
-  p2.text(32,82,d.name,9.5,{bold:true,maxWidth:420});
-  p2.text(32,95,d.meta,7.1,{color:"#333333",maxWidth:420});
+  p2.text(32,82,d.name,9.7,{bold:true,maxWidth:420});
+  p2.text(32,96,d.meta,7.2,{color:"#333333",maxWidth:420});
 
-  const cardGap=8, cardW2=(531-cardGap*3)/4;
-  cvPdfDrawCard(p2,32,108,cardW2,44,"Estimated Allowances",moneyRM(d.estimatedTotal),10.3);
-  cvPdfDrawCard(p2,32+cardW2+cardGap,108,cardW2,44,"Productivity Allowance",moneyRM(d.productivityAmount),10.3);
-  cvPdfDrawCard(p2,32+(cardW2+cardGap)*2,108,cardW2,44,"Layover Allowance",moneyRM(d.layoverAmount),10.3);
-  cvPdfDrawCard(p2,32+(cardW2+cardGap)*3,108,cardW2,44,"Grade",`${d.grade} - ${d.rule.label}`,8.8);
+  // Larger, more comfortable top cards.
+  const cardGap=9;
+  const cardW2=(531-cardGap*3)/4;
+  cvPdfDrawCard(p2,32,112,cardW2,52,"Estimated Allowances",moneyRM(d.estimatedTotal),11.2);
+  cvPdfDrawCard(p2,32+cardW2+cardGap,112,cardW2,52,"Productivity Allowance",moneyRM(d.productivityAmount),11.2);
+  cvPdfDrawCard(p2,32+(cardW2+cardGap)*2,112,cardW2,52,"Layover Allowance",moneyRM(d.layoverAmount),11.2);
+  cvPdfDrawCard(p2,32+(cardW2+cardGap)*3,112,cardW2,52,"Grade",`${d.grade} - ${d.rule.label}`,9.3);
 
-  p2.text(32,176,"Allowance Summary",11,{bold:true});
+  // Stronger Allowance Summary.
+  p2.text(32,190,"Allowance Summary",12,{bold:true});
   const summaryRows=[
     ["Eligible Duty Hours",hhmm(d.eligibleMinutes)],
     ["Monthly Flying Block",hhmm(d.blockMinutes)],
@@ -6561,46 +6565,67 @@ function cvPdfBuildDirectBlob(){
     ["FDP Extension","Separate Rule"]
   ];
   cvPdfDrawTable(p2,{
-    x:32,y:187,widths:[265.5,265.5],headers:[],rows:summaryRows,
-    rowH:17.5,headH:0,fontSize:7.2,aligns:["left","left"]
+    x:32,y:203,widths:[265.5,265.5],headers:[],rows:summaryRows,
+    rowH:22,headH:0,fontSize:7.8,aligns:["left","left"]
   });
 
-  p2.text(32,274,"Productivity Breakdown",11,{bold:true});
+  // Productivity breakdown — larger text and row height.
+  p2.text(32,307,"Productivity Breakdown",12,{bold:true});
   const prodRows=d.duties.map(item=>[
     item.date,
     item.items||"Flight",
     hhmm(item.minutes),
     moneyRM(item.minutes/60*d.rule.pa)
   ]);
+
   const prodCount=Math.max(1,prodRows.length);
-  const prodRowH=Math.max(10.2,Math.min(17.2,206/prodCount));
+  const prodRowH=Math.max(14.2,Math.min(20.5,245/prodCount));
   const prodEnd=cvPdfDrawTable(p2,{
-    x:32,y:286,widths:[120,120,105,186],
+    x:32,y:321,widths:[120,120,105,186],
     headers:["Date","Duty","Duty Hours","Productivity Amount"],
-    rows:prodRows,rowH:prodRowH,headH:14,fontSize:6.1,
+    rows:prodRows,rowH:prodRowH,headH:17,fontSize:6.7,
     aligns:["center","center","center","right"]
   });
 
-  const layTitleY=Math.max(520,prodEnd+20);
-  p2.text(32,layTitleY,"Layover Breakdown",11,{bold:true});
-  const layRows=d.layovers.map(l=>[l.airport,l.region,moneyRM(l.amount)]);
-  const layStart=layTitleY+12;
-  const layRowH=Math.max(12,Math.min(18,128/Math.max(1,layRows.length)));
+  // Layover section starts naturally after productivity and is allowed
+  // to use the lower half of the page instead of being compressed.
+  const layTitleY=Math.max(565,prodEnd+23);
+  p2.text(32,layTitleY,"Layover Breakdown",12,{bold:true});
+
+  const layRows=d.layovers.map(l=>[
+    l.airport,
+    l.region,
+    moneyRM(l.amount)
+  ]);
+
+  const layStart=layTitleY+14;
+  const layRowH=Math.max(16.5,Math.min(22,152/Math.max(1,layRows.length)));
   const layEnd=cvPdfDrawTable(p2,{
     x:32,y:layStart,widths:[118,263,150],
     headers:["Station","Region","Allowance"],
-    rows:layRows,rowH:layRowH,headH:14,fontSize:6.3,
+    rows:layRows,rowH:layRowH,headH:17,fontSize:6.9,
     aligns:["center","center","right"]
   });
 
+  // Stronger final total row.
   const totalY=layEnd;
-  p2.rect(32,totalY,381,20,{fill:"#F3F3F3",stroke:"#888888",width:.45});
-  p2.rect(413,totalY,150,20,{fill:"#F3F3F3",stroke:"#888888",width:.45});
-  p2.text(222.5,totalY+13,"Total Layover Allowance",7.5,{bold:true,align:"center",maxWidth:365});
-  p2.text(557,totalY+13,moneyRM(d.layoverAmount),8.2,{bold:true,align:"right",maxWidth:140});
+  p2.rect(32,totalY,381,25,{fill:"#F1F1F1",stroke:"#777777",width:.55});
+  p2.rect(413,totalY,150,25,{fill:"#F1F1F1",stroke:"#777777",width:.55});
+  p2.text(222.5,totalY+16.5,"Total Layover Allowance",8.8,{
+    bold:true,align:"center",maxWidth:365
+  });
+  p2.text(557,totalY+16.5,moneyRM(d.layoverAmount),9.8,{
+    bold:true,align:"right",maxWidth:140
+  });
 
-  const noteY=Math.min(760,totalY+36);
-  p2.text(32,noteY,"Allowance figures are CrewView estimates based on the loaded roster.",6.3,{color:"#444444",maxWidth:500});
+  // Keep the short estimate note, but give it proper breathing room.
+  const noteY=Math.min(777,totalY+42);
+  p2.text(
+    32,noteY,
+    "Allowance figures are CrewView estimates based on the loaded roster.",
+    6.6,{color:"#444444",maxWidth:500}
+  );
+
   cvPdfDrawFooter(p2,2);
 
   return new Blob([cvPdfBuildBinary(p1,p2)],{type:"application/pdf"});
