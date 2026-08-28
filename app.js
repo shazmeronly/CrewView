@@ -3188,7 +3188,7 @@ function refreshSmartDutyCard(force=false){
     $("#smartDutyLayoverStrip")?.classList.toggle("hidden",!dutyLayover);
     if(dutyLayover){
       $("#smartDutyLayoverStation").textContent=`Layover in ${dutyLayover.airport}`;
-      $("#smartDutyHotel").textContent=dutyLayover.hotel||"Hotel not listed in roster";
+      $("#smartDutyHotel").textContent=dutyLayover.hotel||"Hotel not listed";
       const remain=Math.max(0,Math.round((dutyLayover.end.getTime()-Date.now())/60000));
       $("#smartDutyLayoverDuration").textContent=state==="layover"?`${hhmm(remain)} remaining`:hhmm(dutyLayover.durationMinutes);
     }
@@ -4988,7 +4988,6 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
     : "—";
 
   $("#selectedItem").textContent=calendarDisplayItem(row)||"Duty";
-  $("#selectedWorkBadge").textContent=row.work||row._calendarCategory.toUpperCase();
   $("#selectedRoute").textContent=route;
   const ac=String(row.ac||"").trim();
   $("#selectedAircraft").textContent=ac ? (/^3/.test(ac)?`Airbus A330-${ac}`:ac) : (row.work||"—");
@@ -5007,10 +5006,9 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
   $("#selectedWork").textContent=row.work||"—";
   const layover=layoverForDuty(row);
   $("#selectedLayoverPanel")?.classList.toggle("hidden",!layover);
-  document.querySelector(".duty-ref-no-layover-note")?.classList.toggle("hidden",Boolean(layover));
   if(layover){
     $("#selectedLayoverStation").textContent=`${layover.airport} · ${layover.region}`;
-    $("#selectedLayoverHotel").textContent=layover.hotel||"Hotel not listed in roster";
+    $("#selectedLayoverHotel").textContent=layover.hotel||"Hotel not listed";
     $("#selectedLayoverDuration").textContent=`${hhmm(layover.durationMinutes)} at destination`;
     $("#selectedLayoverNextReport").textContent=formatLayoverLocal(layover.end,layover.airport);
     $("#selectedLayoverMeals").textContent=layoverMealsShort(layover);

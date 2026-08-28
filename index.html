@@ -466,69 +466,66 @@
 </section>
 
 
-      <section class="calendar-selected hidden duty-reference-sheet" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Duty Details">
-        <div class="duty-ref-topbar">
-          <button type="button" class="calendar-detail-close duty-ref-close" id="calendarDetailClose" aria-label="Close duty details">×</button>
+      
+      <section class="calendar-selected hidden duty-reference-sheet v125-duty-sheet" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Duty Details">
+        <div class="v125-sheet-handle" aria-hidden="true"></div>
+        <div class="v125-sheet-top">
           <strong>Duty Details</strong>
-          <span></span>
+          <button type="button" class="calendar-detail-close v125-close" id="calendarDetailClose" aria-label="Close duty details">×</button>
         </div>
-        <div class="selected-drag" aria-hidden="true"></div>
 
-        <div class="duty-ref-content">
-          <div class="duty-ref-flightbar">
+        <div class="v125-duty-content">
+          <div class="v125-flight-header">
             <strong id="selectedItem">—</strong>
             <span id="selectedRoute">—</span>
             <b>✈</b>
           </div>
 
-          <div class="duty-ref-times">
-            <div><small>Report</small><strong id="selectedReport">—</strong><em id="selectedReportStation">—</em></div>
-            <div><small>Departure</small><strong id="selectedDepartureTime">—</strong><em id="selectedDepartureStation">—</em></div>
-            <div><small>Arrival</small><strong id="selectedArrivalTime">—</strong><em id="selectedArrivalStation">—</em></div>
-            <div><small>Duty End</small><strong id="selectedDutyEnd">—</strong><em id="selectedDutyEndStation">—</em></div>
+          <div class="v125-time-grid">
+            <div><small>REPORT</small><strong id="selectedReport">—</strong><span id="selectedReportStation">—</span></div>
+            <div><small>DEPARTURE</small><strong id="selectedDepartureTime">—</strong><span id="selectedDepartureStation">—</span></div>
+            <div><small>ARRIVAL</small><strong id="selectedArrivalTime">—</strong><span id="selectedArrivalStation">—</span></div>
+            <div><small>DUTY END</small><strong id="selectedDutyEnd">—</strong><span id="selectedDutyEndStation">—</span></div>
           </div>
 
-          <div class="duty-ref-meta">
-            <div><small>Aircraft</small><strong id="selectedAircraft">—</strong></div>
-            <div><small>Block Time</small><strong id="selectedBlock">—</strong></div>
-            <div><small>Duty Time</small><strong id="selectedDuty">—</strong></div>
-            <div><small>Work Type</small><strong id="selectedWork">—</strong><b id="selectedWorkBadge">—</b></div>
+          <div class="v125-meta-grid">
+            <div><small>AIRCRAFT</small><strong id="selectedAircraft">—</strong></div>
+            <div><small>BLOCK</small><strong id="selectedBlock">—</strong></div>
+            <div><small>DUTY</small><strong id="selectedDuty">—</strong></div>
+            <div><small>WORK TYPE</small><strong id="selectedWork">—</strong></div>
           </div>
 
-          <div class="selected-layover hidden duty-ref-layover" id="selectedLayoverPanel">
-            <div class="duty-ref-layover-title">🛏 <strong>LAYOVER INFORMATION</strong></div>
-            <div class="duty-ref-hotel">
-              <small>Hotel</small>
+          <section class="selected-layover hidden v125-layover-card" id="selectedLayoverPanel">
+            <div class="v125-layover-title">
+              <span>🛏</span>
+              <div><small>LAYOVER</small><strong id="selectedLayoverStation">—</strong></div>
+              <b id="selectedLayoverDuration">—</b>
+            </div>
+
+            <div class="v125-hotel">
+              <small>HOTEL</small>
               <strong id="selectedLayoverHotel">—</strong>
-              <span id="selectedLayoverStation">—</span>
             </div>
-            <div class="duty-ref-layover-facts">
-              <div><small>☾ Layover Duration</small><strong id="selectedLayoverDuration">—</strong></div>
-              <div><small>Next Report · Local</small><strong id="selectedLayoverNextReport">—</strong></div>
+
+            <div class="v125-layover-grid">
+              <div><small>NEXT REPORT · LOCAL</small><strong id="selectedLayoverNextReport">—</strong></div>
+              <div><small>LAYOVER ALLOWANCE</small><strong id="selectedLayoverAllowance">—</strong></div>
             </div>
-            <div class="duty-ref-meals">
+
+            <div class="v125-meals">
               <small>MEAL ENTITLEMENTS</small>
               <span id="selectedLayoverMeals">—</span>
             </div>
-            <div class="duty-ref-allowance">
-              <span>Layover Allowance</span><strong id="selectedLayoverAllowance">—</strong>
-            </div>
-            <div class="duty-ref-actions">
-              <button type="button" disabled>▣ Hotel Info</button>
-              <button type="button" disabled>⌖ Map</button>
-              <button type="button" disabled>▤ Transport</button>
-              <button type="button" disabled>▧ Notes</button>
-            </div>
-          </div>
-
-          <div class="duty-ref-no-layover-note">Layover information appears only for duties that end away from base and have a following report from the same station.</div>
+          </section>
         </div>
 
-        <span class="hidden" id="selectedWeekday">—</span><span class="hidden" id="selectedDay">—</span><span class="hidden" id="selectedMonthYear">—</span>
+        <span class="hidden" id="selectedWeekday">—</span>
+        <span class="hidden" id="selectedDay">—</span>
+        <span class="hidden" id="selectedMonthYear">—</span>
       </section>
     </section>
 
-    <nav class="calendar-bottom-nav" aria-label="CrewView navigation">
+    <nav class="calendar-bottom-nav<nav class="calendar-bottom-nav" aria-label="CrewView navigation">
       <button type="button" data-calendar-mode="classic"><span>▧</span><small>Roster</small></button>
       <button type="button" class="active"><span>▣</span><small>Calendar</small></button>
       <button type="button" disabled><span>▥</span><small>Summary</small></button>
