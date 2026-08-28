@@ -2373,6 +2373,80 @@ function airportTimezone(code){
   return AIRPORT_TIMEZONES[iata] || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
 
+function knownAirportTimezone(code){
+  const iata=String(code||"").trim().toUpperCase();
+  return AIRPORT_TIMEZONES[iata] || "";
+}
+
+function timezoneOffsetMinutesAt(timestamp,timeZone){
+  if(!Number.isFinite(Number(timestamp)) || !timeZone) return null;
+  try{
+    const instant=Math.floor(Number(timestamp)/1000)*1000;
+    const parts=timePartsInZone(instant,timeZone);
+    const wallAsUtc=Date.UTC(
+      Number(parts.year),Number(parts.month)-1,Number(parts.day),
+      Number(parts.hour),Number(parts.minute),Number(parts.second||0),0
+    );
+    return Math.round((wallAsUtc-instant)/60000);
+  }catch(_error){
+    return null;
+  }
+}
+
+function formatUtcOffsetMinutes(minutes){
+  if(!Number.isFinite(Number(minutes))) return "";
+  const value=Math.round(Number(minutes));
+  if(value===0) return "UTC";
+  const sign=value>0?"+":"−";
+  const absolute=Math.abs(value);
+  const hours=Math.floor(absolute/60);
+  const mins=absolute%60;
+  return `UTC ${sign}${hours}${mins?`:${String(mins).padStart(2,"0")}`:""}`;
+}
+
+function formatTimezoneDifferenceMinutes(minutes,homeAirport){
+  if(!Number.isFinite(Number(minutes))) return "";
+  const value=Math.round(Number(minutes));
+  const home=String(homeAirport||baseAirportCode()||"KUL").toUpperCase();
+  if(value===0) return `same as ${home}`;
+  const absolute=Math.abs(value);
+  const hours=Math.floor(absolute/60);
+  const mins=absolute%60;
+  const duration=[hours?`${hours}h`:"",mins?`${mins}m`:""].filter(Boolean).join(" ");
+  return `${duration} ${value>0?"ahead of":"behind"} ${home}`;
+}
+
+function airportTimezoneDisplay(airport,timestamp){
+  const code=String(airport||"").trim().toUpperCase();
+  if(!code) return null;
+
+  const zone=knownAirportTimezone(code);
+  if(!zone) return null;
+
+  const at=Number(timestamp);
+  if(!Number.isFinite(at)) return null;
+
+  const offset=timezoneOffsetMinutesAt(at,zone);
+  if(!Number.isFinite(offset)) return null;
+
+  const home=baseAirportCode();
+  const homeZone=knownAirportTimezone(home) || airportTimezone(home);
+  const homeOffset=timezoneOffsetMinutesAt(at,homeZone);
+  const difference=Number.isFinite(homeOffset)?offset-homeOffset:null;
+
+  return {
+    airport:code,
+    zone,
+    offsetMinutes:offset,
+    offsetLabel:formatUtcOffsetMinutes(offset),
+    homeAirport:home,
+    differenceMinutes:difference,
+    differenceLabel:Number.isFinite(difference)
+      ? formatTimezoneDifferenceMinutes(difference,home)
+      : ""
+  };
+}
+
 function dutyDepartureAirport(row){
   const route=(row?._routeAirports||[]).filter(Boolean);
   return String(route[0] || airportCode(row?.dep) || "").toUpperCase();
@@ -4747,6 +4821,45 @@ function timelineIsToday(dateText){
   return Boolean(d && d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate());
 }
 
+function timelineStationInstant(dateText,clockValue,airport){
+  const clock=timelineClockLabel(clockValue);
+  const code=String(airport||clock.station||"").trim().toUpperCase();
+  const zone=knownAirportTimezone(code);
+  if(!zone || !clock.time || clock.time==="—") return null;
+  const localDate=addRosterDays(dateText,clock.nextDay?1:0);
+  return zonedWallTimeToUtcMs(localDate,clock.time,zone);
+}
+
+function timelineTimezoneInfoForFlight(event,destination){
+  const airport=String(destination||"").trim().toUpperCase();
+  if(!airport) return null;
+
+  let instant=timelineStationInstant(event.date,event.arrival,airport);
+  if(!Number.isFinite(instant)){
+    instant=timelineStationInstant(event.date,event.dutyEnd,airport);
+  }
+  if(!Number.isFinite(instant)){
+    const date=parseRosterDate(event.date);
+    instant=date instanceof Date ? date.getTime()+12*3600000 : Date.now();
+  }
+
+  return airportTimezoneDisplay(airport,instant);
+}
+
+function timelineTimezoneLine(info,{includeAirport=true}={}){
+  if(!info) return "";
+  const parts=[];
+  if(includeAirport) parts.push(info.airport);
+  if(info.offsetLabel) parts.push(info.offsetLabel);
+
+  if(info.airport===info.homeAirport){
+    parts.push("home base");
+  }else if(info.differenceLabel){
+    parts.push(info.differenceLabel);
+  }
+  return parts.join(" · ");
+}
+
 function timelineFlightCard(event){
   const dep=timelineClockLabel(event.departure);
   const arr=timelineClockLabel(event.arrival);
@@ -4755,10 +4868,12 @@ function timelineFlightCard(event){
   const destination=routeParts[routeParts.length-1]||event.dutyEndStation||arr.station||"—";
   const aircraft=event.aircraft&&event.aircraft!=="—"?event.aircraft:"A/C";
   const layoverAmount=Number(event.layover?.amount||0);
+  const timezoneInfo=timelineTimezoneInfoForFlight(event,destination);
+  const timezoneLine=timelineTimezoneLine(timezoneInfo);
   return `<article class="cv-tl-card cv-tl-flight-card">
     <div class="cv-tl-flight-head">
       <span class="cv-tl-icon cv-tl-icon-flight">✈</span>
-      <div class="cv-tl-flight-title"><strong>${esc(event.item)}</strong><span>${esc(event.route)}</span></div>
+      <div class="cv-tl-flight-title"><strong>${esc(event.item)}</strong><span>${esc(event.route)}</span>${timezoneLine?`<small class="cv-tl-timezone">◉ ${esc(timezoneLine)}</small>`:""}</div>
       <span class="cv-tl-aircraft">${esc(aircraft)}</span>
     </div>
     <div class="cv-tl-stages">
@@ -4788,10 +4903,13 @@ function timelineLayoverCard(event){
   }).join(""):'<div class="cv-tl-no-meal"><small>No qualifying meal window</small></div>';
   const active=Date.now()>=l.start && Date.now()<l.end;
   const remain=active?timelineDurationHuman(Math.max(0,Math.round((l.end-Date.now())/60000))):"";
+  const timezoneInfo=airportTimezoneDisplay(l.airport,Number(l.start));
+  const timezoneLine=timelineTimezoneLine(timezoneInfo,{includeAirport:false});
+  const layoverSubtitle=[String(l.region||"").trim(),timezoneLine].filter(Boolean).join(" · ");
   return `<article class="cv-tl-card cv-tl-layover-card">
     <div class="cv-tl-layover-head">
       <span class="cv-tl-icon cv-tl-icon-layover">☾</span>
-      <div><strong>${esc(l.airport)} Layover</strong><span>${esc(l.region||"")}</span></div>
+      <div><strong>${esc(l.airport)} Layover</strong><span>${esc(layoverSubtitle)}</span></div>
       <b>${timelineDurationHuman(l.durationMinutes)}</b>
     </div>
     <div class="cv-tl-layover-core">

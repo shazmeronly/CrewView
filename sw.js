@@ -1,11 +1,11 @@
-const CACHE = "crewview-v144";
+const CACHE = "crewview-v145";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=138",
-  "./app.js?v=138",
+  "./style.css?v=145",
+  "./app.js?v=145",
   "./airport-timezones.js",
   "./manifest.webmanifest",
   "./icon-192.png",

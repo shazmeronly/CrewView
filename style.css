@@ -6163,3 +6163,28 @@ html[data-theme="light"] body.timeline-mode .cv-tl-layover-card{
     radial-gradient(115% 55% at 50% 0%, rgba(139,92,246,.08), transparent 62%),
     linear-gradient(135deg,#f6f0ff,#fbf9ff)!important;
 }
+
+
+/* v145 Worldwide, roster-date-aware timezone display */
+body.timeline-mode .cv-tl-flight-title{gap:2px!important}
+body.timeline-mode .cv-tl-timezone{
+  display:block;
+  margin-top:3px;
+  color:#78aeea!important;
+  font-size:8.5px!important;
+  line-height:1.25;
+  font-weight:650;
+  letter-spacing:.015em;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+body.timeline-mode .cv-tl-layover-head>div{min-width:0}
+body.timeline-mode .cv-tl-layover-head>div span{
+  line-height:1.25!important;
+  white-space:normal!important;
+}
+html[data-theme="light"] body.timeline-mode .cv-tl-timezone{color:#2563a8!important}
+@media(max-width:390px){
+  body.timeline-mode .cv-tl-timezone{font-size:8px!important}
+}
