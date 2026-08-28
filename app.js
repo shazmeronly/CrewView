@@ -698,15 +698,19 @@ function normalizePilotContinuationColumns(rows){
   return rows.map(sourceRow=>{
     const row={...sourceRow};
     const isFlight=/^MH\d{2,4}$/i.test(String(row.item||"").trim());
-    const isContinuation=Boolean(
-      row._pilotContinuation ||
-      Number(row._sectorIndex||0)>0 ||
-      (row._dutyGroup && !String(row.dutyStart||"").trim())
-    );
 
+    /*
+     * Do not depend on continuation metadata here. Some iFlight revisions
+     * parse the second sector without _pilotContinuation/_sectorIndex even
+     * though its columns are visibly shifted. The row values themselves are
+     * the reliable signal:
+     *   - flight row
+     *   - no parsed Duty End
+     *   - both "block" and "duty" populated
+     *   - "block" is actually a clock shortly after arrival
+     */
     if(
       !isFlight ||
-      !isContinuation ||
       row._overnightContinuation ||
       String(row.dutyEnd||"").trim() ||
       !String(row.block||"").trim() ||
@@ -3909,6 +3913,8 @@ async function parsePDF(file){
 
   // Repair iFlight multi-sector continuation rows whose Duty End / Flying Hrs
   // columns were shifted by the PDF text geometry.
+  // Normalize shifted multi-sector rows before monthly FH/DH validation.
+  // This must run even when a PDF revision omits continuation metadata.
   allRows=normalizePilotContinuationColumns(allRows);
 
   allRows=markRemainingBlankDaysAsOff(allRows);
