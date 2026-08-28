@@ -4117,27 +4117,52 @@ function flightDutyGroupsForLayover(){
   const rows=getRows();
   const groups=[];
   const seen=new Set();
+
   rows.forEach((row,index)=>{
     const item=String(row?.item||"").trim().toUpperCase();
+    // Start a group only from the real sector row. Overnight continuation rows
+    // belong to that duty and are pulled in through _dutyGroup below.
     if(!/^MH\d+/.test(item) || row?._overnightContinuation) return;
+
     const key=row._dutyGroup || [row.date,row.dutyStart,index].join("|");
     if(seen.has(key)) return;
     seen.add(key);
-    const members=row._dutyGroup ? rows.filter(r=>r._dutyGroup===row._dutyGroup) : [row];
+
+    const members=row._dutyGroup
+      ? rows.filter(r=>r._dutyGroup===row._dutyGroup)
+      : [row];
     const flights=members.filter(r=>/^MH\d+/i.test(String(r?.item||"")) && !r?._overnightContinuation);
     if(!flights.length) return;
+
     const anchor=members.find(r=>String(r?.dutyStart||"").trim()) || row;
-    const report=smartDutyReportUtcMs(anchor);
-    const dutyMinutes=toMinutes(anchor?._totalDuty||anchor?.duty||members.find(r=>toMinutes(r?.duty)>0)?.duty);
-    if(!Number.isFinite(report) || !(dutyMinutes>0)) return;
-    const last=flights[flights.length-1];
-    const first=flights[0];
-    const destination=(parseStationClock(last?.arr)||{}).station;
-    const departure=(parseStationClock(first?.dep)||{}).station;
-    if(!destination || !departure) return;
-    groups.push({key,anchor,members,flights,report,end:report+dutyMinutes*60000,departure,destination});
+    const firstDeparture=members
+      .map(r=>parseStationClock(r?.dep))
+      .find(v=>v?.station);
+    // IMPORTANT: arrival/duty-end may have been moved to an overnight
+    // continuation row by the Classic-view normaliser. Search every member,
+    // including continuation rows, and take the final station-bearing arrival.
+    const arrivals=members
+      .map(r=>parseStationClock(r?.arr))
+      .filter(v=>v?.station);
+    const finalArrival=arrivals[arrivals.length-1];
+
+    const departure=firstDeparture?.station||"";
+    const destination=finalArrival?.station||"";
+    if(!departure || !destination) return;
+
+    // Layover pairing no longer depends on Smart Duty's UTC/time-basis engine.
+    // We only need chronological roster order here; the actual allowance start
+    // and end are subsequently built directly in destination local time.
+    const dateMs=parseRosterDate(anchor.date)?.getTime();
+    const tm=String(anchor.dutyStart||"").match(/(\d{1,2}):(\d{2})/);
+    const order=Number.isFinite(dateMs)
+      ? dateMs + (tm ? (Number(tm[1])*60+Number(tm[2]))*60000 : 0)
+      : index;
+
+    groups.push({key,anchor,members,flights,departure,destination,order});
   });
-  return groups.sort((a,b)=>a.report-b.report);
+
+  return groups.sort((a,b)=>a.order-b.order);
 }
 
 function ymdFromZoneParts(parts){
