@@ -6188,3 +6188,80 @@ html[data-theme="light"] body.timeline-mode .cv-tl-timezone{color:#2563a8!import
 @media(max-width:390px){
   body.timeline-mode .cv-tl-timezone{font-size:8px!important}
 }
+
+
+/* v148 Allowances collapsible detail sections */
+.pay-breakdown-actions,
+.pay-card-title-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+
+.pay-collapse-toggle{
+  appearance:none;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:transparent;
+  color:#3b82f6;
+  padding:6px 9px;
+  font:inherit;
+  font-size:10px;
+  font-weight:850;
+  line-height:1;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+.pay-collapse-toggle:active{
+  transform:scale(.97);
+}
+
+/* Productivity: preview the first 3 duty rows. */
+#payProductivityBreakdown.is-collapsed .pay-breakdown-list > .pay-breakdown-row:nth-child(n+4){
+  display:none;
+}
+
+/* Layover: preview the first 2 stays. */
+#payLayoverBreakdown.is-collapsed .pay-breakdown-list > .layover-breakdown-row:nth-child(n+3){
+  display:none;
+}
+
+/* Regional reference: preview the first 3 regions. */
+#payRegionalRates.is-collapsed .pay-rate-chips > span:nth-child(n+4){
+  display:none;
+}
+
+#payRegionalRates.is-collapsed .pay-rule{
+  display:none;
+}
+
+html[data-theme="dark"] .pay-collapse-toggle{
+  background:rgba(59,130,246,.08);
+  border-color:rgba(96,165,250,.28);
+  color:#60a5fa;
+}
+
+@media(max-width:620px){
+  .pay-breakdown-heading{
+    gap:8px;
+  }
+
+  .pay-breakdown-actions{
+    gap:7px;
+  }
+
+  .pay-breakdown-actions > span{
+    display:none;
+  }
+
+  .pay-collapse-toggle{
+    padding:6px 8px;
+    font-size:9px;
+  }
+
+  .pay-card-title-actions{
+    gap:7px;
+  }
+}

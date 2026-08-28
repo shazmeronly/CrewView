@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=146">
+<link rel="stylesheet" href="style.css?v=148">
 </head>
 <body>
 <header>
@@ -337,8 +337,14 @@
         </article>
       </div>
 
-      <section class="pay-breakdown">
-        <div class="pay-breakdown-heading"><h3>Productivity breakdown</h3><span id="payDutyCount">0 duties</span></div>
+      <section class="pay-breakdown pay-collapsible is-collapsed" id="payProductivityBreakdown">
+        <div class="pay-breakdown-heading">
+          <h3>Productivity breakdown</h3>
+          <div class="pay-breakdown-actions">
+            <span id="payDutyCount">0 duties</span>
+            <button type="button" class="pay-collapse-toggle" data-collapse-target="payProductivityBreakdown" aria-expanded="false">Show more</button>
+          </div>
+        </div>
         <div id="payBreakdownList" class="pay-breakdown-list"></div>
       </section>
     </div>
@@ -355,13 +361,25 @@
         <article class="pay-card"><div class="pay-card-title"><span>Meal entitlements</span><b id="layoverMealCount">0 qualifying meals</b></div><p>Breakfast 07:01–09:00 · Lunch 12:01–14:00 · Dinner 19:01–21:00, local time.</p></article>
       </div>
 
-      <section class="pay-breakdown layover-breakdown">
-        <div class="pay-breakdown-heading"><h3>Layover breakdown</h3><span>Meal-by-meal</span></div>
+      <section class="pay-breakdown layover-breakdown pay-collapsible is-collapsed" id="payLayoverBreakdown">
+        <div class="pay-breakdown-heading">
+          <h3>Layover breakdown</h3>
+          <div class="pay-breakdown-actions">
+            <span>Meal-by-meal</span>
+            <button type="button" class="pay-collapse-toggle" data-collapse-target="payLayoverBreakdown" aria-expanded="false">Show more</button>
+          </div>
+        </div>
         <div id="layoverBreakdownList" class="pay-breakdown-list"></div>
       </section>
 
-      <article class="pay-card pay-reference-card pay-layover-card">
-        <div class="pay-card-title"><span>Regional rates</span><b>REFERENCE</b></div>
+      <article class="pay-card pay-reference-card pay-layover-card pay-collapsible is-collapsed" id="payRegionalRates">
+        <div class="pay-card-title">
+          <span>Regional rates</span>
+          <div class="pay-card-title-actions">
+            <b>REFERENCE</b>
+            <button type="button" class="pay-collapse-toggle" data-collapse-target="payRegionalRates" aria-expanded="false">Show more</button>
+          </div>
+        </div>
         <div class="pay-rate-chips"><span>ANZ RM600/day</span><span>North America RM440/day</span><span>Western Europe RM550/day</span><span>Central/Eastern Europe RM430/day</span><span>South America RM470/day</span><span>East Asia RM430/day</span><span>SE Asia RM420/day</span><span>South Asia RM310/day</span><span>Central Asia RM470/day</span><span>Middle East RM550/day</span><span>Pacific Islands RM490/day</span><span>South Africa RM400/day</span><span>Malaysia RM130/day</span></div>
         <small class="pay-rule">A full day rate is the sum of Breakfast + Lunch + Dinner. CrewView calculates each qualifying meal window separately.</small>
       </article>
@@ -582,7 +600,7 @@ if("serviceWorker" in navigator){
   });
 }
 </script>
-<script type="module" src="app.js?v=146"></script>
+<script type="module" src="app.js?v=148"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>

@@ -6166,3 +6166,15 @@ $("#payGrade")?.addEventListener("change",event=>{
   event.currentTarget.dataset.userSelected="1";
   renderPayView();
 });
+
+/* v148 Allowances Show more / Show less */
+document.querySelectorAll(".pay-collapse-toggle[data-collapse-target]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    const target=document.getElementById(button.dataset.collapseTarget||"");
+    if(!target) return;
+    const collapsed=target.classList.toggle("is-collapsed");
+    button.setAttribute("aria-expanded",collapsed?"false":"true");
+    button.textContent=collapsed?"Show more":"Show less";
+  });
+});
+
