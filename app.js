@@ -4896,6 +4896,25 @@ function timelineTimezoneLine(info,{includeAirport=true}={}){
   return parts.join(" · ");
 }
 
+function timelineElapsedFlightMinutes(event,origin,destination){
+  const depMs=timelineStationInstant(event.date,event.departure,origin);
+  const arrMs=timelineStationInstant(event.date,event.arrival,destination);
+
+  if(Number.isFinite(depMs) && Number.isFinite(arrMs)){
+    let minutes=Math.round((arrMs-depMs)/60000);
+
+    // If a source omits (+1) but the destination-local arrival is clearly on
+    // the following day, allow one rollover. Reject anything implausible.
+    if(minutes<=0) minutes+=24*60;
+
+    if(minutes>0 && minutes<=24*60) return minutes;
+  }
+
+  // Fall back to the roster/fallback block value only when a reliable
+  // timezone-aware elapsed duration cannot be formed.
+  return Number(event.blockMinutes||0);
+}
+
 function timelineFlightCard(event){
   const dep=timelineClockLabel(event.departure);
   const arr=timelineClockLabel(event.arrival);
@@ -4906,6 +4925,7 @@ function timelineFlightCard(event){
   const layoverAmount=Number(event.layover?.amount||0);
   const timezoneInfo=timelineTimezoneInfoForFlight(event,destination);
   const timezoneLine=timelineTimezoneLine(timezoneInfo);
+  const elapsedMinutes=timelineElapsedFlightMinutes(event,origin,destination);
   return `<article class="cv-tl-card cv-tl-flight-card">
     <div class="cv-tl-flight-head">
       <span class="cv-tl-icon cv-tl-icon-flight">✈</span>
@@ -4915,7 +4935,7 @@ function timelineFlightCard(event){
     <div class="cv-tl-stages">
       <div class="cv-tl-stage cv-tl-stage-report"><time>${esc(event.report)}</time><i></i><div><strong>Report</strong><small>${esc(event.reportStation||origin)}</small></div></div>
       <div class="cv-tl-stage cv-tl-stage-dep"><time>${esc(timelineClockDisplay(event.departure))}</time><i></i><div><strong>Departure</strong><small>${esc(dep.station||origin)}</small></div></div>
-      <div class="cv-tl-flight-strip"><span>${esc(origin)}</span><b>✈</b><em>${event.blockMinutes?timelineDurationHuman(event.blockMinutes):"En Route"}</em><span>${esc(destination)}</span></div>
+      <div class="cv-tl-flight-strip"><span>${esc(origin)}</span><b>✈</b><em>${elapsedMinutes?`${timelineDurationHuman(elapsedMinutes)} elapsed`:"En Route"}</em><span>${esc(destination)}</span></div>
       <div class="cv-tl-stage cv-tl-stage-arr"><time>${esc(timelineClockDisplay(event.arrival))}</time><i></i><div><strong>Arrival</strong><small>${esc(arr.station||destination)}</small></div></div>
       <div class="cv-tl-stage cv-tl-stage-end"><time>${esc(timelineClockDisplay(event.dutyEnd))}</time><i></i><div><strong>Duty End</strong><small>${esc(event.dutyEndStation||destination)}</small></div></div>
     </div>
