@@ -3513,11 +3513,6 @@ function closeDutyDetails(){
   $("#nextDutyCard")?.focus();
 }
 
-$("#smartDutyDetailsBtn")?.addEventListener("click",event=>{
-  event.stopPropagation();
-  openDutyDetails();
-});
-
 $("#smartDutyExpandBtn")?.addEventListener("click",event=>{
   event.preventDefault();
   event.stopPropagation();
@@ -3535,15 +3530,11 @@ $("#smartDutyCollapseBtn")?.addEventListener("click",event=>{
 $("#nextDutyCard")?.addEventListener("click",event=>{
   if(event.target.closest(".smart-duty-control")) return;
 
-  // Next Duty remains a simple details card. Active/Completed Duty acts like
-  // a compact launcher: tap once to open the full operational workspace.
+  // Next Duty already contains the useful duty information, so tapping it
+  // does not open a duplicate details sheet. Active/Completed Duty remains
+  // a compact launcher for the operational workspace.
   if(activeSmartDutyState!=="next" && !smartDutyExpanded){
     setSmartDutyExpanded(true);
-    return;
-  }
-
-  if(activeSmartDutyState==="next"){
-    openDutyDetails();
   }
 });
 
