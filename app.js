@@ -5074,7 +5074,13 @@ document.querySelectorAll("[data-calendar-mode='classic']").forEach(button=>
 );
 
 document.querySelectorAll("[data-calendar-mode='pay']").forEach(button=>
-  button.addEventListener("click",()=>switchRosterView("pay"))
+  button.addEventListener("click",()=>{
+    // Calendar can retain the short transition lock on iOS Safari/PWA.
+    // Clear it explicitly so Allowances is always immediately tappable.
+    clearTimeout(crewViewTransitionTimer);
+    document.body.classList.remove("view-switching","view-switch-cover");
+    switchRosterView("pay");
+  })
 );
 
 $("#calendarPrev")?.addEventListener("click",()=>{

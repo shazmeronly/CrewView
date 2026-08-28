@@ -5219,3 +5219,8 @@ html[data-theme="dark"] .pay-subtabs{background:#101923}
 #payLayoverSection{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .pay-combined-total{margin-top:18px;border:1px solid var(--line);border-radius:18px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--panel,#fff)}
 .pay-combined-total div{display:grid;gap:4px}.pay-combined-total small{font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--muted)}.pay-combined-total span{font-size:11px;color:var(--muted)}.pay-combined-total strong{font-size:24px;white-space:nowrap}html[data-theme="dark"] .pay-combined-total{background:#101923}@media(max-width:620px){.pay-combined-total{align-items:flex-start;flex-direction:column}.pay-combined-total strong{font-size:30px}}
+
+
+/* v121: keep Calendar navigation buttons above compact header chrome on iPhone */
+body.calendar-mode .calendar-mode-tabs{position:relative;z-index:42;pointer-events:auto!important}
+body.calendar-mode .calendar-mode-tabs button{position:relative;z-index:43;pointer-events:auto!important;touch-action:manipulation}
