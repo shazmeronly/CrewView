@@ -6642,7 +6642,7 @@ function cvPdfDownloadFallback(blob,filename){
 
 async function saveCrewViewPdfDirect(){
   const button=$("#printBtn");
-  const oldText=button?.textContent||"Save PDF";
+  const oldText=button?.textContent||"Export PDF";
   if(button){
     button.disabled=true;
     button.textContent="Preparing PDF...";
