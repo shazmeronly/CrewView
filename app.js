@@ -4186,21 +4186,76 @@ function formatLayoverLocal(timestamp,airport){
   return `${parts.day}-${parts.month}-${parts.year} ${parts.hour}:${parts.minute}`;
 }
 
+function layoverExplicitDutyEndMs(group){
+  if(!group?.destination) return null;
+  const zone=airportTimezone(group.destination);
+
+  // Prefer the explicit Duty End printed by the roster.  This is the exact
+  // start point of the allowance entitlement and avoids reconstructing it
+  // from report + duty duration or from the roster's LT/SLT/UTC basis.
+  const candidates=[...(group.members||[])].reverse();
+  for(const row of candidates){
+    const raw=String(row?._finalDutyEnd||row?.dutyEnd||"").trim();
+    const tm=raw.match(/(\d{1,2}):(\d{2})/);
+    if(!tm) continue;
+
+    let dateText=String(row?.date||group.anchor?.date||"").trim();
+    if(!dateText) continue;
+
+    // If Duty End is carried on the originating flight row and explicitly
+    // marked (+1), move it to the following calendar day.  Overnight
+    // continuation rows already carry the correct date, so do not add again.
+    if(/\(\s*\+\s*1\s*\)/.test(raw) && !row?._overnightContinuation){
+      dateText=addRosterDays(dateText,1);
+    }
+
+    const ms=zonedWallTimeToUtcMs(dateText,`${tm[1]}:${tm[2]}`,zone);
+    if(Number.isFinite(ms)) return ms;
+  }
+  return null;
+}
+
+function layoverNextReportMs(group,airport){
+  const raw=String(group?.anchor?.dutyStart||"").trim();
+  const tm=raw.match(/(\d{1,2}):(\d{2})/);
+  const dateText=String(group?.anchor?.date||"").trim();
+  if(!tm||!dateText) return null;
+  return zonedWallTimeToUtcMs(dateText,`${tm[1]}:${tm[2]}`,airportTimezone(airport));
+}
+
 function calculateLayoverAllowances(){
   const groups=flightDutyGroupsForLayover();
   const base=baseAirportCode();
   const layovers=[];
+
   groups.forEach((group,index)=>{
     if(group.destination===base) return;
-    const next=groups.slice(index+1).find(candidate=>candidate.report>group.end && candidate.departure===group.destination);
-    if(!next) return;
+
+    const start=layoverExplicitDutyEndMs(group);
+    if(!Number.isFinite(start)) return;
+
+    // The next qualifying duty must REPORT from the same outstation.  Report
+    // is interpreted directly in that station's local time, per the allowance
+    // rule, instead of inheriting the PDF's global LT/SLT display basis.
+    let next=null;
+    let end=null;
+    for(const candidate of groups.slice(index+1)){
+      if(candidate.departure!==group.destination) continue;
+      const candidateReport=layoverNextReportMs(candidate,group.destination);
+      if(!Number.isFinite(candidateReport)||candidateReport<=start) continue;
+      next=candidate;
+      end=candidateReport;
+      break;
+    }
+    if(!next||!Number.isFinite(end)) return;
+
     const region=layoverRegionForAirport(group.destination);
     if(!region || !LAYOVER_RATES[region]) return;
-    const meals=mealEntitlementsForLayover(group.end,next.report,group.destination,region);
+    const meals=mealEntitlementsForLayover(start,end,group.destination,region);
     const amount=meals.reduce((sum,meal)=>sum+Number(meal.amount||0),0);
     layovers.push({
-      airport:group.destination,region,start:group.end,end:next.report,
-      durationMinutes:Math.max(0,Math.round((next.report-group.end)/60000)),
+      airport:group.destination,region,start,end,
+      durationMinutes:Math.max(0,Math.round((end-start)/60000)),
       meals,amount,fromItems:group.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / "),
       nextItems:next.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / ")
     });
