@@ -1,11 +1,11 @@
-const CACHE = "crewview-v135";
+const CACHE = "crewview-v136";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css",
-  "./app.js",
+  "./style.css?v=136",
+  "./app.js?v=136",
   "./airport-timezones.js",
   "./manifest.webmanifest",
   "./icon-192.png",
@@ -56,6 +56,25 @@ self.addEventListener("fetch", event => {
   }
 
   event.respondWith((async()=>{
+    const url=new URL(event.request.url);
+    const sameOrigin=url.origin===self.location.origin;
+    const coreAsset=sameOrigin && /\/(?:app\.js|style\.css|airport-timezones\.js)$/.test(url.pathname);
+
+    // Code and CSS are network-first. This prevents a newly fetched index.html
+    // from being paired with an older cached app.js/style.css after deployment.
+    if(coreAsset){
+      try{
+        const fresh=await fetch(event.request,{cache:"no-store"});
+        if(fresh && fresh.ok){
+          const cache=await caches.open(CACHE);
+          cache.put(event.request,fresh.clone()).catch(()=>{});
+        }
+        return fresh;
+      }catch(_error){
+        return (await caches.match(event.request)) || Response.error();
+      }
+    }
+
     const cached=await caches.match(event.request);
     if(cached) return cached;
     try{

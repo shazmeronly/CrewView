@@ -5470,6 +5470,30 @@ function setPrimaryRosterViewVisibility(view){
     element.style.setProperty("display",active ? "block" : "none","important");
     element.setAttribute("aria-hidden",active ? "false" : "true");
   });
+
+  // Smart Duty/profile/footer sit outside #classicView in the document.
+  // Control them in JS as well as CSS so a stale stylesheet can never leave
+  // Classic content visible over Timeline.
+  const timelineActive=view==="timeline";
+  [$("#nextDutyCard"),$("#compactProfile")].forEach(element=>{
+    if(!element) return;
+    if(timelineActive){
+      element.dataset.timelineDisplay=element.style.display||"";
+      element.style.setProperty("display","none","important");
+    }else if(element.dataset.timelineDisplay!==undefined){
+      element.style.removeProperty("display");
+      delete element.dataset.timelineDisplay;
+    }
+  });
+
+  const printButton=$("#printBtn");
+  if(printButton){
+    if(timelineActive){
+      printButton.style.setProperty("display","none","important");
+    }else{
+      printButton.style.removeProperty("display");
+    }
+  }
 }
 
 function switchRosterView(view){
