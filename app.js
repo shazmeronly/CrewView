@@ -4118,29 +4118,60 @@ function flightDutyGroupsForLayover(){
   const groups=[];
   const seen=new Set();
 
+  // IMPORTANT: getRows() reconstructs data from the rendered Classic table.
+  // _sourceDutyGroup is intentionally not persisted in that DOM, so layover
+  // detection must not depend on it. Instead, build each real flight duty from
+  // its visible MH sector row(s), then attach any adjacent overnight
+  // continuation row that follows the final sector before the next real flight.
   rows.forEach((row,index)=>{
     const item=String(row?.item||"").trim().toUpperCase();
-    // Start a group only from the real sector row. Overnight continuation rows
-    // belong to that duty and are pulled in through _dutyGroup below.
     if(!/^MH\d+/.test(item) || row?._overnightContinuation) return;
 
-    const key=row._dutyGroup || [row.date,row.dutyStart,index].join("|");
+    const key=row._dutyGroup || `ROW|${index}`;
     if(seen.has(key)) return;
     seen.add(key);
 
-    const members=row._dutyGroup
-      ? rows.filter(r=>r._dutyGroup===row._dutyGroup || r._sourceDutyGroup===row._dutyGroup)
-      : [row];
-    const flights=members.filter(r=>/^MH\d+/i.test(String(r?.item||"")) && !r?._overnightContinuation);
-    if(!flights.length) return;
+    const flightIndexes=[];
+    if(row._dutyGroup){
+      rows.forEach((candidate,i)=>{
+        if(candidate?._overnightContinuation) return;
+        if(candidate._dutyGroup!==row._dutyGroup) return;
+        if(!/^MH\d+/i.test(String(candidate?.item||""))) return;
+        flightIndexes.push(i);
+      });
+    }else{
+      flightIndexes.push(index);
+    }
+    if(!flightIndexes.length) return;
 
-    const anchor=members.find(r=>String(r?.dutyStart||"").trim()) || row;
-    const firstDeparture=members
+    const flights=flightIndexes.map(i=>rows[i]);
+    const members=[...flights];
+    const lastFlightIndex=Math.max(...flightIndexes);
+
+    // An overnight arrival/duty-end is moved to a separate continuation row
+    // by prepareClassicDisplayRows(). It normally appears after the final
+    // sector and before the next real MH flight. Attach those rows by position,
+    // which survives the DOM round-trip used by getRows().
+    for(let i=lastFlightIndex+1;i<rows.length;i++){
+      const candidate=rows[i];
+      const candidateItem=String(candidate?.item||"").trim().toUpperCase();
+      if(/^MH\d+/.test(candidateItem) && !candidate?._overnightContinuation) break;
+      if(candidate?._overnightContinuation){
+        members.push(candidate);
+        // One continuation is sufficient for a duty end, but allowing more is
+        // harmless and supports unusual multi-row overnight formatting.
+        continue;
+      }
+      // Stop once we reach a real non-synthetic duty/off row on a later date;
+      // this prevents borrowing an unrelated continuation from another duty.
+      if(candidateItem || String(candidate?.dutyStart||"").trim()) break;
+    }
+
+    const anchor=flights.find(r=>String(r?.dutyStart||"").trim()) || flights[0];
+    const firstDeparture=flights
       .map(r=>parseStationClock(r?.dep))
       .find(v=>v?.station);
-    // IMPORTANT: arrival/duty-end may have been moved to an overnight
-    // continuation row by the Classic-view normaliser. Search every member,
-    // including continuation rows, and take the final station-bearing arrival.
+
     const arrivals=members
       .map(r=>parseStationClock(r?.arr))
       .filter(v=>v?.station);
@@ -4150,9 +4181,6 @@ function flightDutyGroupsForLayover(){
     const destination=finalArrival?.station||"";
     if(!departure || !destination) return;
 
-    // Layover pairing no longer depends on Smart Duty's UTC/time-basis engine.
-    // We only need chronological roster order here; the actual allowance start
-    // and end are subsequently built directly in destination local time.
     const dateMs=parseRosterDate(anchor.date)?.getTime();
     const tm=String(anchor.dutyStart||"").match(/(\d{1,2}):(\d{2})/);
     const order=Number.isFinite(dateMs)
