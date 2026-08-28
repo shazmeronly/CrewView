@@ -5953,3 +5953,21 @@ body.pay-mode .pay-grade{
     font-size:25px!important;
   }
 }
+
+
+/* v142 Allowances nav overlap fix
+   Keep the CrewView app header sticky, but let the four-view switcher
+   scroll normally so it never covers breakdown rows. */
+body.pay-mode .view-switcher{
+  position:relative!important;
+  top:auto!important;
+  z-index:10!important;
+  background:transparent!important;
+  margin-top:0!important;
+  margin-bottom:14px!important;
+  box-shadow:none!important;
+}
+
+body.pay-mode .view-switcher::before{
+  content:none!important;
+}
