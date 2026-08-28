@@ -8038,3 +8038,193 @@ body.pdf-export #payView{
     print-color-adjust:exact!important;
   }
 }
+
+
+/* =========================================================
+   CrewView v162 — iOS exact two-page PDF fix
+   1) Prevents blank overflow pages.
+   2) Forces PDF tables to true black/white/grey.
+   Approved coloured CrewView logo/wordmark is retained.
+   ========================================================= */
+@media print{
+
+  /* iOS Safari's printable content area is shorter than the raw A4 box
+     because Safari adds its own URL/date footer. Keep each CrewView page
+     safely inside that real printable height. */
+  #cvPdfDocument .cv-pdf-page{
+    box-sizing:border-box!important;
+    height:250mm!important;
+    min-height:250mm!important;
+    max-height:250mm!important;
+    overflow:hidden!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  #cvPdfDocument .cv-pdf-page + .cv-pdf-page{
+    break-before:page!important;
+    page-break-before:always!important;
+  }
+
+  /* Slightly tighten vertical spacing without changing the approved design. */
+  #cvPdfDocument .cv-pdf-page-head{
+    min-height:12.5mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-rule{
+    margin:1.1mm 0 2.3mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-crew{
+    min-height:8.5mm!important;
+    margin-bottom:2.1mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-roster-summary{
+    margin-bottom:2.5mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-roster-summary > div{
+    min-height:14mm!important;
+    padding:2mm 2.7mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-roster-table th{
+    height:4.7mm!important;
+    padding:.48mm .4mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-roster-table td{
+    height:4.55mm!important;
+    padding:.42mm .48mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-allowance-cards{
+    margin-bottom:3mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-allowance-cards > div{
+    min-height:14mm!important;
+    padding:2mm 2.3mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-section-title{
+    margin-bottom:1.2mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-summary-table{
+    margin-bottom:3mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-summary-table th,
+  #cvPdfDocument .cv-pdf-summary-table td{
+    height:6mm!important;
+    padding:.75mm 2mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-productivity-table{
+    margin-bottom:3mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-productivity-table th,
+  #cvPdfDocument .cv-pdf-layover-table th{
+    padding:.9mm 1.2mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-productivity-table td{
+    height:5.1mm!important;
+    padding:.65mm 1.2mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-layover-table td,
+  #cvPdfDocument .cv-pdf-layover-table tfoot th{
+    height:5.2mm!important;
+    padding:.65mm 1.2mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-note{
+    margin-top:2.7mm!important;
+  }
+
+  #cvPdfDocument .cv-pdf-page-footer{
+    padding-top:1.7mm!important;
+  }
+
+  /* =====================================================
+     HARD PDF COLOUR RESET
+     These selectors intentionally have greater specificity
+     than CrewView's global dark-theme tbody:nth-child rules.
+     ===================================================== */
+
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument thead,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument tbody,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument tfoot,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument tr{
+    background:#fff!important;
+    color:#111!important;
+  }
+
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table th{
+    background:#f1f1f1!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    border-color:#8f8f8f!important;
+  }
+
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table td,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(1),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(2),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(3),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(4),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(5),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(6),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(7),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(8),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(9),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(10),
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument table tbody td:nth-child(11){
+    background:#fff!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    border-color:#b0b0b0!important;
+    font-weight:inherit!important;
+  }
+
+  /* Keep table hierarchy readable but monochrome. */
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument .cv-pdf-productivity-table td:last-child,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument .cv-pdf-layover-table td:last-child,
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument .cv-pdf-layover-table tfoot th{
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+    background:#fff!important;
+    font-weight:800!important;
+  }
+
+  html[data-theme="light"] body.pdf-export #cvPdfDocument table td,
+  html[data-theme="light"] body.pdf-export #cvPdfDocument table tbody td{
+    background:#fff!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+  }
+
+  html[data-theme="light"] body.pdf-export #cvPdfDocument table th{
+    background:#f1f1f1!important;
+    color:#111!important;
+    -webkit-text-fill-color:#111!important;
+  }
+
+  /* The ONLY colour retained in the report is the approved branding. */
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument .cv-pdf-brand strong span,
+  html[data-theme="light"] body.pdf-export #cvPdfDocument .cv-pdf-brand strong span{
+    color:#0b2d5b!important;
+    -webkit-text-fill-color:#0b2d5b!important;
+  }
+
+  html[data-theme="dark"] body.pdf-export #cvPdfDocument .cv-pdf-brand strong b,
+  html[data-theme="light"] body.pdf-export #cvPdfDocument .cv-pdf-brand strong b{
+    color:#159cff!important;
+    -webkit-text-fill-color:#159cff!important;
+  }
+}
