@@ -40,6 +40,7 @@
 <nav class="view-switcher hidden" id="viewSwitcher" aria-label="Roster view">
   <button class="view-tab active" type="button" data-view="classic">Classic</button>
   <button class="view-tab" type="button" data-view="calendar">Calendar</button>
+  <button class="view-tab" type="button" data-view="timeline">Timeline</button>
   <button class="view-tab" type="button" data-view="pay">Allowances</button>
 </nav>
 <section class="card upload-card" id="uploadCard">
@@ -376,6 +377,33 @@
   </div>
 </section>
 
+
+<section class="timeline-view hidden" id="timelineView" aria-label="Roster timeline view">
+  <div class="timeline-shell">
+    <header class="timeline-header">
+      <div>
+        <span class="timeline-eyebrow">CREWVIEW TIMELINE</span>
+        <h2>Timeline</h2>
+        <p id="timelineMonthLabel">Your roster in chronological order</p>
+      </div>
+      <button type="button" class="timeline-today" id="timelineToday">Today</button>
+    </header>
+
+    <div class="timeline-summary">
+      <div><strong id="timelineDutyCount">0</strong><small>Duties</small></div>
+      <div><strong id="timelineLayoverCount">0</strong><small>Layovers</small></div>
+      <div><strong id="timelineAllowanceTotal">RM0.00</strong><small>Est. Allowances</small></div>
+    </div>
+
+    <div class="timeline-list" id="timelineList"></div>
+
+    <p class="timeline-note">
+      Timeline uses the loaded roster. Hotel names appear only when provided in the roster.
+      Allowances are estimates based on the rules currently encoded in CrewView.
+    </p>
+  </div>
+</section>
+
 <section class="calendar-view hidden" id="calendarView" aria-label="Calendar roster view">
   <div class="calendar-app-shell">
     <header class="calendar-app-header">
@@ -390,6 +418,7 @@
       <nav class="calendar-mode-tabs" aria-label="Roster mode">
         <button type="button" data-calendar-mode="classic">Classic</button>
         <button type="button" class="active" data-calendar-mode="calendar">Calendar</button>
+        <button type="button" data-calendar-mode="timeline">Timeline</button>
         <button type="button" data-calendar-mode="pay">Allowances</button>
       </nav>
 

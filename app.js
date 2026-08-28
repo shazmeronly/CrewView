@@ -342,7 +342,7 @@ function updateStats(){
   $("#dh").textContent=officialDH || hhmm(dh);
   $("#off").textContent=offDates.size;
 }
-tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView()});
+tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView();if(crewViewMode==="timeline")renderTimelineView()});
 
 
 function updateCompactProfile(){
@@ -4030,7 +4030,7 @@ async function parsePDF(file){
   $("#calendarView")?.classList.remove("view-entering","view-leaving");
   crewViewMode="classic";
   setPrimaryRosterViewVisibility("classic");
-  document.body.classList.remove("calendar-mode","pay-mode");
+  document.body.classList.remove("calendar-mode","timeline-mode","pay-mode");
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
     tab.classList.toggle("active",tab.dataset.view==="classic")
   );
@@ -4041,6 +4041,8 @@ async function parsePDF(file){
   // Do not preserve the user's previous Classic or Calendar scroll position.
   crewViewScrollPositions.classic=0;
   crewViewScrollPositions.calendar=0;
+  crewViewScrollPositions.timeline=0;
+  crewViewScrollPositions.pay=0;
 
   // Reset every scroll root used by Safari / Home Screen web apps.
   const resetUploadScrollPosition=()=>{
@@ -4534,11 +4536,258 @@ function renderLayoverAllowance(){
 
 
 
+
+/* CrewView Timeline — chronological operational feed. */
+function timelineDateInRosterPeriod(dateText){
+  const d=parseRosterDate(dateText);
+  if(!d) return false;
+  if(!officialRosterPeriod) return true;
+  return d>=officialRosterPeriod.start && d<=officialRosterPeriod.end;
+}
+
+function timelineFlightRoute(group){
+  const route=[];
+  (group?.flights||[]).forEach((row,index)=>{
+    const dep=(parseStationClock(row?.dep)||{}).station;
+    const arr=(parseStationClock(row?.arr)||{}).station;
+    if(index===0 && dep) route.push(dep);
+    if(arr && route[route.length-1]!==arr) route.push(arr);
+  });
+  return route.join(" → ") || `${group?.departure||"—"} → ${group?.destination||"—"}`;
+}
+
+function timelineDutyEnd(group){
+  const members=[...(group?.members||[])].reverse();
+  const row=members.find(r=>String(r?._finalDutyEnd||r?.dutyEnd||"").trim());
+  return String(row?._finalDutyEnd||row?.dutyEnd||"").trim() || "—";
+}
+
+function timelineFinalArrival(group){
+  const members=[...(group?.members||[])].reverse();
+  const row=members.find(r=>String(r?._arrival||r?.arr||"").trim());
+  return String(row?._arrival||row?.arr||"").trim() || "—";
+}
+
+function timelineAircraft(group){
+  const values=[...new Set((group?.flights||[])
+    .map(r=>String(r?.ac||"").trim())
+    .filter(Boolean))];
+  return values.join(" / ") || "—";
+}
+
+function timelineBlockMinutes(group){
+  return (group?.flights||[]).reduce((sum,row)=>sum+toMinutes(row?.block),0);
+}
+
+function timelineGroundEventRows(){
+  return getRows().filter(row=>{
+    if(!timelineDateInRosterPeriod(row?.date)) return false;
+    if(row?._overnightContinuation || row?._syntheticCalendarRow) return false;
+    const item=String(row?.item||"").trim().toUpperCase();
+    if(!item || /^MH\d+/.test(item)) return false;
+    const category=calendarCategory(row);
+    if(["off","continuation"].includes(category)) return false;
+    return Boolean(String(row?.dutyStart||"").trim());
+  });
+}
+
+function timelineEvents(){
+  const layovers=calculateLayoverAllowances();
+  const events=[];
+
+  flightDutyGroupsForLayover().forEach(group=>{
+    const row=group.anchor;
+    if(!timelineDateInRosterPeriod(row?.date)) return;
+
+    const items=[...new Set((group.flights||[])
+      .map(r=>String(r?.item||"").trim())
+      .filter(Boolean))];
+
+    const layover=layovers.find(l=>{
+      const fromItems=String(l.fromItems||"").split(/\s*\/\s*/);
+      return l.fromDate===String(row.date||"") &&
+        items.some(item=>fromItems.includes(item));
+    }) || layoverForDuty(row);
+
+    const dutyMinutes=toMinutes(
+      row?.duty ||
+      (group.members||[]).find(r=>toMinutes(r?.duty)>0)?.duty
+    );
+
+    events.push({
+      type:"flight",
+      date:String(row.date||""),
+      day:String(row.day||dayName(row.date)||""),
+      sort:Number(group.order||0),
+      item:items.join(" / ")||String(row.item||""),
+      route:timelineFlightRoute(group),
+      report:String(row.dutyStart||"—"),
+      departure:String(group.flights?.[0]?.dep||"—"),
+      arrival:timelineFinalArrival(group),
+      dutyEnd:timelineDutyEnd(group),
+      work:[...new Set((group.flights||[]).map(r=>String(r?.work||"").trim()).filter(Boolean))].join(" / ")||"—",
+      aircraft:timelineAircraft(group),
+      blockMinutes:timelineBlockMinutes(group),
+      dutyMinutes,
+      productivity:productivityAllowanceForDuty(row),
+      layover
+    });
+  });
+
+  timelineGroundEventRows().forEach((row,index)=>{
+    const date=parseRosterDate(row.date);
+    const tm=String(row.dutyStart||"").match(/(\d{1,2}):(\d{2})/);
+    const sort=(date?.getTime()||0)+(tm?(Number(tm[1])*60+Number(tm[2]))*60000:index);
+
+    events.push({
+      type:"ground",
+      date:String(row.date||""),
+      day:String(row.day||dayName(row.date)||""),
+      sort,
+      item:String(row.item||"Duty"),
+      route:String(row.work||calendarCategory(row)||"Ground Duty"),
+      report:String(row.dutyStart||"—"),
+      departure:String(row.dep||"—"),
+      arrival:String(row.arr||"—"),
+      dutyEnd:String(row.dutyEnd||"—"),
+      work:String(row.work||"—"),
+      aircraft:String(row.ac||"—"),
+      blockMinutes:toMinutes(row.block),
+      dutyMinutes:toMinutes(row.duty),
+      productivity:0,
+      layover:null
+    });
+  });
+
+  return events.sort((a,b)=>a.sort-b.sort);
+}
+
+function timelineDateLabel(dateText,dayText){
+  const d=parseRosterDate(dateText);
+  if(!d) return dateText||"—";
+  return `${String(d.getDate()).padStart(2,"0")} ${d.toLocaleString("en-US",{month:"short"}).toUpperCase()} · ${(dayText||dayName(dateText)||"").toUpperCase()}`;
+}
+
+function timelineClockLabel(value){
+  const text=String(value||"").trim();
+  const split=parseStationClock(text);
+  return {
+    station:split?.station||"",
+    time:split?.time||text||"—"
+  };
+}
+
+function renderTimelineView(){
+  const list=$("#timelineList");
+  if(!list) return;
+
+  const events=timelineEvents();
+  const layovers=events.filter(e=>e.layover);
+  const allowanceTotal=events.reduce(
+    (sum,e)=>sum+Number(e.productivity||0)+Number(e.layover?.amount||0),
+    0
+  );
+
+  const month=loadedRosterMonth();
+  $("#timelineMonthLabel").textContent=month
+    ? month.toLocaleDateString("en-US",{month:"long",year:"numeric"})
+    : "Loaded roster";
+  $("#timelineDutyCount").textContent=events.length;
+  $("#timelineLayoverCount").textContent=layovers.length;
+  $("#timelineAllowanceTotal").textContent=moneyRM(allowanceTotal);
+
+  if(!events.length){
+    list.innerHTML='<div class="timeline-empty">No duties found in this roster.</div>';
+    return;
+  }
+
+  const now=Date.now();
+  let nextMarked=false;
+
+  list.innerHTML=events.map((event,index)=>{
+    const dep=timelineClockLabel(event.departure);
+    const arr=timelineClockLabel(event.arrival);
+    const eventStart=event.sort||0;
+    const isNext=!nextMarked && eventStart>=now;
+    if(isNext) nextMarked=true;
+
+    const category=event.type==="flight" ? "flight" : calendarCategory({
+      item:event.item,work:event.work
+    });
+    const layover=event.layover;
+    const hotel=layover ? (layover.hotel||"Hotel not listed") : "";
+    const nextReport=layover ? formatLayoverLocal(layover.end,layover.airport) : "";
+    const totalAllowance=Number(event.productivity||0)+Number(layover?.amount||0);
+
+    return `
+      <div class="timeline-entry ${isNext?"is-next":""}" data-timeline-date="${esc(event.date)}">
+        <div class="timeline-rail" aria-hidden="true"><span></span></div>
+        <article class="timeline-event timeline-${esc(category)}">
+          <div class="timeline-event-top">
+            <div>
+              <small>${esc(timelineDateLabel(event.date,event.day))}</small>
+              <strong>${esc(event.item)}</strong>
+            </div>
+            <span class="timeline-badge">${esc(event.type==="flight"?(event.work||"FLIGHT"):(event.route||"DUTY"))}</span>
+          </div>
+
+          <div class="timeline-route">${event.type==="flight"?"✈":"▣"} <strong>${esc(event.route)}</strong></div>
+
+          <div class="timeline-times">
+            <div><small>REPORT</small><strong>${esc(event.report)}</strong></div>
+            <div><small>DEP</small><strong>${esc(dep.time)}</strong><span>${esc(dep.station)}</span></div>
+            <div><small>ARR</small><strong>${esc(arr.time)}</strong><span>${esc(arr.station)}</span></div>
+            <div><small>DUTY END</small><strong>${esc(event.dutyEnd)}</strong></div>
+          </div>
+
+          <div class="timeline-metrics">
+            <span><small>Block</small><strong>${event.blockMinutes?hhmm(event.blockMinutes):"—"}</strong></span>
+            <span><small>Duty</small><strong>${event.dutyMinutes?hhmm(event.dutyMinutes):"—"}</strong></span>
+            <span><small>A/C</small><strong>${esc(event.aircraft)}</strong></span>
+          </div>
+
+          ${event.type==="flight" ? `
+          <div class="timeline-money">
+            <span>Productivity <strong>${moneyRM(event.productivity)}</strong></span>
+            ${layover?`<span>Layover <strong>${moneyRM(layover.amount)}</strong></span>`:""}
+            <b>${moneyRM(totalAllowance)}</b>
+          </div>` : ""}
+
+          ${layover ? `
+          <div class="timeline-layover">
+            <div class="timeline-hotel">
+              <span>🏨</span>
+              <div><small>LAYOVER IN ${esc(layover.airport)}</small><strong>${esc(hotel)}</strong></div>
+            </div>
+            <div class="timeline-layover-meta">
+              <span><small>AT DESTINATION</small><strong>${hhmm(layover.durationMinutes)}</strong></span>
+              <span><small>NEXT REPORT · LOCAL</small><strong>${esc(nextReport)}</strong></span>
+            </div>
+          </div>` : ""}
+        </article>
+      </div>`;
+  }).join("");
+}
+
+function scrollTimelineToToday(){
+  const today=new Date();
+  const monthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const key=`${String(today.getDate()).padStart(2,"0")}-${monthNames[today.getMonth()]}-${today.getFullYear()}`;
+  const exact=document.querySelector(`[data-timeline-date="${key}"]`);
+  const target=exact || document.querySelector(".timeline-entry.is-next") || document.querySelector(".timeline-entry");
+  target?.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+$("#timelineToday")?.addEventListener("click",scrollTimelineToToday);
+
+
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";
 const crewViewScrollPositions={
   classic:0,
-  calendar:0
+  calendar:0,
+  timeline:0,
+  pay:0
 };
 let crewViewTransitionTimer=null;
 let calendarCursor=null;
@@ -5209,9 +5458,10 @@ function showValidationToast(message){
 function setPrimaryRosterViewVisibility(view){
   const classic=$("#classicView");
   const calendar=$("#calendarView");
+  const timeline=$("#timelineView");
   const pay=$("#payView");
 
-  [[classic,"classic"],[calendar,"calendar"],[pay,"pay"]].forEach(([element,name])=>{
+  [[classic,"classic"],[calendar,"calendar"],[timeline,"timeline"],[pay,"pay"]].forEach(([element,name])=>{
     if(!element) return;
     const active=name===view;
     element.classList.toggle("hidden",!active);
@@ -5232,6 +5482,7 @@ function switchRosterView(view){
 
   const previousView=crewViewMode;
   const goingToCalendar=view==="calendar";
+  const goingToTimeline=view==="timeline";
   const goingToPay=view==="pay";
 
   crewViewScrollPositions[previousView]=window.scrollY||0;
@@ -5258,16 +5509,21 @@ function switchRosterView(view){
       selectedCalendarDuty=null;
       setPrimaryRosterViewVisibility("calendar");
       document.body.classList.add("calendar-mode");
-      document.body.classList.remove("pay-mode");
+      document.body.classList.remove("timeline-mode","pay-mode");
       renderCalendarView({suppressAutoSelect:false});
+    }else if(goingToTimeline){
+      setPrimaryRosterViewVisibility("timeline");
+      document.body.classList.remove("calendar-mode","timeline-mode","pay-mode");
+      document.body.classList.add("timeline-mode");
+      renderTimelineView();
     }else if(goingToPay){
       setPrimaryRosterViewVisibility("pay");
-      document.body.classList.remove("calendar-mode");
+      document.body.classList.remove("calendar-mode","timeline-mode");
       document.body.classList.add("pay-mode");
       renderPayView();
     }else{
       setPrimaryRosterViewVisibility("classic");
-      document.body.classList.remove("calendar-mode","pay-mode");
+      document.body.classList.remove("calendar-mode","timeline-mode","pay-mode");
       applyOnePageFit();
     }
 
@@ -5296,6 +5552,14 @@ document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
 
 document.querySelectorAll("[data-calendar-mode='classic']").forEach(button=>
   button.addEventListener("click",()=>switchRosterView("classic"))
+);
+
+document.querySelectorAll("[data-calendar-mode='timeline']").forEach(button=>
+  button.addEventListener("click",()=>{
+    clearTimeout(crewViewTransitionTimer);
+    document.body.classList.remove("view-switching","view-switch-cover");
+    switchRosterView("timeline");
+  })
 );
 
 document.querySelectorAll("[data-calendar-mode='pay']").forEach(button=>
@@ -5605,7 +5869,7 @@ function restoreCachedRoster(){
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
   setPrimaryRosterViewVisibility("classic");
-  document.body.classList.remove("calendar-mode","pay-mode");
+  document.body.classList.remove("calendar-mode","timeline-mode","pay-mode");
   crewViewMode="classic";
   document.querySelectorAll(".view-tab[data-view]").forEach(tab=>tab.classList.toggle("active",tab.dataset.view==="classic"));
   updateCompactProfile();
