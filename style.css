@@ -5971,3 +5971,128 @@ body.pay-mode .view-switcher{
 body.pay-mode .view-switcher::before{
   content:none!important;
 }
+
+
+/* v143 Calendar header — comfortable one-row iPhone fit */
+@media(max-width:620px){
+  body.calendar-mode .calendar-app-header{
+    grid-template-columns:auto minmax(0,1fr) 40px !important;
+    gap:9px !important;
+    min-height:70px !important;
+    padding:10px 12px !important;
+    overflow:visible !important;
+  }
+
+  body.calendar-mode .calendar-brand{
+    gap:6px !important;
+    min-width:0 !important;
+    flex:0 0 auto !important;
+  }
+
+  body.calendar-mode .calendar-brand-plane{
+    font-size:21px !important;
+    line-height:1 !important;
+  }
+
+  body.calendar-mode .calendar-brand strong{
+    font-size:15px !important;
+    line-height:1 !important;
+    white-space:nowrap !important;
+    letter-spacing:-.02em !important;
+  }
+
+  body.calendar-mode .calendar-brand small{
+    display:none !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs{
+    width:100% !important;
+    min-width:0 !important;
+    padding:3px !important;
+    gap:2px !important;
+    border-radius:13px !important;
+    box-sizing:border-box !important;
+    overflow:hidden !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs button{
+    flex:1 1 0 !important;
+    min-width:0 !important;
+    padding:8px 3px !important;
+    font-size:9.5px !important;
+    line-height:1 !important;
+    letter-spacing:-.01em !important;
+    white-space:nowrap !important;
+    border-radius:10px !important;
+  }
+
+  body.calendar-mode .calendar-header-actions{
+    width:40px !important;
+    min-width:40px !important;
+    justify-self:end !important;
+    margin-left:1px !important;
+  }
+
+  body.calendar-mode .calendar-theme-toggle{
+    width:40px !important;
+    min-width:40px !important;
+    height:40px !important;
+    flex:0 0 40px !important;
+    padding:0 !important;
+    border-radius:12px !important;
+  }
+
+  body.calendar-mode .calendar-theme-toggle span:first-child{
+    font-size:17px !important;
+  }
+}
+
+/* Slightly roomier on larger iPhones, still safely one row. */
+@media(min-width:431px) and (max-width:620px){
+  body.calendar-mode .calendar-brand strong{
+    font-size:16px !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs button{
+    font-size:10px !important;
+    padding-inline:4px !important;
+  }
+}
+
+/* Narrow iPhones: protect Allowances + theme button from collision. */
+@media(max-width:390px){
+  body.calendar-mode .calendar-app-header{
+    grid-template-columns:auto minmax(0,1fr) 36px !important;
+    gap:6px !important;
+    padding-inline:8px !important;
+  }
+
+  body.calendar-mode .calendar-brand-plane{
+    font-size:18px !important;
+  }
+
+  body.calendar-mode .calendar-brand strong{
+    font-size:13px !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs{
+    padding:2px !important;
+    gap:1px !important;
+  }
+
+  body.calendar-mode .calendar-mode-tabs button{
+    font-size:8.7px !important;
+    padding:8px 2px !important;
+  }
+
+  body.calendar-mode .calendar-header-actions,
+  body.calendar-mode .calendar-theme-toggle{
+    width:36px !important;
+    min-width:36px !important;
+  }
+
+  body.calendar-mode .calendar-theme-toggle{
+    height:36px !important;
+    flex-basis:36px !important;
+  }
+}
