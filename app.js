@@ -139,6 +139,7 @@ function rowHTML(r={}){
     ? String(r._visualOrder)
     : "";
   const dutyGroup=esc(r._dutyGroup||"");
+  const hotel=esc(r._hotel||"");
   const sectorIndex=Number.isFinite(r._sectorIndex) ? String(r._sectorIndex) : "";
   const sectorCount=Number.isFinite(r._sectorCount) ? String(r._sectorCount) : "";
 
@@ -148,6 +149,7 @@ function rowHTML(r={}){
     data-layover-day="${layoverDay}"
     data-visual-order="${visualOrder}"
     data-duty-group="${dutyGroup}"
+    data-hotel="${hotel}"
     data-sector-index="${sectorIndex}"
     data-sector-count="${sectorCount}"
     data-actual-date="${actualDate}"
@@ -274,6 +276,7 @@ function getRows(){
       row._visualOrder=Number(tr.dataset.visualOrder);
     }
     row._dutyGroup=tr.dataset.dutyGroup||"";
+    row._hotel=tr.dataset.hotel||"";
 
     if(tr.dataset.sectorIndex!==""){
       row._sectorIndex=Number(tr.dataset.sectorIndex);
@@ -1640,6 +1643,32 @@ function fillEveryDay(rows=getRows(),period=officialRosterPeriod){
 function allTimeTokens(text){
   return [...String(text||"").matchAll(/\b\d{1,2}:\d{2}(?:\(\+1\))?/g)]
     .map(match=>match[0]);
+}
+
+
+function extractPilotHotelAssignments(pdfText){
+  const text=String(pdfText||"").replace(/\s+/g," ").trim();
+  const dates=[...text.matchAll(/\b\d{2}-[A-Za-z]{3}-\d{4}\b/g)];
+  const assignments=[];
+  dates.forEach((match,index)=>{
+    const date=match[0];
+    const chunk=text.slice(match.index,index+1<dates.length?dates[index+1].index:text.length);
+    const flight=(chunk.match(/\b(MH\d{2,4})\b/i)||[])[1];
+    if(!flight) return;
+    const hit=chunk.match(/\b(?:339|333|332|359|350|330|73H|738|737|7M8|A3[2359])\b\s+(.+?)\s+(?:SYSTEM|ACARS)\b/i);
+    if(!hit) return;
+    const hotel=String(hit[1]||"").replace(/\s+/g," ").trim();
+    if(!hotel||/^\d/.test(hotel)||/\b(?:Updated|ACY|SDC)\b/i.test(hotel)) return;
+    assignments.push({date,item:flight.toUpperCase(),hotel});
+  });
+  return assignments;
+}
+function applyPilotHotelAssignments(rows,pdfText){
+  const assignments=extractPilotHotelAssignments(pdfText);
+  return rows.map(row=>{
+    const hit=assignments.find(x=>x.date===String(row?.date||"").trim()&&x.item===String(row?.item||"").trim().toUpperCase());
+    return hit?{...row,_hotel:hit.hotel}:row;
+  });
 }
 
 function parseMultiSectorRosterText(pdfText){
@@ -3145,6 +3174,13 @@ function refreshSmartDutyCard(force=false){
     $("#nextDutyDate").textContent=`${row.date} · ${row.day||dayName(row.date)}`;
     $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
     $("#nextDutyAircraft").textContent=row.ac||"—";
+    const dutyLayover=layoverForDuty(row);
+    $("#smartDutyLayoverStrip")?.classList.toggle("hidden",!dutyLayover);
+    if(dutyLayover){
+      $("#smartDutyLayoverStation").textContent=`Layover in ${dutyLayover.airport}`;
+      $("#smartDutyHotel").textContent=dutyLayover.hotel||"Hotel not listed in roster";
+      $("#smartDutyLayoverDuration").textContent=hhmm(dutyLayover.durationMinutes);
+    }
 
     const livePanel=$("#smartDutyLivePanel");
     livePanel?.classList.toggle("hidden",state==="next");
@@ -3751,6 +3787,8 @@ async function parsePDF(file){
     combinedText
   );
 
+  if(!pairingMode) allRows=applyPilotHotelAssignments(allRows,combinedText);
+
   allRows=fillEveryDay(
     allRows,
     officialRosterPeriod
@@ -4290,14 +4328,30 @@ function calculateLayoverAllowances(){
     if(!region || !LAYOVER_RATES[region]) return;
     const meals=mealEntitlementsForLayover(start,end,group.destination,region);
     const amount=meals.reduce((sum,meal)=>sum+Number(meal.amount||0),0);
+    const hotel=group.flights.map(r=>String(r._hotel||"").trim()).find(Boolean)||"";
     layovers.push({
-      airport:group.destination,region,start,end,
+      airport:group.destination,region,start,end,hotel,
       durationMinutes:Math.max(0,Math.round((end-start)/60000)),
-      meals,amount,fromItems:group.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / "),
+      meals,amount,fromDate:String(group.anchor?.date||""),
+      fromItems:group.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / "),
       nextItems:next.flights.map(r=>String(r.item||"").trim()).filter(Boolean).join(" / ")
     });
   });
   return layovers;
+}
+
+
+function layoverForDuty(row){
+  if(!row) return null;
+  const item=String(row.item||row._displayItems||"").toUpperCase();
+  const date=String(row.date||"");
+  return calculateLayoverAllowances().find(l=>{
+    const items=String(l.fromItems||"").toUpperCase();
+    return (date&&l.fromDate===date&&item&&items.includes(item))||(item&&items.split(/\s*\/\s*/).includes(item));
+  })||null;
+}
+function layoverMealsShort(l){
+  return l?.meals?.length?l.meals.map(m=>`${m.label} ${moneyRM(m.amount)}`).join(" · "):"No qualifying meal";
 }
 
 function renderLayoverAllowance(){
@@ -4929,6 +4983,16 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
   $("#selectedBlock").textContent=row._totalBlock||row.block||"—";
   $("#selectedDuty").textContent=row._totalDuty||row.duty||"—";
   $("#selectedWork").textContent=row.work||"—";
+  const layover=layoverForDuty(row);
+  $("#selectedLayoverPanel")?.classList.toggle("hidden",!layover);
+  if(layover){
+    $("#selectedLayoverStation").textContent=`${layover.airport} · ${layover.region}`;
+    $("#selectedLayoverHotel").textContent=layover.hotel||"Hotel not listed in roster";
+    $("#selectedLayoverDuration").textContent=`${hhmm(layover.durationMinutes)} at destination`;
+    $("#selectedLayoverNextReport").textContent=formatLayoverLocal(layover.end,layover.airport);
+    $("#selectedLayoverMeals").textContent=layoverMealsShort(layover);
+    $("#selectedLayoverAllowance").textContent=moneyRM(layover.amount);
+  }
 }
 
 

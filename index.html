@@ -82,6 +82,10 @@
     <span class="compact-countdown"><span id="smartDutyCountdownLabel">In</span> <strong id="nextDutyCountdown">—</strong></span>
   </div>
 
+  <div class="smart-duty-layover-strip hidden" id="smartDutyLayoverStrip">
+    <div><small id="smartDutyLayoverStation">Layover</small><strong>🏨 <span id="smartDutyHotel">—</span></strong></div>
+    <span><b id="smartDutyLayoverDuration">—</b><small> at destination</small></span>
+  </div>
   <div class="countdown-track compact-track" aria-hidden="true">
     <div class="countdown-fill" id="nextDutyProgress"></div>
   </div>
@@ -493,6 +497,12 @@
             <span><b>◷</b><small>Block Time</small><strong id="selectedBlock">—</strong></span>
             <span><b>▣</b><small>Duty Time</small><strong id="selectedDuty">—</strong></span>
             <span><b>⌁</b><small>Work Type</small><strong id="selectedWork">—</strong></span>
+          </div>
+          <div class="selected-layover hidden" id="selectedLayoverPanel">
+            <div class="selected-layover-head"><div><small>LAYOVER</small><strong id="selectedLayoverStation">—</strong></div><span id="selectedLayoverDuration">—</span></div>
+            <div class="selected-hotel-row"><span class="selected-hotel-icon">▣</span><div><small>HOTEL</small><strong id="selectedLayoverHotel">—</strong></div></div>
+            <div class="selected-layover-grid"><div><small>Next Report · Local</small><strong id="selectedLayoverNextReport">—</strong></div><div><small>Layover Allowance</small><strong id="selectedLayoverAllowance">—</strong></div></div>
+            <div class="selected-meals"><small>MEAL ENTITLEMENTS</small><span id="selectedLayoverMeals">—</span></div>
           </div>
 
           <button type="button" class="selected-details-btn" id="selectedDetailsBtn">

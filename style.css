@@ -5309,3 +5309,17 @@ body.calendar-mode .calendar-mode-tabs button{position:relative;z-index:43;point
     min-width:36px !important;
   }
 }
+
+/* v123 hotel/layover reveal */
+.selected-layover{margin-top:14px;padding:14px;border:1px solid rgba(168,85,247,.34);border-radius:16px;background:linear-gradient(145deg,rgba(76,29,149,.18),rgba(15,23,42,.42))}
+.selected-layover-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid rgba(148,163,184,.16)}
+.selected-layover-head div,.selected-hotel-row>div{display:grid;gap:3px}.selected-layover-head small,.selected-hotel-row small,.selected-meals small{font-size:10px;letter-spacing:.12em;font-weight:800;color:#c4b5fd}
+.selected-layover-head>span{font-size:12px;font-weight:800;color:#c4b5fd;background:rgba(124,58,237,.18);border-radius:999px;padding:6px 9px;white-space:nowrap}
+.selected-hotel-row{display:flex;gap:10px;align-items:center;padding:13px 0}.selected-hotel-row strong{font-size:15px;color:#ddd6fe}
+.selected-hotel-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(124,58,237,.18);color:#c4b5fd}
+.selected-layover-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.selected-layover-grid>div{padding:10px;border-radius:11px;background:rgba(2,6,23,.24);display:grid;gap:4px}.selected-layover-grid small{font-size:9px;color:var(--muted)}#selectedLayoverAllowance{color:#34d399}
+.selected-meals{margin-top:10px;padding-top:10px;border-top:1px solid rgba(148,163,184,.14);display:grid;gap:5px}.selected-meals span{font-size:11px;color:var(--muted)}
+.smart-duty-layover-strip{margin:10px 20px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(168,85,247,.26);background:linear-gradient(90deg,rgba(88,28,135,.18),rgba(30,41,59,.28));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.smart-duty-layover-strip>div{min-width:0;display:grid;gap:3px}.smart-duty-layover-strip small{font-size:9px;color:#c4b5fd}.smart-duty-layover-strip strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#f5f3ff}.smart-duty-layover-strip>span{white-space:nowrap;font-size:11px;color:#c4b5fd}
+html[data-theme="light"] .selected-layover{background:rgba(245,243,255,.96)}html[data-theme="light"] .selected-hotel-row strong{color:#5b21b6}html[data-theme="light"] .smart-duty-layover-strip{background:rgba(245,243,255,.92)}html[data-theme="light"] .smart-duty-layover-strip strong{color:#4c1d95}
+@media(max-width:420px){.selected-layover-grid{grid-template-columns:1fr}.smart-duty-layover-strip{margin-inline:14px}}
