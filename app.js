@@ -4756,11 +4756,11 @@ function timelineFlightCard(event){
   const aircraft=event.aircraft&&event.aircraft!=="—"?event.aircraft:"A/C";
   const layoverAmount=Number(event.layover?.amount||0);
   return `<article class="cv-tl-card cv-tl-flight-card">
-    <header class="cv-tl-flight-head">
+    <div class="cv-tl-flight-head">
       <span class="cv-tl-icon cv-tl-icon-flight">✈</span>
       <div class="cv-tl-flight-title"><strong>${esc(event.item)}</strong><span>${esc(event.route)}</span></div>
       <span class="cv-tl-aircraft">${esc(aircraft)}</span>
-    </header>
+    </div>
     <div class="cv-tl-stages">
       <div class="cv-tl-stage cv-tl-stage-report"><time>${esc(event.report)}</time><i></i><div><strong>Report</strong><small>${esc(event.reportStation||origin)}</small></div></div>
       <div class="cv-tl-stage cv-tl-stage-dep"><time>${esc(timelineClockDisplay(event.departure))}</time><i></i><div><strong>Departure</strong><small>${esc(dep.station||origin)}</small></div></div>
@@ -4789,11 +4789,11 @@ function timelineLayoverCard(event){
   const active=Date.now()>=l.start && Date.now()<l.end;
   const remain=active?timelineDurationHuman(Math.max(0,Math.round((l.end-Date.now())/60000))):"";
   return `<article class="cv-tl-card cv-tl-layover-card">
-    <header class="cv-tl-layover-head">
+    <div class="cv-tl-layover-head">
       <span class="cv-tl-icon cv-tl-icon-layover">☾</span>
       <div><strong>${esc(l.airport)} Layover</strong><span>${esc(l.region||"")}</span></div>
       <b>${timelineDurationHuman(l.durationMinutes)}</b>
-    </header>
+    </div>
     <div class="cv-tl-layover-core">
       <div><small>HOTEL</small><strong>🏨 ${esc(hotel)}</strong></div>
       <div><small>${active?"NEXT REPORT IN":"NEXT REPORT · LOCAL"}</small><strong>${active?esc(remain):esc(nextLocal)}</strong>${active?`<span>${esc(nextLocal)}</span>`:""}</div>
@@ -4807,7 +4807,7 @@ function timelineGroundCard(event){
   const dep=timelineClockLabel(event.departure), arr=timelineClockLabel(event.arrival);
   const label=event.category==="standby"?"Standby":event.category==="training"?"Training / Ground Duty":"Ground Duty";
   return `<article class="cv-tl-card cv-tl-ground-card">
-    <header><span class="cv-tl-icon cv-tl-icon-ground">▣</span><div><strong>${esc(event.item)}</strong><span>${esc(label)}</span></div></header>
+    <div class="cv-tl-ground-head"><span class="cv-tl-icon cv-tl-icon-ground">▣</span><div><strong>${esc(event.item)}</strong><span>${esc(label)}</span></div></div>
     <div class="cv-tl-ground-times"><span><small>START</small><strong>${esc(event.report)}</strong></span><span><small>END</small><strong>${esc(event.dutyEnd||arr.time||"—")}</strong></span><span><small>DUTY</small><strong>${event.dutyMinutes?hhmm(event.dutyMinutes):"—"}</strong></span></div>
   </article>`;
 }
