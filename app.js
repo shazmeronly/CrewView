@@ -1655,7 +1655,7 @@ function extractPilotHotelAssignments(pdfText){
     const chunk=text.slice(match.index,index+1<dates.length?dates[index+1].index:text.length);
     const flight=(chunk.match(/\b(MH\d{2,4})\b/i)||[])[1];
     if(!flight) return;
-    const hit=chunk.match(/\b(?:339|333|332|359|350|330|73H|738|737|7M8|A3[2359])\b\s+(.+?)\s+(?:SYSTEM|ACARS)\b/i);
+    const hit=chunk.match(/\b(?:339|333|332|359|350|330|73H|738|737|7M8|A3[2359])\b\s+(.+?)\s+(?:SYSTEM|ACARS|AODB)\b/i);
     if(!hit) return;
     const hotel=String(hit[1]||"").replace(/\s+/g," ").trim();
     if(!hotel||/^\d/.test(hotel)||/\b(?:Updated|ACY|SDC)\b/i.test(hotel)) return;
@@ -2957,6 +2957,15 @@ function getSmartDutySelection(rows){
 
   if(active) return {row:active,state:"active"};
 
+  // If a completed outstation duty has a rostered layover, Smart Duty becomes
+  // a dedicated LAYOVER card from Duty End until the following Report Time.
+  const layoverDuty=[...candidates].reverse().find(duty=>{
+    if(reportMs(duty)>nowMs) return false;
+    const l=layoverForDuty(duty);
+    return l && l.start.getTime()<=nowMs && nowMs<l.end.getTime();
+  });
+  if(layoverDuty) return {row:layoverDuty,state:"layover",layover:layoverForDuty(layoverDuty)};
+
   const completed=[...candidates].reverse().find(duty=>{
     if(reportMs(duty)>nowMs) return false;
     const record=operationalRecord(duty);
@@ -3090,7 +3099,7 @@ function setSmartDutyExpanded(expanded){
   if(!card) return;
 
   smartDutyExpanded=Boolean(expanded);
-  const canExpand=activeSmartDutyState!=="next";
+  const canExpand=!(["next","layover"].includes(activeSmartDutyState));
   card.classList.toggle("smart-duty-expanded",smartDutyExpanded&&canExpand);
 
   const expandBtn=$("#smartDutyExpandBtn");
@@ -3128,7 +3137,7 @@ function refreshSmartDutyCard(force=false){
     return;
   }
 
-  const {row,state}=selection;
+  const {row,state,layover:selectionLayover}=selection;
   const role=smartCrewRole();
   const dutyKey=row._smartKey||smartDutyKey(row);
   const signature=`${dutyKey}|${state}|${role}`;
@@ -3146,12 +3155,13 @@ function refreshSmartDutyCard(force=false){
 
   if(changed){
     smartDutyRenderSignature=signature;
-    card.classList.remove("hidden","soon","urgent","current","state-next","state-active","state-completed");
+    card.classList.remove("hidden","soon","urgent","current","state-next","state-active","state-completed","state-layover");
     card.classList.add(`state-${state}`);
 
     $("#smartDutyEyebrow").textContent=
       state==="active" ? "ACTIVE DUTY" :
       state==="completed" ? "COMPLETED DUTY" :
+      state==="layover" ? "LAYOVER" :
       "NEXT DUTY";
 
     $("#smartDutyRole").textContent=
@@ -3174,16 +3184,26 @@ function refreshSmartDutyCard(force=false){
     $("#nextDutyDate").textContent=`${row.date} · ${row.day||dayName(row.date)}`;
     $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
     $("#nextDutyAircraft").textContent=row.ac||"—";
-    const dutyLayover=layoverForDuty(row);
+    const dutyLayover=selectionLayover||layoverForDuty(row);
     $("#smartDutyLayoverStrip")?.classList.toggle("hidden",!dutyLayover);
     if(dutyLayover){
       $("#smartDutyLayoverStation").textContent=`Layover in ${dutyLayover.airport}`;
       $("#smartDutyHotel").textContent=dutyLayover.hotel||"Hotel not listed in roster";
-      $("#smartDutyLayoverDuration").textContent=hhmm(dutyLayover.durationMinutes);
+      const remain=Math.max(0,Math.round((dutyLayover.end.getTime()-Date.now())/60000));
+      $("#smartDutyLayoverDuration").textContent=state==="layover"?`${hhmm(remain)} remaining`:hhmm(dutyLayover.durationMinutes);
+    }
+    if(state==="layover" && dutyLayover){
+      $("#nextDutyItem").textContent=dutyLayover.airport;
+      $("#nextDutyRoute").textContent=dutyLayover.region;
+      $("#smartDutyRightLabel").textContent="NEXT REPORT";
+      $("#nextDutyReport").textContent=formatLayoverLocal(dutyLayover.end,dutyLayover.airport).split(" ").pop();
+      $("#nextDutyDate").textContent=`Until next report · ${formatLayoverLocal(dutyLayover.end,dutyLayover.airport)}`;
+      $("#nextDutyEnd").textContent=formatLayoverLocal(dutyLayover.start,dutyLayover.airport).split(" ").pop();
+      $("#nextDutyAircraft").textContent=moneyRM(dutyLayover.amount);
     }
 
     const livePanel=$("#smartDutyLivePanel");
-    livePanel?.classList.toggle("hidden",state==="next");
+    livePanel?.classList.toggle("hidden",state==="next"||state==="layover");
 
     const pilotPanel=$("#pilotOpsPanel");
     const cabinPanel=$("#cabinDutyPanel");
@@ -4345,10 +4365,13 @@ function layoverForDuty(row){
   if(!row) return null;
   const item=String(row.item||row._displayItems||"").toUpperCase();
   const date=String(row.date||"");
-  return calculateLayoverAllowances().find(l=>{
+  const arrival=splitStationTime(row._arrival||row.arr).station;
+  const layovers=calculateLayoverAllowances();
+  return layovers.find(l=>{
     const items=String(l.fromItems||"").toUpperCase();
-    return (date&&l.fromDate===date&&item&&items.includes(item))||(item&&items.split(/\s*\/\s*/).includes(item));
-  })||null;
+    return (date&&l.fromDate===date&&item&&items.includes(item)) ||
+           (item&&items.split(/\s*\/\s*/).includes(item));
+  }) || layovers.find(l=>arrival&&l.airport===arrival&&(!date||l.fromDate===date)) || null;
 }
 function layoverMealsShort(l){
   return l?.meals?.length?l.meals.map(m=>`${m.label} ${moneyRM(m.amount)}`).join(" · "):"No qualifying meal";
@@ -4967,9 +4990,8 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
   $("#selectedItem").textContent=calendarDisplayItem(row)||"Duty";
   $("#selectedWorkBadge").textContent=row.work||row._calendarCategory.toUpperCase();
   $("#selectedRoute").textContent=route;
-  $("#selectedAircraft").textContent=row.ac
-    ? `Airbus A330-${row.ac}`
-    : (row.work||"—");
+  const ac=String(row.ac||"").trim();
+  $("#selectedAircraft").textContent=ac ? (/^3/.test(ac)?`Airbus A330-${ac}`:ac) : (row.work||"—");
 
   $("#selectedReport").textContent=row.dutyStart||"—";
   $("#selectedReportStation").textContent=reportStation;
@@ -4985,6 +5007,7 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
   $("#selectedWork").textContent=row.work||"—";
   const layover=layoverForDuty(row);
   $("#selectedLayoverPanel")?.classList.toggle("hidden",!layover);
+  document.querySelector(".duty-ref-no-layover-note")?.classList.toggle("hidden",Boolean(layover));
   if(layover){
     $("#selectedLayoverStation").textContent=`${layover.airport} · ${layover.region}`;
     $("#selectedLayoverHotel").textContent=layover.hotel||"Hotel not listed in roster";

@@ -466,49 +466,65 @@
 </section>
 
 
-      <section class="calendar-selected hidden" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Selected duty details">
-        <button type="button" class="calendar-detail-close" id="calendarDetailClose" aria-label="Close duty details">×</button>
+      <section class="calendar-selected hidden duty-reference-sheet" id="calendarSelected" role="dialog" aria-modal="true" aria-label="Duty Details">
+        <div class="duty-ref-topbar">
+          <button type="button" class="calendar-detail-close duty-ref-close" id="calendarDetailClose" aria-label="Close duty details">×</button>
+          <strong>Duty Details</strong>
+          <span></span>
+        </div>
         <div class="selected-drag" aria-hidden="true"></div>
 
-        <div class="selected-layout">
-          <div class="selected-date">
-            <small id="selectedWeekday">—</small>
-            <strong id="selectedDay">—</strong>
-            <span id="selectedMonthYear">—</span>
+        <div class="duty-ref-content">
+          <div class="duty-ref-flightbar">
+            <strong id="selectedItem">—</strong>
+            <span id="selectedRoute">—</span>
+            <b>✈</b>
           </div>
 
-          <div class="selected-flight">
-            <div class="selected-flight-title">
-              <h3 id="selectedItem">—</h3>
-              <b id="selectedWorkBadge">—</b>
+          <div class="duty-ref-times">
+            <div><small>Report</small><strong id="selectedReport">—</strong><em id="selectedReportStation">—</em></div>
+            <div><small>Departure</small><strong id="selectedDepartureTime">—</strong><em id="selectedDepartureStation">—</em></div>
+            <div><small>Arrival</small><strong id="selectedArrivalTime">—</strong><em id="selectedArrivalStation">—</em></div>
+            <div><small>Duty End</small><strong id="selectedDutyEnd">—</strong><em id="selectedDutyEndStation">—</em></div>
+          </div>
+
+          <div class="duty-ref-meta">
+            <div><small>Aircraft</small><strong id="selectedAircraft">—</strong></div>
+            <div><small>Block Time</small><strong id="selectedBlock">—</strong></div>
+            <div><small>Duty Time</small><strong id="selectedDuty">—</strong></div>
+            <div><small>Work Type</small><strong id="selectedWork">—</strong><b id="selectedWorkBadge">—</b></div>
+          </div>
+
+          <div class="selected-layover hidden duty-ref-layover" id="selectedLayoverPanel">
+            <div class="duty-ref-layover-title">🛏 <strong>LAYOVER INFORMATION</strong></div>
+            <div class="duty-ref-hotel">
+              <small>Hotel</small>
+              <strong id="selectedLayoverHotel">—</strong>
+              <span id="selectedLayoverStation">—</span>
             </div>
-            <p id="selectedRoute">—</p>
-            <small id="selectedAircraft">—</small>
+            <div class="duty-ref-layover-facts">
+              <div><small>☾ Layover Duration</small><strong id="selectedLayoverDuration">—</strong></div>
+              <div><small>Next Report · Local</small><strong id="selectedLayoverNextReport">—</strong></div>
+            </div>
+            <div class="duty-ref-meals">
+              <small>MEAL ENTITLEMENTS</small>
+              <span id="selectedLayoverMeals">—</span>
+            </div>
+            <div class="duty-ref-allowance">
+              <span>Layover Allowance</span><strong id="selectedLayoverAllowance">—</strong>
+            </div>
+            <div class="duty-ref-actions">
+              <button type="button" disabled>▣ Hotel Info</button>
+              <button type="button" disabled>⌖ Map</button>
+              <button type="button" disabled>▤ Transport</button>
+              <button type="button" disabled>▧ Notes</button>
+            </div>
           </div>
 
-          <div class="selected-times">
-            <span><small>Report</small><strong id="selectedReport">—</strong><em id="selectedReportStation">—</em></span>
-            <span><small>Departure</small><strong id="selectedDepartureTime">—</strong><em id="selectedDepartureStation">—</em></span>
-            <span><small>Arrival</small><strong id="selectedArrivalTime">—</strong><em id="selectedArrivalStation">—</em></span>
-            <span><small>Duty End</small><strong id="selectedDutyEnd">—</strong><em id="selectedDutyEndStation">—</em></span>
-          </div>
-
-          <div class="selected-metrics">
-            <span><b>◷</b><small>Block Time</small><strong id="selectedBlock">—</strong></span>
-            <span><b>▣</b><small>Duty Time</small><strong id="selectedDuty">—</strong></span>
-            <span><b>⌁</b><small>Work Type</small><strong id="selectedWork">—</strong></span>
-          </div>
-          <div class="selected-layover hidden" id="selectedLayoverPanel">
-            <div class="selected-layover-head"><div><small>LAYOVER</small><strong id="selectedLayoverStation">—</strong></div><span id="selectedLayoverDuration">—</span></div>
-            <div class="selected-hotel-row"><span class="selected-hotel-icon">▣</span><div><small>HOTEL</small><strong id="selectedLayoverHotel">—</strong></div></div>
-            <div class="selected-layover-grid"><div><small>Next Report · Local</small><strong id="selectedLayoverNextReport">—</strong></div><div><small>Layover Allowance</small><strong id="selectedLayoverAllowance">—</strong></div></div>
-            <div class="selected-meals"><small>MEAL ENTITLEMENTS</small><span id="selectedLayoverMeals">—</span></div>
-          </div>
-
-          <button type="button" class="selected-details-btn" id="selectedDetailsBtn">
-            ▤&nbsp; View Duty Details <span>›</span>
-          </button>
+          <div class="duty-ref-no-layover-note">Layover information appears only for duties that end away from base and have a following report from the same station.</div>
         </div>
+
+        <span class="hidden" id="selectedWeekday">—</span><span class="hidden" id="selectedDay">—</span><span class="hidden" id="selectedMonthYear">—</span>
       </section>
     </section>
 
