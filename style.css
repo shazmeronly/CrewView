@@ -5194,8 +5194,8 @@ body.pay-mode #classicView,
 body.pay-mode #calendarView{display:none!important}
 body.pay-mode #payView{display:block!important}
 body.pay-mode #printBtn{display:none!important}
-/* Keep Smart Duty + compact crew identity visible while reviewing Pay. */
-body.pay-mode #nextDutyCard,
+/* Allowances page: keep crew identity, but remove Smart Duty Card. */
+body.pay-mode #nextDutyCard{display:none!important}
 body.pay-mode #compactProfile{display:block}
 
 /* CrewView v112 — separate Productivity and Layover Allowance */
