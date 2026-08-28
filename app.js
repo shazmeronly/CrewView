@@ -6642,8 +6642,7 @@ async function saveCrewViewPdfDirect(){
         if(!navigator.canShare || navigator.canShare({files:[file]})){
           await navigator.share({
             files:[file],
-            title:`CrewView ${cvPdfMonthLabel()}`,
-            text:"CrewView roster and allowance report"
+            title:`CrewView ${cvPdfMonthLabel()}`
           });
           shared=true;
         }
