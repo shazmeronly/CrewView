@@ -1,12 +1,12 @@
 {
   "name": "CrewView",
   "short_name": "CrewView",
-  "description": "Classic roster viewer and converter for airline crew.",
+  "description": "Your roster. Your time. Your view.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f2f6fa",
-  "theme_color": "#0b5cab",
+  "background_color": "#071522",
+  "theme_color": "#0B2D5B",
   "icons": [
     {
       "src": "icon-192.png",

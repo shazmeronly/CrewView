@@ -6265,3 +6265,151 @@ html[data-theme="dark"] .pay-collapse-toggle{
     gap:7px;
   }
 }
+
+
+/* v152 — official CrewView brand */
+.crewview-brand{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.crewview-brand-mark{
+  width:34px;
+  height:34px;
+  flex:0 0 34px;
+  object-fit:contain;
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,.18));
+}
+.crewview-brand-copy{min-width:0}
+.crewview-brand h1{
+  margin:0 0 3px!important;
+  display:flex;
+  align-items:baseline;
+  line-height:1;
+  letter-spacing:-.035em;
+  font-weight:850;
+}
+.crewview-word-crew{color:#fff}
+.crewview-word-view{
+  color:#32b7ff;
+  background:linear-gradient(135deg,#57d7ff,#1e84ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+html[data-theme="light"] .crewview-word-crew{color:inherit}
+
+.calendar-brand-mark{
+  width:34px;
+  height:34px;
+  flex:0 0 34px;
+  object-fit:contain;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.20));
+}
+.calendar-brand strong{
+  display:flex;
+  align-items:baseline;
+  letter-spacing:-.035em;
+}
+body.calendar-mode .calendar-brand-plane{display:none!important}
+
+/* Short, once-per-session branded launch treatment. */
+.crewview-splash{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(circle at 50% 38%,rgba(20,111,203,.26),transparent 35%),
+    linear-gradient(160deg,#06111d,#0a1d32 58%,#071522);
+  color:#fff;
+  transition:opacity .46s ease,visibility .46s ease;
+}
+.crewview-splash.is-leaving{opacity:0;visibility:hidden}
+.crewview-splash-inner{
+  display:grid;
+  justify-items:center;
+  gap:8px;
+  transform:translateY(-3vh);
+}
+.crewview-splash-inner img{
+  width:94px;
+  height:94px;
+  filter:drop-shadow(0 14px 30px rgba(0,105,255,.25));
+}
+.crewview-splash-name{
+  display:flex;
+  align-items:baseline;
+  font-size:31px;
+  font-weight:850;
+  letter-spacing:-.045em;
+}
+.crewview-splash-name span{color:#fff}
+.crewview-splash-name b{
+  color:#32b7ff;
+  background:linear-gradient(135deg,#57d7ff,#1e84ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.crewview-splash-inner small{
+  color:#a9bed1;
+  font-size:11px;
+  letter-spacing:.04em;
+}
+
+@media(max-width:540px){
+  .crewview-brand{gap:7px}
+  .crewview-brand-mark{width:29px;height:29px;flex-basis:29px}
+  .crewview-brand h1{font-size:19px!important}
+  body.roster-loaded .crewview-brand-mark{width:27px;height:27px;flex-basis:27px}
+  .calendar-brand-mark{width:25px!important;height:25px!important;flex-basis:25px!important}
+  body.calendar-mode .calendar-brand{gap:5px!important}
+}
+
+@media(max-width:390px){
+  .calendar-brand-mark{width:21px!important;height:21px!important;flex-basis:21px!important}
+  body.calendar-mode .calendar-brand strong{font-size:12.5px!important}
+}
+
+
+/* v153 — final CrewView brand lock */
+.crewview-splash-inner{
+  width:min(78vw,430px)!important;
+}
+.crewview-splash-logo{
+  width:100%!important;
+  height:auto!important;
+  max-width:430px!important;
+  filter:drop-shadow(0 18px 38px rgba(0,105,255,.28))!important;
+}
+.crewview-splash-name,
+.crewview-splash-inner > small{
+  display:none!important;
+}
+
+/* Slightly more refined header proportions for the final mark. */
+.crewview-brand-mark{
+  width:32px!important;
+  height:32px!important;
+  flex-basis:32px!important;
+}
+.calendar-brand-mark{
+  width:29px!important;
+  height:29px!important;
+  flex-basis:29px!important;
+}
+@media(max-width:540px){
+  .crewview-brand-mark{
+    width:28px!important;
+    height:28px!important;
+    flex-basis:28px!important;
+  }
+  .calendar-brand-mark{
+    width:24px!important;
+    height:24px!important;
+    flex-basis:24px!important;
+  }
+}
