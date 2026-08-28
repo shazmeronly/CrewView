@@ -4680,8 +4680,35 @@ function timelineAircraft(group){
   return values.join(" / ") || "—";
 }
 
+function timelineDerivedSectorMinutes(row){
+  if(!row) return 0;
+
+  // Prefer published/actual block time whenever the roster supplies it.
+  const published=toMinutes(row.block);
+  if(published>0) return published;
+
+  // SFP/PS sectors may legitimately carry 0:00 Flying Hrs. Timeline can
+  // display elapsed sector time without changing official monthly FH.
+  let elapsed=null;
+
+  if(rosterTimeBasis==="SLT"){
+    elapsed=localClockElapsedMinutes(row);
+    if(!Number.isFinite(elapsed)) elapsed=fixedClockElapsedMinutes(row.dep,row.arr);
+  }else{
+    elapsed=fixedClockElapsedMinutes(row.dep,row.arr);
+    if(!Number.isFinite(elapsed)) elapsed=localClockElapsedMinutes(row);
+  }
+
+  return Number.isFinite(elapsed) && elapsed>0 && elapsed<=24*60
+    ? Math.round(elapsed)
+    : 0;
+}
+
 function timelineBlockMinutes(group){
-  return (group?.flights||[]).reduce((sum,row)=>sum+toMinutes(row?.block),0);
+  return (group?.flights||[]).reduce(
+    (sum,row)=>sum+timelineDerivedSectorMinutes(row),
+    0
+  );
 }
 
 function timelineDurationHuman(minutes){
