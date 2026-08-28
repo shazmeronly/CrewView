@@ -4704,7 +4704,9 @@ function timelineDerivedSectorMinutes(row){
     : 0;
 }
 
-function timelineBlockMinutes(group){
+function timelineFlightMinutes(group){
+  // The roster field parsed as row.block is the source PDF's "Flying Hrs".
+  // Keep this separate from operational Block Time (Pushback -> On Chocks).
   return (group?.flights||[]).reduce(
     (sum,row)=>sum+timelineDerivedSectorMinutes(row),
     0
@@ -4798,7 +4800,7 @@ function timelineEvents(){
       dutyEndStation:arr.station||group.destination||"",
       work:[...new Set((group.flights||[]).map(r=>String(r?.work||"").trim()).filter(Boolean))].join(" / ")||"FLIGHT",
       aircraft:timelineAircraft(group),
-      blockMinutes:timelineBlockMinutes(group),
+      flightMinutes:timelineFlightMinutes(group),
       dutyMinutes,
       productivity:productivityAllowanceForDuty(row),
       layover
@@ -4910,9 +4912,9 @@ function timelineElapsedFlightMinutes(event,origin,destination){
     if(minutes>0 && minutes<=24*60) return minutes;
   }
 
-  // Fall back to the roster/fallback block value only when a reliable
+  // Fall back to the roster Flying Hrs value only when a reliable
   // timezone-aware elapsed duration cannot be formed.
-  return Number(event.blockMinutes||0);
+  return Number(event.flightMinutes||0);
 }
 
 function timelineFlightCard(event){
@@ -4940,7 +4942,7 @@ function timelineFlightCard(event){
       <div class="cv-tl-stage cv-tl-stage-end"><time>${esc(timelineClockDisplay(event.dutyEnd))}</time><i></i><div><strong>Duty End</strong><small>${esc(event.dutyEndStation||destination)}</small></div></div>
     </div>
     <div class="cv-tl-flight-footer">
-      <div><small>BLOCK TIME</small><strong>${event.blockMinutes?hhmm(event.blockMinutes):"—"}</strong></div>
+      <div><small>FLIGHT TIME</small><strong>${event.flightMinutes?hhmm(event.flightMinutes):"—"}</strong></div>
       <div><small>DUTY TIME</small><strong>${event.dutyMinutes?hhmm(event.dutyMinutes):"—"}</strong></div>
       <div class="cv-tl-flight-money"><small>ALLOWANCES</small><span>${event.productivity?`Prod <strong>${moneyRM(event.productivity)}</strong>`:""}${layoverAmount?`<em>Layover <strong>${moneyRM(layoverAmount)}</strong></em>`:""}</span></div>
     </div>
