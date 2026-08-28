@@ -5876,3 +5876,80 @@ body.timeline-mode .view-switcher::before{
 body.timeline-mode #timelineView{
   scroll-margin-top:96px;
 }
+
+
+/* v141 Allowances polish */
+body.pay-mode .view-switcher{
+  /* Header height is ~66px plus the iOS safe-area inset after roster load. */
+  position:sticky!important;
+  top:calc(66px + env(safe-area-inset-top))!important;
+  z-index:4!important;
+  background:var(--bg,#0b1118)!important;
+  margin-top:0!important;
+  margin-bottom:12px!important;
+  box-shadow:0 8px 18px rgba(0,0,0,.16)!important;
+}
+
+/* Opaque breathing room around the sticky switcher so cards never bleed through it. */
+body.pay-mode .view-switcher::before{
+  content:"";
+  position:absolute;
+  inset:-7px -7px -7px;
+  z-index:-1;
+  background:var(--bg,#0b1118);
+  border-radius:18px;
+}
+
+/* The Allowances title is now a normal content header, not a second blue app header. */
+body.pay-mode .pay-header{
+  position:static!important;
+  top:auto!important;
+  z-index:auto!important;
+  background:transparent!important;
+  color:inherit!important;
+  padding:6px 2px 2px!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  margin:2px 0 14px!important;
+}
+
+body.pay-mode .pay-header h2{
+  margin:3px 0 3px!important;
+  font-size:27px!important;
+  line-height:1.1!important;
+}
+
+body.pay-mode .pay-eyebrow{
+  color:#4a9dff!important;
+  font-size:9px!important;
+  letter-spacing:.16em!important;
+}
+
+body.pay-mode .pay-header p{
+  color:var(--muted)!important;
+  opacity:1!important;
+}
+
+/* Slightly cleaner grade control spacing on mobile. */
+body.pay-mode .pay-grade{
+  margin-top:4px;
+}
+
+@media(max-width:620px){
+  body.pay-mode .view-switcher{
+    top:calc(66px + env(safe-area-inset-top))!important;
+    margin-left:6px!important;
+    margin-right:6px!important;
+    width:calc(100% - 12px)!important;
+  }
+
+  body.pay-mode .pay-header{
+    padding-inline:2px!important;
+    gap:10px!important;
+  }
+
+  body.pay-mode .pay-header h2{
+    font-size:25px!important;
+  }
+}
