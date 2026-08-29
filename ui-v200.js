@@ -58,8 +58,54 @@ function sectionHeading(eyebrow,title,copy){
   return `<div class="cv-screen-heading"><div><small>${eyebrow}</small><h2>${title}</h2><p>${copy}</p></div></div>`;
 }
 
+function ensureDutyEnhancementMarkup(){
+  const overview=$("#dutyDetailOverviewPanel");
+  const detailGrid=overview?.querySelector(".duty-detail-grid");
+  if(overview && !$("#detailFtlSummary")){
+    overview.insertAdjacentHTML("afterbegin",`
+      <section class="duty-ftl-summary" id="detailFtlSummary">
+        <div class="duty-ftl-head"><span><small>AUTOMATIC FTL / FDP</small><strong id="detailFtlStatus">—</strong></span><em id="detailFtlAssumption">—</em></div>
+        <div class="duty-ftl-metrics">
+          <div><small>FTL LIMIT</small><strong id="detailFtlLimit">—</strong></div>
+          <div><small>PLANNED FDP</small><strong id="detailPlannedFdp">—</strong></div>
+          <div id="detailFtlMarginCell"><small>SPARE / OVERRUN</small><strong id="detailFtlMargin">—</strong></div>
+        </div>
+        <p id="detailFtlMeta">Report to final scheduled on-chocks.</p>
+      </section>`);
+  }
+  if(detailGrid && !$("#detailLayoverSummary")){
+    detailGrid.insertAdjacentHTML("afterend",`
+      <section class="duty-layover-summary hidden" id="detailLayoverSummary">
+        <div><small>DESTINATION LAYOVER</small><strong id="detailLayoverDestination">—</strong><span id="detailLayoverDuration">—</span></div>
+        <div><small>HOTEL</small><strong id="detailHotel">—</strong><span id="detailNextReport">—</span></div>
+      </section>`);
+  }
+
+  const earningsTotal=$("#dutyDetailEarningsPanel .duty-earnings-total");
+  if(earningsTotal && !$("#detailOver80Allowance")){
+    earningsTotal.insertAdjacentHTML("beforebegin",`
+      <article class="duty-earnings-card over80">
+        <div><small>80+ BLOCK-HOUR CONTRIBUTION</small><strong id="detailOver80Allowance">RM0.00</strong></div>
+        <p id="detailOver80Formula">No block time from this duty falls above 80:00.</p>
+      </article>`);
+    const description=earningsTotal.querySelector("span");
+    if(description) description.textContent="Productivity + 80+ contribution + layover";
+  }
+
+  const calendarMeta=$("#calendarSelected .v125-meta-grid");
+  if(calendarMeta && !$("#selectedFtlSummary")){
+    calendarMeta.insertAdjacentHTML("afterend",`
+      <div class="selected-ftl-summary" id="selectedFtlSummary">
+        <span><small>FTL LIMIT</small><strong id="selectedFtlLimit">—</strong></span>
+        <span><small>PLANNED FDP</small><strong id="selectedPlannedFdp">—</strong></span>
+        <span><small>SPARE / OVERRUN</small><strong id="selectedFtlMargin">—</strong></span>
+      </div>`);
+  }
+}
+
 function initialiseCrewViewV200(){
   document.body.classList.add("cv-v200");
+  ensureDutyEnhancementMarkup();
 
   const main=$("body > main");
   const legacyHeader=$("body > header");

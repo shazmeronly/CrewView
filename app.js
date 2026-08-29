@@ -268,6 +268,7 @@ function setRows(rows){
   tbody.innerHTML=displayRows.map(rowHTML).join("");
   applyOperationalOverlayToClassic();
   classifyRows();
+  renderClassicFdpBadges();
   updateStats();
   renderNextDuty();
   renderCalendarView();
@@ -365,7 +366,14 @@ function updateStats(){
   $("#dh").textContent=officialDH || hhmm(dh);
   $("#off").textContent=offDates.size;
 }
-tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView();if(crewViewMode==="timeline")renderTimelineView()});
+tbody.addEventListener("input",()=>{classifyRows();renderClassicFdpBadges();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView();if(crewViewMode==="timeline")renderTimelineView()});
+tbody.addEventListener("click",event=>{
+  if(!document.body.classList.contains("cv-v200")) return;
+  const tr=event.target.closest("tr");
+  if(!tr || !tr.dataset.ftlSummary) return;
+  const row=getRows()[tr.sectionRowIndex];
+  if(row) openDutyDetailsFor(row);
+});
 
 
 function updateCompactProfile(){
@@ -1719,9 +1727,9 @@ function applyPilotHotelAssignments(rows,pdfText){
     const item=String(row?.item||"").trim().toUpperCase();
     if(!item) return row;
 
-    const exact=assignments.find(x=>x.date===date && x.item===item);
-    const byFlight=assignments.find(x=>x.item===item);
-    const hit=exact||byFlight;
+    // Flight numbers can recur with different hotels across a roster. Only
+    // attach a hotel when the PDF extraction matches both duty date and flight.
+    const hit=assignments.find(x=>x.date===date && x.item===item);
 
     return hit?{...row,_hotel:hit.hotel}:row;
   });
@@ -2476,6 +2484,52 @@ function automaticFdpForDuty(row,{acclimatized=true,precedingRestMinutes,crewCou
     crewComplementAssumed:crewCount===2,
     fdpDefinition:"Roster report to final scheduled on-chocks"
   };
+}
+
+function formatFdpDuration(minutes,{signed=false}={}){
+  if(!Number.isFinite(Number(minutes))) return "—";
+  const value=Math.round(Number(minutes));
+  const prefix=signed ? (value<0?"−":"+") : "";
+  const absolute=Math.abs(value);
+  return `${prefix}${String(Math.floor(absolute/60)).padStart(2,"0")}:${String(absolute%60).padStart(2,"0")}`;
+}
+
+function dutyMatchesSelection(duty,row){
+  if(!duty||!row) return false;
+  if(row._smartKey && duty._smartKey===row._smartKey) return true;
+  if(row._dutyGroup && duty._dutyGroup===row._dutyGroup) return true;
+  if(String(duty.date||"")!==String(row.date||"")) return false;
+  const item=String(row.item||"").trim().toUpperCase();
+  return String(duty.item||"").trim().toUpperCase()===item ||
+    (duty._sectors||[]).some(sector=>
+      String(sector.item||"").trim().toUpperCase()===item
+    );
+}
+
+function resolveDutyForDetails(row){
+  return getSmartDutyCandidates(getRows()).find(duty=>
+    dutyMatchesSelection(duty,row)
+  ) || row;
+}
+
+function renderClassicFdpBadges(){
+  if(!tbody) return;
+  const rows=getRows();
+  const duties=getSmartDutyCandidates(rows);
+
+  [...tbody.rows].forEach((tr,index)=>{
+    delete tr.dataset.ftlSummary;
+    const itemCell=tr.querySelector('[data-k="item"]');
+    if(itemCell) delete itemCell.dataset.ftlSummary;
+    const row=rows[index];
+    if(!row || row._overnightContinuation || !String(row.item||"").trim()) return;
+    const duty=duties.find(candidate=>dutyMatchesSelection(candidate,row));
+    const fdp=duty ? automaticFdpForDuty(duty) : null;
+    tr.dataset.ftlSummary=fdp?.applicable
+      ? `FTL ${formatFdpDuration(fdp.limitMinutes)} · ${formatFdpDuration(fdp.spareMinutes,{signed:true})}`
+      : "FTL N/A";
+    if(itemCell) itemCell.dataset.ftlSummary=tr.dataset.ftlSummary;
+  });
 }
 
 function smartDutyEndDateTime(row){
@@ -3611,6 +3665,7 @@ function openDutyDetails(){
   const depAirport=String(departure).trim().split(/\s+/)[0]||"";
   const arrAirport=String(arrival).trim().split(/\s+/)[0]||"";
   const routeAirports=(row._routeAirports||[]).filter(Boolean);
+  const fdp=automaticFdpForDuty(row);
 
   $("#dutyDetailTitle").textContent=
     row._displayItems||row.item||"Duty";
@@ -3635,7 +3690,30 @@ function openDutyDetails(){
       ? "DUTY ACTIVE"
       : activeSmartDutyState==="completed"
         ? "COMPLETED"
-        : formatCountdown(row._dt-new Date());
+        : row._dt instanceof Date
+          ? formatCountdown(row._dt-new Date())
+          : "—";
+
+  $("#detailFtlStatus").textContent=fdp?.applicable
+    ? (fdp.allowed===false?"NOT ALLOWED":`TABLE ${fdp.table}`)
+    : "NOT APPLICABLE";
+  $("#detailFtlAssumption").textContent=fdp?.assumption||"";
+  $("#detailFtlLimit").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.limitMinutes)
+    : "—";
+  $("#detailPlannedFdp").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.plannedMinutes)
+    : "—";
+  $("#detailFtlMargin").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.spareMinutes,{signed:true})
+    : "—";
+  $("#detailFtlMarginCell")?.classList.toggle(
+    "overrun",
+    Boolean(fdp?.applicable&&Number(fdp.spareMinutes)<0)
+  );
+  $("#detailFtlMeta").textContent=fdp?.applicable
+    ? `${fdp.fdpDefinition} · ${fdp.aircraft||"Aircraft not listed"} · ${fdp.effectiveSectors} effective sector${fdp.effectiveSectors===1?"":"s"}`
+    : (fdp?.reason||"Automatic FTL does not apply to this duty.");
 
   const sectorSection=$("#dutySectorSection");
   const sectorList=$("#dutySectorList");
@@ -3656,8 +3734,12 @@ function openDutyDetails(){
   const productivityAmount=productivityAllowanceForDuty(row);
   const dutyLayover=layoverForDuty(row);
   const layoverAmount=Number(dutyLayover?.amount||0);
-  const totalAllowance=productivityAmount+layoverAmount;
-  const grade=$("#payGrade")?.value||inferredPayGrade();
+  const over80=over80ContributionForDuty(row);
+  const totalAllowance=productivityAmount+layoverAmount+over80.amount;
+  const gradeEl=$("#payGrade");
+  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
+    ? gradeEl.value
+    : inferredPayGrade();
 
   $("#detailProductivityAllowance").textContent=moneyRM(productivityAmount);
   $("#detailProductivityFormula").textContent=productivityAmount>0
@@ -3667,7 +3749,22 @@ function openDutyDetails(){
   $("#detailLayoverFormula").textContent=dutyLayover
     ? `${layoverMealsShort(dutyLayover)} · ${dutyLayover.region}`
     : "No qualifying layover detected for this duty.";
+  $("#detailOver80Allowance").textContent=moneyRM(over80.amount);
+  $("#detailOver80Formula").textContent=over80.minutes>0
+    ? `${hhmm(over80.minutes)} from this duty above monthly 80:00 × ${moneyRM(over80.rate)}/hour · ${over80.grade}`
+    : "No block time from this duty falls above the monthly 80:00 threshold.";
   $("#detailTotalAllowance").textContent=moneyRM(totalAllowance);
+
+  $("#detailLayoverSummary")?.classList.toggle("hidden",!dutyLayover);
+  if(dutyLayover){
+    $("#detailLayoverDestination").textContent=
+      `${dutyLayover.airport} · ${dutyLayover.region}`;
+    $("#detailLayoverDuration").textContent=
+      `${hhmm(dutyLayover.durationMinutes)} at destination · ${layoverMealsShort(dutyLayover)}`;
+    $("#detailHotel").textContent=dutyLayover.hotel||"Not listed in roster";
+    $("#detailNextReport").textContent=
+      `Next report ${formatLayoverLocal(dutyLayover.end,dutyLayover.airport)}`;
+  }
 
   document.querySelectorAll("[data-duty-detail-tab]").forEach(button=>{
     const active=button.dataset.dutyDetailTab==="overview";
@@ -3685,7 +3782,7 @@ function openDutyDetails(){
 
 function openDutyDetailsFor(row){
   if(!row) return;
-  activeNextDuty=row;
+  activeNextDuty=resolveDutyForDetails(row);
   openDutyDetails();
 }
 
@@ -4444,6 +4541,40 @@ function productivityAllowanceForDuty(row){
   return minutes>0 ? minutes/60*rule.pa : 0;
 }
 
+function over80ContributionForDuty(row){
+  if(!row) return {minutes:0,amount:0,rate:0,grade:""};
+  const gradeEl=$("#payGrade");
+  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
+    ? gradeEl.value
+    : inferredPayGrade();
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  let runningMinutes=0;
+  let contributionMinutes=0;
+
+  getRows().forEach(candidate=>{
+    if(officialRosterPeriod){
+      const date=parseRosterDate(candidate.date);
+      if(!date || date<officialRosterPeriod.start || date>officialRosterPeriod.end) return;
+    }
+    const blockMinutes=toMinutes(candidate.block);
+    if(!(blockMinutes>0)) return;
+    const before=runningMinutes;
+    runningMinutes+=blockMinutes;
+    if(!dutyMatchesSelection(row,candidate)) return;
+    contributionMinutes+=Math.max(
+      0,
+      runningMinutes-Math.max(before,80*60)
+    );
+  });
+
+  return {
+    minutes:contributionMinutes,
+    amount:contributionMinutes/60*rule.over80,
+    rate:rule.over80,
+    grade
+  };
+}
+
 function smartDutyClockParts(text){
   const m=String(text||"").match(/(\d{1,2}):(\d{2})/);
   return m ? `${String(m[1]).padStart(2,"0")}:${m[2]}` : "—";
@@ -4754,15 +4885,20 @@ function calculateLayoverAllowances(){
 
 function layoverForDuty(row){
   if(!row) return null;
-  const item=String(row.item||row._displayItems||"").toUpperCase();
   const date=String(row.date||"");
   const arrival=splitStationTime(row._arrival||row.arr).station;
+  const selectedItems=new Set([
+    row.item,
+    ...(row._sectors||[]).map(sector=>sector.item)
+  ].map(item=>String(item||"").trim().toUpperCase()).filter(Boolean));
   const layovers=calculateLayoverAllowances();
   return layovers.find(l=>{
-    const items=String(l.fromItems||"").toUpperCase();
-    return (date&&l.fromDate===date&&item&&items.includes(item)) ||
-           (item&&items.split(/\s*\/\s*/).includes(item));
-  }) || layovers.find(l=>arrival&&l.airport===arrival&&(!date||l.fromDate===date)) || null;
+    const items=String(l.fromItems||"")
+      .toUpperCase()
+      .split(/\s*\/\s*/)
+      .filter(Boolean);
+    return date && l.fromDate===date && items.some(item=>selectedItems.has(item));
+  }) || layovers.find(l=>date&&l.fromDate===date&&arrival&&l.airport===arrival) || null;
 }
 function layoverMealsShort(l){
   return l?.meals?.length?l.meals.map(m=>`${m.label} ${moneyRM(m.amount)}`).join(" · "):"No qualifying meal";
@@ -5779,7 +5915,8 @@ function splitStationTime(value){
 function selectCalendarDuty(row,{openOverlay=true}={}){
   if(!row) return;
 
-  selectedCalendarDuty=row;
+  selectedCalendarDuty=resolveDutyForDetails(row);
+  row=selectedCalendarDuty;
   const panel=$("#calendarSelected");
   const backdrop=$("#calendarDetailBackdrop");
 
@@ -5832,6 +5969,19 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
   $("#selectedBlock").textContent=row._totalBlock||row.block||"—";
   $("#selectedDuty").textContent=row._totalDuty||row.duty||"—";
   $("#selectedWork").textContent=row.work||"—";
+  const fdp=automaticFdpForDuty(row);
+  $("#selectedFtlLimit").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.limitMinutes)
+    : "N/A";
+  $("#selectedPlannedFdp").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.plannedMinutes)
+    : "—";
+  $("#selectedFtlMargin").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.spareMinutes,{signed:true})
+    : "—";
+  $("#selectedFtlSummary")?.classList.toggle("overrun",Boolean(
+    fdp?.applicable&&Number(fdp.spareMinutes)<0
+  ));
   const layover=layoverForDuty(row);
   $("#selectedLayoverPanel")?.classList.toggle("hidden",!layover);
   if(layover){
@@ -6237,8 +6387,7 @@ document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{
 
 $("#selectedDetailsBtn")?.addEventListener("click",()=>{
   if(!selectedCalendarDuty) return;
-  activeNextDuty=selectedCalendarDuty;
-  openDutyDetails();
+  openDutyDetailsFor(selectedCalendarDuty);
 });
 
 $("#pdfInput").addEventListener("change",async e=>{
