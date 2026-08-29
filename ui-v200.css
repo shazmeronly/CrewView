@@ -183,6 +183,7 @@
   .cv-v200 #nextDutyCard{
     width:100%!important;max-width:none!important;box-sizing:border-box;
     margin:0 0 14px!important;padding:20px!important;
+    overflow:hidden!important;
     color:var(--cv-text)!important;
     border:1px solid color-mix(in srgb,var(--cv-blue) 34%,var(--cv-line))!important;
     border-left:5px solid var(--cv-blue)!important;
@@ -220,6 +221,7 @@
   .cv-v200 #nextDutyCard .smart-duty-layover-strip,
   .cv-v200 #nextDutyCard .pilot-ops-panel,
   .cv-v200 #nextDutyCard .smart-duty-allowance-row{
+    min-width:0!important;max-width:100%!important;box-sizing:border-box!important;
     border-color:var(--cv-line)!important;background:color-mix(in srgb,var(--cv-surface) 78%,transparent)!important;
   }
   .cv-v200 #nextDutyCard .smart-duty-allowance-row strong{color:var(--cv-green)!important}

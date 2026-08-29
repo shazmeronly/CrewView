@@ -16,7 +16,15 @@ function node(tag,className="",html=""){
 }
 
 function brandMark(className=""){
-  return `<span class="cv-approved-mark ${className}" aria-hidden="true"><img class="cv-mark-light" src="crewview-mark-light.svg" alt=""><img class="cv-mark-dark" src="crewview-mark.svg" alt=""></span>`;
+  return `<span class="cv-approved-mark ${className}" aria-hidden="true"><img src="crewview-mark-final.png" alt=""></span>`;
+}
+
+function shellHasRoster(){
+  if(document.body.classList.contains("roster-loaded")) return true;
+  const rows=bridge.getRows?.()||[];
+  return rows.some(row=>
+    ["date","item","dutyStart","dep","arr"].some(key=>String(row?.[key]||"").trim())
+  );
 }
 
 function icon(name){
@@ -89,12 +97,12 @@ function initialiseCrewViewV200(){
   wireQuickActions();
   startDataSync();
 
-  const initialLoaded=document.body.classList.contains("roster-loaded");
+  const initialLoaded=shellHasRoster();
   routeTo(initialLoaded?"roster":"today",{rosterMode:"classic",remember:false,scroll:false});
 
   let hadRoster=initialLoaded;
   new MutationObserver(()=>{
-    const hasRoster=document.body.classList.contains("roster-loaded");
+    const hasRoster=shellHasRoster();
     document.body.classList.toggle("cv-has-roster",hasRoster);
     refreshShellData();
     if(hasRoster!==hadRoster){
@@ -355,14 +363,20 @@ function startDataSync(){
   const observer=new MutationObserver(scheduleRefresh);
   sources.forEach(source=>observer.observe(source,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["class","value"]}));
   window.addEventListener("crewview:theme-changed",scheduleRefresh);
-  window.addEventListener("crewview:ready",scheduleRefresh);
-  scheduleRefresh();
+  window.addEventListener("crewview:ready",settleShellData);
+  window.addEventListener("crewview:roster-state",settleShellData);
+  settleShellData();
 }
 
 let refreshFrame=0;
 function scheduleRefresh(){
   cancelAnimationFrame(refreshFrame);
   refreshFrame=requestAnimationFrame(refreshShellData);
+}
+
+function settleShellData(){
+  scheduleRefresh();
+  [80,300,900].forEach(delay=>setTimeout(scheduleRefresh,delay));
 }
 
 function text(id,fallback="—"){
@@ -390,7 +404,7 @@ function money(value){
 }
 
 function refreshShellData(){
-  const hasRoster=document.body.classList.contains("roster-loaded");
+  const hasRoster=shellHasRoster();
   document.body.classList.toggle("cv-has-roster",hasRoster);
   $("#cvEmptyRoster")?.classList.toggle("hidden",hasRoster);
   $("#cvTodayAfterDuty")?.classList.toggle("hidden",!hasRoster);

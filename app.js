@@ -4132,6 +4132,7 @@ async function parsePDF(file){
     `Converted the roster and displayed all ${calendarDays} calendar days.`;
 
   document.body.classList.add("roster-loaded");
+  window.dispatchEvent(new CustomEvent("crewview:roster-state",{detail:{loaded:true}}));
   $("#uploadCard")?.setAttribute("aria-hidden","true");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
@@ -6147,6 +6148,7 @@ $("#clearBtn")?.addEventListener("click",event=>{
   if(compactProfile) compactProfile.classList.add("hidden");
 
   document.body.classList.remove("roster-loaded");
+  window.dispatchEvent(new CustomEvent("crewview:roster-state",{detail:{loaded:false}}));
   $("#uploadCard")?.removeAttribute("aria-hidden");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","true");
   $("#viewSwitcher")?.classList.add("hidden");
@@ -6194,6 +6196,7 @@ function restoreCachedRoster(){
   setRows(cached.rows);
   updateRosterSourceNote();
   document.body.classList.add("roster-loaded");
+  window.dispatchEvent(new CustomEvent("crewview:roster-state",{detail:{loaded:true}}));
   $("#uploadCard")?.setAttribute("aria-hidden","true");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
