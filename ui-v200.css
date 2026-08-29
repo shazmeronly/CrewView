@@ -169,6 +169,12 @@
     -webkit-backdrop-filter:blur(22px) saturate(160%);
     backdrop-filter:blur(22px) saturate(160%);
   }
+  body.cv-v200 > #cvBottomNav{
+    display:grid!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
   .cv-bottom-nav button{
     min-width:0;border:0;border-radius:13px;background:none;color:var(--cv-muted);
     display:grid;place-items:center;align-content:center;gap:3px;padding:4px 1px;
@@ -434,7 +440,9 @@
 
   /* Duty details */
   .cv-v200 .duty-detail-backdrop{background:rgba(2,12,25,.62)!important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-  .cv-v200.duty-details-open .cv-bottom-nav{display:none!important}
+  /* Keep the five-section navigation visible while a duty sheet is open.
+     This also prevents a restored Safari page from becoming trapped on Today. */
+  body.cv-v200.duty-details-open > #cvBottomNav{display:grid!important}
   .cv-v200 .duty-detail-sheet{width:min(620px,calc(100% - 16px))!important;max-height:min(88dvh,820px)!important;padding:18px!important;border:1px solid var(--cv-line)!important;border-radius:24px 24px 0 0!important;background:var(--cv-surface)!important;color:var(--cv-text)!important;box-shadow:0 -24px 70px rgba(0,0,0,.28)!important}
   .duty-detail-tabs{margin:12px 0;padding:4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;border:1px solid var(--cv-line);border-radius:14px;background:var(--cv-surface-2)}
   .duty-detail-tabs button{height:36px;border:0;border-radius:10px;background:transparent;color:var(--cv-muted);font:inherit;font-size:10px;font-weight:850;cursor:pointer}.duty-detail-tabs button.active{background:var(--cv-blue);color:#fff}

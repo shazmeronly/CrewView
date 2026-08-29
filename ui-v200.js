@@ -105,6 +105,7 @@ function ensureDutyEnhancementMarkup(){
 
 function initialiseCrewViewV200(){
   document.body.classList.add("cv-v200");
+  reconcileOverlayState();
   ensureDutyEnhancementMarkup();
 
   const main=$("body > main");
@@ -144,12 +145,14 @@ function initialiseCrewViewV200(){
   Object.values(screens).forEach(screen=>deck.append(screen));
   main.prepend(deck);
 
-  moveExistingContent(screens,footer);
-
+  // Mount the primary navigation before moving the legacy views. If Safari
+  // restores an interrupted page, the user must never be left on a single
+  // screen without a way to reach the other four sections.
   const bottomNav=makeBottomNav();
   main.after(bottomNav);
-
   wireNavigation(screens,bottomNav);
+
+  moveExistingContent(screens,footer);
   wireDutyDetails();
   wireQuickActions();
   startDataSync();
@@ -175,6 +178,27 @@ function initialiseCrewViewV200(){
       syncRosterModeButtons(view);
     }
   });
+
+  window.addEventListener("pageshow",()=>{
+    reconcileOverlayState();
+    ensureBottomNavMounted(main,bottomNav);
+  });
+}
+
+function reconcileOverlayState(){
+  const dutySheet=$("#dutyDetailSheet");
+  const dutyOpen=Boolean(dutySheet&&!dutySheet.classList.contains("hidden"));
+  document.body.classList.toggle("duty-details-open",dutyOpen);
+
+  const calendarSheet=$("#calendarDetailBackdrop");
+  const calendarOpen=Boolean(calendarSheet&&!calendarSheet.classList.contains("hidden"));
+  document.body.classList.toggle("calendar-detail-open",calendarOpen);
+}
+
+function ensureBottomNavMounted(main,bottomNav){
+  if(!bottomNav.isConnected) main.after(bottomNav);
+  bottomNav.hidden=false;
+  bottomNav.removeAttribute("aria-hidden");
 }
 
 function makeTodayScreen(){
