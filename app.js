@@ -31,6 +31,7 @@ function applyTheme(theme){
   if(themeIcon) themeIcon.textContent=theme==="dark"?"☀️":"🌙";
   if(themeText) themeText.textContent=theme==="dark"?"Light":"Dark";
   if(themeToggle) themeToggle.setAttribute("aria-label",theme==="dark"?"Switch to light mode":"Switch to dark mode");
+  queueMicrotask(()=>window.dispatchEvent(new CustomEvent("crewview:theme-changed",{detail:{theme}})));
 }
 applyTheme(preferredTheme());
 themeToggle?.addEventListener("click",()=>{
@@ -194,6 +195,9 @@ function classifyRows(){
       "row-off",
       "row-training",
       "row-positioning",
+      "row-standby",
+      "row-leave",
+      "row-layover",
       "row-empty",
       "row-overnight-continuation"
     );
@@ -214,6 +218,11 @@ function classifyRows(){
     if(tr.dataset.overnightContinuation==="1"){
       tr.classList.add("row-overnight-continuation");
     }else if(
+      tr.dataset.layoverDay==="1" ||
+      item.includes("LAYOVER")
+    ){
+      tr.classList.add("row-layover");
+    }else if(
       item==="DSA" ||
       item.includes("TRAIN") ||
       item.includes("SIM") ||
@@ -225,6 +234,15 @@ function classifyRows(){
       item.includes("COURSE")
     ){
       tr.classList.add("row-training");
+    }else if(
+      /(?:^|\b)(?:STBY|STANDBY|SBY|RSV|ASB|HSB)(?:\b|$)/.test(item)
+    ){
+      tr.classList.add("row-standby");
+    }else if(
+      ["AL","CL","EL","MC","ML","PL","UL"].includes(item) ||
+      item.includes("LEAVE")
+    ){
+      tr.classList.add("row-leave");
     }else if(
       item==="D" ||
       item==="OFF" ||
@@ -3500,10 +3518,40 @@ function openDutyDetails(){
     `).join("");
   }
 
+  const productivityAmount=productivityAllowanceForDuty(row);
+  const dutyLayover=layoverForDuty(row);
+  const layoverAmount=Number(dutyLayover?.amount||0);
+  const totalAllowance=productivityAmount+layoverAmount;
+  const grade=$("#payGrade")?.value||inferredPayGrade();
+
+  $("#detailProductivityAllowance").textContent=moneyRM(productivityAmount);
+  $("#detailProductivityFormula").textContent=productivityAmount>0
+    ? `${row._totalDuty||row.duty||"—"} eligible roster duty · ${grade}`
+    : "This duty is not eligible for the current productivity estimate.";
+  $("#detailLayoverAllowance").textContent=moneyRM(layoverAmount);
+  $("#detailLayoverFormula").textContent=dutyLayover
+    ? `${layoverMealsShort(dutyLayover)} · ${dutyLayover.region}`
+    : "No qualifying layover detected for this duty.";
+  $("#detailTotalAllowance").textContent=moneyRM(totalAllowance);
+
+  document.querySelectorAll("[data-duty-detail-tab]").forEach(button=>{
+    const active=button.dataset.dutyDetailTab==="overview";
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-pressed",active?"true":"false");
+  });
+  $("#dutyDetailOverviewPanel")?.classList.remove("hidden");
+  $("#dutyDetailEarningsPanel")?.classList.add("hidden");
+
   $("#dutyDetailBackdrop").classList.remove("hidden");
   $("#dutyDetailSheet").classList.remove("hidden");
   document.body.classList.add("duty-details-open");
   $("#dutyDetailClose").focus();
+}
+
+function openDutyDetailsFor(row){
+  if(!row) return;
+  activeNextDuty=row;
+  openDutyDetails();
 }
 
 function closeDutyDetails(){
@@ -5033,7 +5081,7 @@ let crewViewTransitionTimer=null;
 let calendarCursor=null;
 let selectedCalendarDuty=null;
 const calendarFiltersEnabled=new Set([
-  "flight","off","standby","leave","training","simulator","admin"
+  "flight","positioning","continuation","off","standby","leave","training","simulator","admin"
 ]);
 
 const calendarViewOptions={
@@ -5054,11 +5102,11 @@ function calendarCategory(row){
   const work=String(row?.work||"").trim().toUpperCase();
 
   if(item==="D"||item==="OFF"||item.startsWith("DO")) return "off";
-  if(item==="AL"||item.includes("LEAVE")) return "leave";
+  if(["AL","CL","EL","MC","ML","PL","UL"].includes(item)||item.includes("LEAVE")) return "leave";
   if(
-    item.includes("SBY")||
-    /^S[1-4](?:-|$)/.test(item)||
-    item.includes("STANDBY")
+    item.includes("SBY")||item.includes("STBY")||item.includes("STANDBY")||
+    ["RSV","ASB","HSB"].includes(item)||
+    /^S[1-4](?:-|$)/.test(item)
   ) return "standby";
   if(item.includes("SIM")) return "simulator";
   if(
@@ -5069,7 +5117,8 @@ function calendarCategory(row){
     item.includes("CRM")||
     item.includes("GROUND")
   ) return "training";
-  if(work==="OP"||work==="PS"||work==="SFP"||/^MH\d+/i.test(item)) return "flight";
+  if(work==="PS") return "positioning";
+  if(work==="OP"||work==="SFP"||/^MH\d+/i.test(item)) return "flight";
   return "admin";
 }
 
@@ -5234,6 +5283,18 @@ function calendarTileMeta(row){
       footerLeft:work||"SBY",
       footerRight:ac,
       icon:"◷"
+    };
+  }
+
+  if(category==="positioning"){
+    return {
+      title:item||"POSITIONING",
+      route,
+      report:reportTime ? `Rpt ${reportTime}` : "",
+      departure:departureTime ? `Dep ${departureTime}` : "",
+      footerLeft:work||"PS",
+      footerRight:ac ? `A${ac}` : "",
+      icon:"⇄"
     };
   }
 
@@ -5447,6 +5508,7 @@ function renderCalendarView(options={}){
 
     const categoryPriority=[
       "flight",
+      "positioning",
       "continuation",
       "training",
       "standby",
@@ -5521,6 +5583,7 @@ function renderCalendarView(options={}){
 
       const categoryPriority=[
         "flight",
+        "positioning",
         "continuation",
         "training",
         "standby",
@@ -5796,6 +5859,7 @@ function switchRosterView(view){
     );
 
     localStorage.setItem("crewview-roster-view",view);
+    window.dispatchEvent(new CustomEvent("crewview:view-changed",{detail:{view}}));
 
     const destinationScroll=crewViewScrollPositions[view]||0;
     window.scrollTo({top:destinationScroll,left:0,behavior:"auto"});
@@ -6022,11 +6086,12 @@ document.body.classList.toggle(
 document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{
   button.addEventListener("click",()=>{
     const category=button.dataset.filter;
-    if(calendarFiltersEnabled.has(category)){
-      calendarFiltersEnabled.delete(category);
+    const linkedCategories=category==="flight"?["flight","continuation"]:[category];
+    if(linkedCategories.every(value=>calendarFiltersEnabled.has(value))){
+      linkedCategories.forEach(value=>calendarFiltersEnabled.delete(value));
       button.classList.add("disabled");
     }else{
-      calendarFiltersEnabled.add(category);
+      linkedCategories.forEach(value=>calendarFiltersEnabled.add(value));
       button.classList.remove("disabled");
     }
     selectedCalendarDuty=null;
@@ -6711,3 +6776,21 @@ document.querySelectorAll(".pay-collapse-toggle[data-collapse-target]").forEach(
   });
 });
 
+window.CrewViewV200Bridge={
+  switchRosterView,
+  currentRosterView:()=>crewViewMode,
+  getRows,
+  activeDuty:()=>activeNextDuty,
+  activeDutyState:()=>activeSmartDutyState,
+  openDutyDetailsFor,
+  closeDutyDetails,
+  setSmartDutyExpanded,
+  productivityAllowanceForDuty,
+  layoverForDuty,
+  renderPayView,
+  renderTimelineView,
+  renderCalendarView,
+  moneyRM,
+  saveCrewViewPdfDirect
+};
+window.dispatchEvent(new CustomEvent("crewview:ready"));

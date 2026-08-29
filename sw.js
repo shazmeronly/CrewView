@@ -1,13 +1,16 @@
-const CACHE = "crewview-v171";
+const CACHE = "crewview-v200";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css?v=171",
-  "./app.js?v=171",
+  "./ui-v200.css?v=200",
+  "./app.js?v=200",
+  "./ui-v200.js?v=200",
   "./airport-timezones.js",
   "./crewview-mark.svg",
+  "./crewview-mark-light.svg",
   "./crewview-mark-final.png",
   "./crewview-logo.svg",
   "./manifest.webmanifest",
@@ -61,7 +64,7 @@ self.addEventListener("fetch", event => {
   event.respondWith((async()=>{
     const url=new URL(event.request.url);
     const sameOrigin=url.origin===self.location.origin;
-    const coreAsset=sameOrigin && /\/(?:app\.js|style\.css|airport-timezones\.js)$/.test(url.pathname);
+    const coreAsset=sameOrigin && /\/(?:app\.js|style\.css|ui-v200\.js|ui-v200\.css|airport-timezones\.js)$/.test(url.pathname);
 
     // Code and CSS are network-first. This prevents a newly fetched index.html
     // from being paired with an older cached app.js/style.css after deployment.
