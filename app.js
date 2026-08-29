@@ -31,6 +31,7 @@ function applyTheme(theme){
   if(themeIcon) themeIcon.textContent=theme==="dark"?"☀️":"🌙";
   if(themeText) themeText.textContent=theme==="dark"?"Light":"Dark";
   if(themeToggle) themeToggle.setAttribute("aria-label",theme==="dark"?"Switch to light mode":"Switch to dark mode");
+  queueMicrotask(()=>window.dispatchEvent(new CustomEvent("crewview:theme-changed",{detail:{theme}})));
 }
 applyTheme(preferredTheme());
 themeToggle?.addEventListener("click",()=>{
@@ -41,6 +42,7 @@ themeToggle?.addEventListener("click",()=>{
 });
 
 import { AIRPORT_TIMEZONES } from "./airport-timezones.js";
+import { calculateFdpLimit } from "./fdp-rules.js";
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 
@@ -114,18 +116,22 @@ function applyOnePageFit(){
   stage.style.transform="none";
   stage.style.height="auto";
   if(!fitEnabled){
-    $("#tableWrap").style.overflow="auto";
-    $("#fitBtn").textContent="Fit One Page";
+    const tableWrap=$("#tableWrap");
+    const fitButton=$("#fitBtn");
+    if(tableWrap) tableWrap.style.overflow="auto";
+    if(fitButton) fitButton.textContent="Fit One Page";
     return;
   }
-  $("#tableWrap").style.overflow="hidden";
+  const tableWrap=$("#tableWrap");
+  if(tableWrap) tableWrap.style.overflow="hidden";
   requestAnimationFrame(()=>{
     const available=shell.clientWidth;
     const natural=stage.scrollWidth || table.scrollWidth;
     const scale=Math.min(1, available/natural);
     stage.style.transform=`scale(${scale})`;
     stage.style.height=`${stage.scrollHeight*scale}px`;
-    $("#fitBtn").textContent="Full Size";
+    const fitButton=$("#fitBtn");
+    if(fitButton) fitButton.textContent="Full Size";
   });
 }
 
@@ -194,6 +200,9 @@ function classifyRows(){
       "row-off",
       "row-training",
       "row-positioning",
+      "row-standby",
+      "row-leave",
+      "row-layover",
       "row-empty",
       "row-overnight-continuation"
     );
@@ -214,6 +223,11 @@ function classifyRows(){
     if(tr.dataset.overnightContinuation==="1"){
       tr.classList.add("row-overnight-continuation");
     }else if(
+      tr.dataset.layoverDay==="1" ||
+      item.includes("LAYOVER")
+    ){
+      tr.classList.add("row-layover");
+    }else if(
       item==="DSA" ||
       item.includes("TRAIN") ||
       item.includes("SIM") ||
@@ -225,6 +239,15 @@ function classifyRows(){
       item.includes("COURSE")
     ){
       tr.classList.add("row-training");
+    }else if(
+      /(?:^|\b)(?:STBY|STANDBY|SBY|RSV|ASB|HSB)(?:\b|$)/.test(item)
+    ){
+      tr.classList.add("row-standby");
+    }else if(
+      ["AL","CL","EL","MC","ML","PL","UL"].includes(item) ||
+      item.includes("LEAVE")
+    ){
+      tr.classList.add("row-leave");
     }else if(
       item==="D" ||
       item==="OFF" ||
@@ -245,6 +268,7 @@ function setRows(rows){
   tbody.innerHTML=displayRows.map(rowHTML).join("");
   applyOperationalOverlayToClassic();
   classifyRows();
+  renderClassicFdpBadges();
   updateStats();
   renderNextDuty();
   renderCalendarView();
@@ -342,7 +366,14 @@ function updateStats(){
   $("#dh").textContent=officialDH || hhmm(dh);
   $("#off").textContent=offDates.size;
 }
-tbody.addEventListener("input",()=>{classifyRows();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView();if(crewViewMode==="timeline")renderTimelineView()});
+tbody.addEventListener("input",()=>{classifyRows();renderClassicFdpBadges();updateStats();renderNextDuty();if(crewViewMode==="calendar")renderCalendarView();if(crewViewMode==="timeline")renderTimelineView()});
+tbody.addEventListener("click",event=>{
+  if(!document.body.classList.contains("cv-v200")) return;
+  const tr=event.target.closest("tr");
+  if(!tr || !tr.dataset.ftlSummary) return;
+  const row=getRows()[tr.sectionRowIndex];
+  if(row) openDutyDetailsFor(row);
+});
 
 
 function updateCompactProfile(){
@@ -1696,9 +1727,9 @@ function applyPilotHotelAssignments(rows,pdfText){
     const item=String(row?.item||"").trim().toUpperCase();
     if(!item) return row;
 
-    const exact=assignments.find(x=>x.date===date && x.item===item);
-    const byFlight=assignments.find(x=>x.item===item);
-    const hit=exact||byFlight;
+    // Flight numbers can recur with different hotels across a roster. Only
+    // attach a hotel when the PDF extraction matches both duty date and flight.
+    const hit=assignments.find(x=>x.date===date && x.item===item);
 
     return hit?{...row,_hotel:hit.hotel}:row;
   });
@@ -2225,6 +2256,7 @@ function buildCompleteDuty(rows,index){
 
   if(/^MH\d+/i.test(String(duty.item||"").trim())){
     sectors.push({
+      date:duty.date,
       item:duty.item,
       dep:duty.dep,
       arr:duty.arr,
@@ -2242,6 +2274,7 @@ function buildCompleteDuty(rows,index){
 
     if(isSectorContinuation(candidate,duty)){
       sectors.push({
+        date:candidate.date||duty.date,
         item:candidate.item,
         dep:candidate.dep,
         arr:candidate.arr,
@@ -2331,6 +2364,172 @@ function smartDutyIsFlight(row){
   if(!row) return false;
   if((row._sectors||[]).some(sector=>/^MH\d+/i.test(String(sector.item||"").trim()))) return true;
   return /^MH\d+/i.test(String(row.item||"").trim());
+}
+
+function automaticFdpForDuty(row,{acclimatized=true,precedingRestMinutes,crewCount=2}={}){
+  if(!row) return null;
+
+  const sectors=Array.isArray(row._sectors) && row._sectors.length
+    ? row._sectors
+    : [{
+        date:row.date,
+        item:row.item,
+        dep:row.dep,
+        arr:row.arr,
+        block:row.block,
+        work:row.work,
+        ac:row.ac
+      }];
+  const operatingSectors=sectors.filter(sector=>
+    /^MH\d+/i.test(String(sector.item||"").trim()) &&
+    String(sector.work||row.work||"").trim().toUpperCase()!=="PS"
+  );
+
+  if(!operatingSectors.length){
+    return {
+      applicable:false,
+      reason:"Positioning or non-operating duty",
+      assumption:acclimatized
+        ? "Acclimatized Table A assumed"
+        : "Not acclimatized"
+    };
+  }
+
+  const reportMatch=String(row.dutyStart||"").match(/(\d{1,2}):(\d{2})/);
+  if(!reportMatch){
+    return {applicable:false,reason:"Roster report time is unavailable"};
+  }
+  const reportTime=`${String(reportMatch[1]).padStart(2,"0")}:${reportMatch[2]}`;
+  const sectorDurationsMinutes=operatingSectors
+    .map((sector,index)=>{
+      const arrival=String(
+        sector.arr ||
+        (index===operatingSectors.length-1 ? row._arrival : "") ||
+        ""
+      ).trim();
+      const departure=String(sector.dep||"").trim();
+      const scheduled=rosterTimeBasis==="SLT"
+        ? localClockElapsedMinutes({
+            date:sector.date||row.date,
+            dep:departure,
+            arr:arrival
+          })
+        : fixedClockElapsedMinutes(departure,arrival);
+      return Number.isFinite(scheduled) && scheduled>0
+        ? scheduled
+        : (toMinutes(sector.block)>0 ? toMinutes(sector.block) : null);
+    });
+  if(sectorDurationsMinutes.some(minutes=>!Number.isFinite(minutes) || minutes<=0)){
+    return {
+      applicable:false,
+      reason:"Scheduled timing is incomplete for one or more operating sectors",
+      assumption:acclimatized
+        ? "Acclimatized Table A assumed"
+        : "Not acclimatized"
+    };
+  }
+
+  const reportMs=smartDutyReportUtcMs(row);
+  const arrivalText=String(row._arrival||row.arr||"").trim();
+  let arrivalDate=row._arrivalDate||row.date;
+  if(
+    /\(\+1\)/.test(arrivalText) &&
+    arrivalDate===row.date
+  ){
+    arrivalDate=addRosterDays(arrivalDate,1);
+  }
+  const arrivalAirport=dutyArrivalAirport(row);
+  let arrivalMs=rosterScheduledUtcMs(arrivalDate,arrivalText,arrivalAirport);
+  while(Number.isFinite(reportMs) && Number.isFinite(arrivalMs) && arrivalMs<=reportMs){
+    arrivalMs+=86400000;
+  }
+  const plannedMinutes=Number.isFinite(reportMs)&&Number.isFinite(arrivalMs)
+    ? Math.round((arrivalMs-reportMs)/60000)
+    : null;
+
+  let rule;
+  try{
+    rule=calculateFdpLimit({
+      reportTime,
+      sectors:operatingSectors.length,
+      sectorDurationsMinutes,
+      acclimatized,
+      precedingRestMinutes,
+      crewCount
+    });
+  }catch(error){
+    return {applicable:false,reason:error.message};
+  }
+
+  return {
+    ...rule,
+    applicable:true,
+    plannedMinutes,
+    spareMinutes:Number.isFinite(plannedMinutes)
+      ? rule.limitMinutes-plannedMinutes
+      : null,
+    reportTime,
+    finalOnChocks:arrivalText,
+    aircraft:String(row.ac||operatingSectors.find(sector=>sector.ac)?.ac||"").trim(),
+    scheduledSectorCount:operatingSectors.length,
+    assumption:crewCount===4
+      ? "Confirmed four-crew long-haul complement"
+      : crewCount===3
+        ? (acclimatized
+          ? "Acclimatized Table A assumed · three-pilot crew"
+          : "Not acclimatized Table B · three-pilot crew")
+      : acclimatized
+        ? "Acclimatized Table A assumed · two-pilot crew"
+        : "Not acclimatized Table B · two-pilot crew",
+    crewComplementAssumed:crewCount===2,
+    fdpDefinition:"Roster report to final scheduled on-chocks"
+  };
+}
+
+function formatFdpDuration(minutes,{signed=false}={}){
+  if(!Number.isFinite(Number(minutes))) return "—";
+  const value=Math.round(Number(minutes));
+  const prefix=signed ? (value<0?"−":"+") : "";
+  const absolute=Math.abs(value);
+  return `${prefix}${String(Math.floor(absolute/60)).padStart(2,"0")}:${String(absolute%60).padStart(2,"0")}`;
+}
+
+function dutyMatchesSelection(duty,row){
+  if(!duty||!row) return false;
+  if(row._smartKey && duty._smartKey===row._smartKey) return true;
+  if(row._dutyGroup && duty._dutyGroup===row._dutyGroup) return true;
+  if(String(duty.date||"")!==String(row.date||"")) return false;
+  const item=String(row.item||"").trim().toUpperCase();
+  return String(duty.item||"").trim().toUpperCase()===item ||
+    (duty._sectors||[]).some(sector=>
+      String(sector.item||"").trim().toUpperCase()===item
+    );
+}
+
+function resolveDutyForDetails(row){
+  return getSmartDutyCandidates(getRows()).find(duty=>
+    dutyMatchesSelection(duty,row)
+  ) || row;
+}
+
+function renderClassicFdpBadges(){
+  if(!tbody) return;
+  const rows=getRows();
+  const duties=getSmartDutyCandidates(rows);
+
+  [...tbody.rows].forEach((tr,index)=>{
+    delete tr.dataset.ftlSummary;
+    const itemCell=tr.querySelector('[data-k="item"]');
+    if(itemCell) delete itemCell.dataset.ftlSummary;
+    const row=rows[index];
+    if(!row || row._overnightContinuation || !String(row.item||"").trim()) return;
+    const duty=duties.find(candidate=>dutyMatchesSelection(candidate,row));
+    const fdp=duty ? automaticFdpForDuty(duty) : null;
+    tr.dataset.ftlSummary=fdp?.applicable
+      ? `FTL ${formatFdpDuration(fdp.limitMinutes)} · ${formatFdpDuration(fdp.spareMinutes,{signed:true})}`
+      : "FTL N/A";
+    if(itemCell) itemCell.dataset.ftlSummary=tr.dataset.ftlSummary;
+  });
 }
 
 function smartDutyEndDateTime(row){
@@ -2453,8 +2652,10 @@ function dutyDepartureAirport(row){
 }
 
 function dutyArrivalAirport(row){
+  const finalArrival=airportCode(row?._arrival||row?.arr);
+  if(finalArrival) return String(finalArrival).toUpperCase();
   const route=(row?._routeAirports||[]).filter(Boolean);
-  return String(route[route.length-1] || airportCode(row?._arrival||row?.arr) || "").toUpperCase();
+  return String(route[route.length-1] || "").toUpperCase();
 }
 
 function smartDutyEventAirport(row,field){
@@ -3305,8 +3506,14 @@ function refreshSmartDutyCard(force=false){
     smartDutyExpandedKey=dutyKey;
   }
 
+  const previousDutyKey=activeNextDuty?._smartKey||"";
   activeNextDuty=row;
   activeSmartDutyState=state;
+  if(previousDutyKey!==dutyKey){
+    window.dispatchEvent(new CustomEvent("crewview:active-duty-changed",{
+      detail:{dutyKey}
+    }));
+  }
 
   if(changed){
     smartDutyRenderSignature=signature;
@@ -3458,6 +3665,7 @@ function openDutyDetails(){
   const depAirport=String(departure).trim().split(/\s+/)[0]||"";
   const arrAirport=String(arrival).trim().split(/\s+/)[0]||"";
   const routeAirports=(row._routeAirports||[]).filter(Boolean);
+  const fdp=automaticFdpForDuty(row);
 
   $("#dutyDetailTitle").textContent=
     row._displayItems||row.item||"Duty";
@@ -3482,7 +3690,30 @@ function openDutyDetails(){
       ? "DUTY ACTIVE"
       : activeSmartDutyState==="completed"
         ? "COMPLETED"
-        : formatCountdown(row._dt-new Date());
+        : row._dt instanceof Date
+          ? formatCountdown(row._dt-new Date())
+          : "—";
+
+  $("#detailFtlStatus").textContent=fdp?.applicable
+    ? (fdp.allowed===false?"NOT ALLOWED":`TABLE ${fdp.table}`)
+    : "NOT APPLICABLE";
+  $("#detailFtlAssumption").textContent=fdp?.assumption||"";
+  $("#detailFtlLimit").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.limitMinutes)
+    : "—";
+  $("#detailPlannedFdp").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.plannedMinutes)
+    : "—";
+  $("#detailFtlMargin").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.spareMinutes,{signed:true})
+    : "—";
+  $("#detailFtlMarginCell")?.classList.toggle(
+    "overrun",
+    Boolean(fdp?.applicable&&Number(fdp.spareMinutes)<0)
+  );
+  $("#detailFtlMeta").textContent=fdp?.applicable
+    ? `${fdp.fdpDefinition} · ${fdp.aircraft||"Aircraft not listed"} · ${fdp.effectiveSectors} effective sector${fdp.effectiveSectors===1?"":"s"}`
+    : (fdp?.reason||"Automatic FTL does not apply to this duty.");
 
   const sectorSection=$("#dutySectorSection");
   const sectorList=$("#dutySectorList");
@@ -3500,10 +3731,59 @@ function openDutyDetails(){
     `).join("");
   }
 
+  const productivityAmount=productivityAllowanceForDuty(row);
+  const dutyLayover=layoverForDuty(row);
+  const layoverAmount=Number(dutyLayover?.amount||0);
+  const over80=over80ContributionForDuty(row);
+  const totalAllowance=productivityAmount+layoverAmount+over80.amount;
+  const gradeEl=$("#payGrade");
+  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
+    ? gradeEl.value
+    : inferredPayGrade();
+
+  $("#detailProductivityAllowance").textContent=moneyRM(productivityAmount);
+  $("#detailProductivityFormula").textContent=productivityAmount>0
+    ? `${row._totalDuty||row.duty||"—"} eligible roster duty · ${grade}`
+    : "This duty is not eligible for the current productivity estimate.";
+  $("#detailLayoverAllowance").textContent=moneyRM(layoverAmount);
+  $("#detailLayoverFormula").textContent=dutyLayover
+    ? `${layoverMealsShort(dutyLayover)} · ${dutyLayover.region}`
+    : "No qualifying layover detected for this duty.";
+  $("#detailOver80Allowance").textContent=moneyRM(over80.amount);
+  $("#detailOver80Formula").textContent=over80.minutes>0
+    ? `${hhmm(over80.minutes)} from this duty above monthly 80:00 × ${moneyRM(over80.rate)}/hour · ${over80.grade}`
+    : "No block time from this duty falls above the monthly 80:00 threshold.";
+  $("#detailTotalAllowance").textContent=moneyRM(totalAllowance);
+
+  $("#detailLayoverSummary")?.classList.toggle("hidden",!dutyLayover);
+  if(dutyLayover){
+    $("#detailLayoverDestination").textContent=
+      `${dutyLayover.airport} · ${dutyLayover.region}`;
+    $("#detailLayoverDuration").textContent=
+      `${hhmm(dutyLayover.durationMinutes)} at destination · ${layoverMealsShort(dutyLayover)}`;
+    $("#detailHotel").textContent=dutyLayover.hotel||"Not listed in roster";
+    $("#detailNextReport").textContent=
+      `Next report ${formatLayoverLocal(dutyLayover.end,dutyLayover.airport)}`;
+  }
+
+  document.querySelectorAll("[data-duty-detail-tab]").forEach(button=>{
+    const active=button.dataset.dutyDetailTab==="overview";
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-pressed",active?"true":"false");
+  });
+  $("#dutyDetailOverviewPanel")?.classList.remove("hidden");
+  $("#dutyDetailEarningsPanel")?.classList.add("hidden");
+
   $("#dutyDetailBackdrop").classList.remove("hidden");
   $("#dutyDetailSheet").classList.remove("hidden");
   document.body.classList.add("duty-details-open");
   $("#dutyDetailClose").focus();
+}
+
+function openDutyDetailsFor(row){
+  if(!row) return;
+  activeNextDuty=resolveDutyForDetails(row);
+  openDutyDetails();
 }
 
 function closeDutyDetails(){
@@ -4084,6 +4364,7 @@ async function parsePDF(file){
     `Converted the roster and displayed all ${calendarDays} calendar days.`;
 
   document.body.classList.add("roster-loaded");
+  window.dispatchEvent(new CustomEvent("crewview:roster-state",{detail:{loaded:true}}));
   $("#uploadCard")?.setAttribute("aria-hidden","true");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
@@ -4258,6 +4539,40 @@ function productivityAllowanceForDuty(row){
   if(!(minutes>0)) minutes=toMinutes(row._totalDuty);
 
   return minutes>0 ? minutes/60*rule.pa : 0;
+}
+
+function over80ContributionForDuty(row){
+  if(!row) return {minutes:0,amount:0,rate:0,grade:""};
+  const gradeEl=$("#payGrade");
+  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
+    ? gradeEl.value
+    : inferredPayGrade();
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  let runningMinutes=0;
+  let contributionMinutes=0;
+
+  getRows().forEach(candidate=>{
+    if(officialRosterPeriod){
+      const date=parseRosterDate(candidate.date);
+      if(!date || date<officialRosterPeriod.start || date>officialRosterPeriod.end) return;
+    }
+    const blockMinutes=toMinutes(candidate.block);
+    if(!(blockMinutes>0)) return;
+    const before=runningMinutes;
+    runningMinutes+=blockMinutes;
+    if(!dutyMatchesSelection(row,candidate)) return;
+    contributionMinutes+=Math.max(
+      0,
+      runningMinutes-Math.max(before,80*60)
+    );
+  });
+
+  return {
+    minutes:contributionMinutes,
+    amount:contributionMinutes/60*rule.over80,
+    rate:rule.over80,
+    grade
+  };
 }
 
 function smartDutyClockParts(text){
@@ -4570,15 +4885,20 @@ function calculateLayoverAllowances(){
 
 function layoverForDuty(row){
   if(!row) return null;
-  const item=String(row.item||row._displayItems||"").toUpperCase();
   const date=String(row.date||"");
   const arrival=splitStationTime(row._arrival||row.arr).station;
+  const selectedItems=new Set([
+    row.item,
+    ...(row._sectors||[]).map(sector=>sector.item)
+  ].map(item=>String(item||"").trim().toUpperCase()).filter(Boolean));
   const layovers=calculateLayoverAllowances();
   return layovers.find(l=>{
-    const items=String(l.fromItems||"").toUpperCase();
-    return (date&&l.fromDate===date&&item&&items.includes(item)) ||
-           (item&&items.split(/\s*\/\s*/).includes(item));
-  }) || layovers.find(l=>arrival&&l.airport===arrival&&(!date||l.fromDate===date)) || null;
+    const items=String(l.fromItems||"")
+      .toUpperCase()
+      .split(/\s*\/\s*/)
+      .filter(Boolean);
+    return date && l.fromDate===date && items.some(item=>selectedItems.has(item));
+  }) || layovers.find(l=>date&&l.fromDate===date&&arrival&&l.airport===arrival) || null;
 }
 function layoverMealsShort(l){
   return l?.meals?.length?l.meals.map(m=>`${m.label} ${moneyRM(m.amount)}`).join(" · "):"No qualifying meal";
@@ -5033,7 +5353,7 @@ let crewViewTransitionTimer=null;
 let calendarCursor=null;
 let selectedCalendarDuty=null;
 const calendarFiltersEnabled=new Set([
-  "flight","off","standby","leave","training","simulator","admin"
+  "flight","positioning","continuation","off","standby","leave","training","simulator","admin"
 ]);
 
 const calendarViewOptions={
@@ -5054,11 +5374,11 @@ function calendarCategory(row){
   const work=String(row?.work||"").trim().toUpperCase();
 
   if(item==="D"||item==="OFF"||item.startsWith("DO")) return "off";
-  if(item==="AL"||item.includes("LEAVE")) return "leave";
+  if(["AL","CL","EL","MC","ML","PL","UL"].includes(item)||item.includes("LEAVE")) return "leave";
   if(
-    item.includes("SBY")||
-    /^S[1-4](?:-|$)/.test(item)||
-    item.includes("STANDBY")
+    item.includes("SBY")||item.includes("STBY")||item.includes("STANDBY")||
+    ["RSV","ASB","HSB"].includes(item)||
+    /^S[1-4](?:-|$)/.test(item)
   ) return "standby";
   if(item.includes("SIM")) return "simulator";
   if(
@@ -5069,7 +5389,8 @@ function calendarCategory(row){
     item.includes("CRM")||
     item.includes("GROUND")
   ) return "training";
-  if(work==="OP"||work==="PS"||work==="SFP"||/^MH\d+/i.test(item)) return "flight";
+  if(work==="PS") return "positioning";
+  if(work==="OP"||work==="SFP"||/^MH\d+/i.test(item)) return "flight";
   return "admin";
 }
 
@@ -5234,6 +5555,18 @@ function calendarTileMeta(row){
       footerLeft:work||"SBY",
       footerRight:ac,
       icon:"◷"
+    };
+  }
+
+  if(category==="positioning"){
+    return {
+      title:item||"POSITIONING",
+      route,
+      report:reportTime ? `Rpt ${reportTime}` : "",
+      departure:departureTime ? `Dep ${departureTime}` : "",
+      footerLeft:work||"PS",
+      footerRight:ac ? `A${ac}` : "",
+      icon:"⇄"
     };
   }
 
@@ -5447,6 +5780,7 @@ function renderCalendarView(options={}){
 
     const categoryPriority=[
       "flight",
+      "positioning",
       "continuation",
       "training",
       "standby",
@@ -5521,6 +5855,7 @@ function renderCalendarView(options={}){
 
       const categoryPriority=[
         "flight",
+        "positioning",
         "continuation",
         "training",
         "standby",
@@ -5580,7 +5915,8 @@ function splitStationTime(value){
 function selectCalendarDuty(row,{openOverlay=true}={}){
   if(!row) return;
 
-  selectedCalendarDuty=row;
+  selectedCalendarDuty=resolveDutyForDetails(row);
+  row=selectedCalendarDuty;
   const panel=$("#calendarSelected");
   const backdrop=$("#calendarDetailBackdrop");
 
@@ -5633,6 +5969,19 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
   $("#selectedBlock").textContent=row._totalBlock||row.block||"—";
   $("#selectedDuty").textContent=row._totalDuty||row.duty||"—";
   $("#selectedWork").textContent=row.work||"—";
+  const fdp=automaticFdpForDuty(row);
+  $("#selectedFtlLimit").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.limitMinutes)
+    : "N/A";
+  $("#selectedPlannedFdp").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.plannedMinutes)
+    : "—";
+  $("#selectedFtlMargin").textContent=fdp?.applicable
+    ? formatFdpDuration(fdp.spareMinutes,{signed:true})
+    : "—";
+  $("#selectedFtlSummary")?.classList.toggle("overrun",Boolean(
+    fdp?.applicable&&Number(fdp.spareMinutes)<0
+  ));
   const layover=layoverForDuty(row);
   $("#selectedLayoverPanel")?.classList.toggle("hidden",!layover);
   if(layover){
@@ -5796,6 +6145,7 @@ function switchRosterView(view){
     );
 
     localStorage.setItem("crewview-roster-view",view);
+    window.dispatchEvent(new CustomEvent("crewview:view-changed",{detail:{view}}));
 
     const destinationScroll=crewViewScrollPositions[view]||0;
     window.scrollTo({top:destinationScroll,left:0,behavior:"auto"});
@@ -6022,11 +6372,12 @@ document.body.classList.toggle(
 document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{
   button.addEventListener("click",()=>{
     const category=button.dataset.filter;
-    if(calendarFiltersEnabled.has(category)){
-      calendarFiltersEnabled.delete(category);
+    const linkedCategories=category==="flight"?["flight","continuation"]:[category];
+    if(linkedCategories.every(value=>calendarFiltersEnabled.has(value))){
+      linkedCategories.forEach(value=>calendarFiltersEnabled.delete(value));
       button.classList.add("disabled");
     }else{
-      calendarFiltersEnabled.add(category);
+      linkedCategories.forEach(value=>calendarFiltersEnabled.add(value));
       button.classList.remove("disabled");
     }
     selectedCalendarDuty=null;
@@ -6036,8 +6387,7 @@ document.querySelectorAll(".calendar-legend [data-filter]").forEach(button=>{
 
 $("#selectedDetailsBtn")?.addEventListener("click",()=>{
   if(!selectedCalendarDuty) return;
-  activeNextDuty=selectedCalendarDuty;
-  openDutyDetails();
+  openDutyDetailsFor(selectedCalendarDuty);
 });
 
 $("#pdfInput").addEventListener("change",async e=>{
@@ -6082,6 +6432,7 @@ $("#clearBtn")?.addEventListener("click",event=>{
   if(compactProfile) compactProfile.classList.add("hidden");
 
   document.body.classList.remove("roster-loaded");
+  window.dispatchEvent(new CustomEvent("crewview:roster-state",{detail:{loaded:false}}));
   $("#uploadCard")?.removeAttribute("aria-hidden");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","true");
   $("#viewSwitcher")?.classList.add("hidden");
@@ -6129,6 +6480,7 @@ function restoreCachedRoster(){
   setRows(cached.rows);
   updateRosterSourceNote();
   document.body.classList.add("roster-loaded");
+  window.dispatchEvent(new CustomEvent("crewview:roster-state",{detail:{loaded:true}}));
   $("#uploadCard")?.setAttribute("aria-hidden","true");
   $("#loadedRosterActions")?.setAttribute("aria-hidden","false");
   $("#viewSwitcher")?.classList.remove("hidden");
@@ -6711,3 +7063,25 @@ document.querySelectorAll(".pay-collapse-toggle[data-collapse-target]").forEach(
   });
 });
 
+window.CrewViewV200Bridge={
+  switchRosterView,
+  currentRosterView:()=>crewViewMode,
+  getRows,
+  activeDuty:()=>activeNextDuty,
+  activeDutyState:()=>activeSmartDutyState,
+  calculateFdpLimit,
+  automaticFdpForDuty,
+  automaticFdpBaselines:()=>getSmartDutyCandidates(getRows())
+    .map(duty=>({duty,fdp:automaticFdpForDuty(duty)})),
+  openDutyDetailsFor,
+  closeDutyDetails,
+  setSmartDutyExpanded,
+  productivityAllowanceForDuty,
+  layoverForDuty,
+  renderPayView,
+  renderTimelineView,
+  renderCalendarView,
+  moneyRM,
+  saveCrewViewPdfDirect
+};
+window.dispatchEvent(new CustomEvent("crewview:ready"));

@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
 <link rel="stylesheet" href="style.css?v=171">
+<link rel="stylesheet" href="ui-v200.css?v=201">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -231,23 +232,48 @@
     <button type="button" class="duty-detail-close" id="dutyDetailClose" aria-label="Close duty details">×</button>
   </div>
 
-  <div class="duty-sector-section hidden" id="dutySectorSection">
-    <span class="duty-sector-heading">FLIGHT SECTORS</span>
-    <div class="duty-sector-list" id="dutySectorList"></div>
+  <nav class="duty-detail-tabs" aria-label="Duty details sections">
+    <button type="button" class="active" data-duty-detail-tab="overview" aria-pressed="true">Overview</button>
+    <button type="button" data-duty-detail-tab="actuals" aria-pressed="false">Actuals</button>
+    <button type="button" data-duty-detail-tab="earnings" aria-pressed="false">Earnings</button>
+  </nav>
+
+  <div class="duty-detail-tab-panel" id="dutyDetailOverviewPanel">
+    <div class="duty-sector-section hidden" id="dutySectorSection">
+      <span class="duty-sector-heading">FLIGHT SECTORS</span>
+      <div class="duty-sector-list" id="dutySectorList"></div>
+    </div>
+
+    <div class="duty-detail-grid">
+      <div><span>Date</span><strong id="detailDate">—</strong></div>
+      <div><span>Report</span><strong id="detailReport">—</strong></div>
+      <div><span>Departure</span><strong id="detailDeparture">—</strong></div>
+      <div><span>Arrival</span><strong id="detailArrival">—</strong></div>
+      <div><span>Duty End</span><strong id="detailDutyEnd">—</strong></div>
+      <div><span>Aircraft</span><strong id="detailAircraft">—</strong></div>
+      <div><span>Block Hours</span><strong id="detailBlock">—</strong></div>
+      <div><span>Roster Duty Hours</span><strong id="detailDutyHours">—</strong></div>
+      <div><span>Work Type</span><strong id="detailWorkType">—</strong></div>
+      <div><span>Reports In</span><strong id="detailCountdown">—</strong></div>
+    </div>
   </div>
 
-  <div class="duty-detail-grid">
-    <div><span>Date</span><strong id="detailDate">—</strong></div>
-    <div><span>Report</span><strong id="detailReport">—</strong></div>
-    <div><span>Departure</span><strong id="detailDeparture">—</strong></div>
-    <div><span>Arrival</span><strong id="detailArrival">—</strong></div>
-    <div><span>Duty End</span><strong id="detailDutyEnd">—</strong></div>
-    <div><span>Aircraft</span><strong id="detailAircraft">—</strong></div>
-    <div><span>Block Hours</span><strong id="detailBlock">—</strong></div>
-    <div><span>Roster Duty Hours</span><strong id="detailDutyHours">—</strong></div>
-    <div><span>Work Type</span><strong id="detailWorkType">—</strong></div>
-    <div><span>Reports In</span><strong id="detailCountdown">—</strong></div>
-  </div>
+  <section class="duty-detail-tab-panel duty-detail-earnings hidden" id="dutyDetailEarningsPanel" aria-label="Estimated duty earnings">
+    <article class="duty-earnings-card productivity">
+      <div><small>PRODUCTIVITY PAY (EST.)</small><strong id="detailProductivityAllowance">RM0.00</strong></div>
+      <p id="detailProductivityFormula">Calculated from eligible roster duty hours.</p>
+    </article>
+    <article class="duty-earnings-card layover">
+      <div><small>LAYOVER ALLOWANCE</small><strong id="detailLayoverAllowance">RM0.00</strong></div>
+      <p id="detailLayoverFormula">No qualifying layover detected.</p>
+    </article>
+    <article class="duty-earnings-total">
+      <div><small>ESTIMATED DUTY TOTAL</small><span>Productivity + layover</span></div>
+      <strong id="detailTotalAllowance">RM0.00</strong>
+    </article>
+    <p class="duty-earnings-disclaimer">Unofficial estimate from the loaded roster. Company payroll and your payslip remain authoritative.</p>
+    <button type="button" class="btn primary duty-month-statement" id="detailMonthStatement">View Month Statement</button>
+  </section>
 
   <p class="duty-detail-note">Tap outside this panel or use × to close.</p>
 </section>
@@ -278,14 +304,12 @@
   </div>
 
   <div class="legend" aria-label="Roster colour legend">
-    <span class="legend-item"><i class="swatch date-swatch"></i>Date</span>
-    <span class="legend-item"><i class="swatch day-swatch"></i>Day</span>
-    <span class="legend-item"><i class="swatch report-swatch"></i>Reporting time</span>
-    <span class="legend-item"><i class="swatch flight-swatch"></i>Flight / duty</span>
-    <span class="legend-item"><i class="swatch timing-swatch"></i>Departure & arrival</span>
-    <span class="legend-item"><i class="swatch hours-swatch"></i>Hours</span>
-    <span class="legend-item"><i class="swatch off-swatch"></i>Off day</span>
-    <span class="legend-item"><i class="swatch training-swatch"></i>Training & Ground Duty</span>
+    <span class="legend-item"><i class="swatch duty-flight"></i>Flight duty</span>
+    <span class="legend-item"><i class="swatch duty-positioning"></i>Positioning / standby</span>
+    <span class="legend-item"><i class="swatch duty-training"></i>Training / simulator</span>
+    <span class="legend-item"><i class="swatch duty-layover"></i>Layover</span>
+    <span class="legend-item"><i class="swatch duty-leave"></i>Leave</span>
+    <span class="legend-item"><i class="swatch duty-off"></i>Day off</span>
   </div>
 
   <div class="fit-shell" id="fitShell">
@@ -486,6 +510,7 @@
 
       <div class="calendar-legend">
         <button type="button" data-filter="flight"><i class="cal-dot flight"></i>Flight Duty</button>
+        <button type="button" data-filter="positioning"><i class="cal-dot positioning"></i>Positioning</button>
         <button type="button" data-filter="off"><i class="cal-dot off"></i>Day Off</button>
         <button type="button" data-filter="standby"><i class="cal-dot standby"></i>Standby</button>
         <button type="button" data-filter="leave"><i class="cal-dot leave"></i>Leave</button>
@@ -589,6 +614,8 @@
               <span id="selectedLayoverMeals">—</span>
             </div>
           </section>
+
+          <button type="button" class="selected-full-details" id="selectedDetailsBtn">View Duty Details</button>
         </div>
 
         <span class="hidden" id="selectedWeekday">—</span>
@@ -597,7 +624,7 @@
       </section>
     </section>
 
-    <nav class="calendar-bottom-nav<nav class="calendar-bottom-nav" aria-label="CrewView navigation">
+    <nav class="calendar-bottom-nav" aria-label="CrewView navigation">
       <button type="button" data-calendar-mode="classic"><span>▧</span><small>Roster</small></button>
       <button type="button" class="active"><span>▣</span><small>Calendar</small></button>
       <button type="button" disabled><span>▥</span><small>Summary</small></button>
@@ -758,7 +785,8 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=171"></script>
+<script type="module" src="app.js?v=201"></script>
+<script type="module" src="ui-v200.js?v=201"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>
