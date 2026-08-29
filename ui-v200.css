@@ -479,7 +479,15 @@
 
   /* The v200 shell supplies the upload UI. Keep the legacy card only as
      hidden status/validation plumbing so it cannot appear as a duplicate. */
-  .cv-v200 #uploadCard{display:none!important}
+  body.cv-v200 #uploadCard,
+  body.cv-v200.roster-loaded #uploadCard,
+  body.cv-v200 #uploadCard[aria-hidden="true"]{display:none!important}
+
+  /* State-class fallbacks keep the welcome card and loaded dashboard mutually
+     exclusive even while the parser is finishing its asynchronous refresh. */
+  body.cv-v200.roster-loaded #cvEmptyRoster,
+  body.cv-v200.cv-has-roster #cvEmptyRoster{display:none!important}
+  body.cv-v200:not(.roster-loaded):not(.cv-has-roster) #cvTodayAfterDuty{display:none!important}
 
   .cv-v200 #resultCard{display:flex;flex-direction:column}
   .cv-v200 #resultCard .legend{order:2;border-top:1px solid var(--cv-line);border-bottom:0!important}
