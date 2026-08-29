@@ -474,8 +474,12 @@
   .cv-roster-screen>.cv-roster-duty-strip{display:none!important}
   .cv-roster-screen>.cv-roster-profile{order:3}.cv-roster-screen>#viewSwitcher{order:4}
   .cv-roster-tools{order:5;margin:-4px 0 10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .cv-roster-tools button{height:38px;border:1px solid var(--cv-line);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--cv-surface);color:var(--cv-text);font-family:inherit;font-size:10px;font-weight:800;line-height:1;cursor:pointer}.cv-roster-tools svg{width:16px;height:16px;color:var(--cv-blue)}
+  .cv-roster-tools button,.cv-roster-tools label{height:38px;border:1px solid var(--cv-line);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--cv-surface);color:var(--cv-text);font-family:inherit;font-size:10px;font-weight:800;line-height:1;cursor:pointer}.cv-roster-tools svg{width:16px;height:16px;color:var(--cv-blue)}
   .cv-roster-screen>#classicView,.cv-roster-screen>#calendarView{order:6}
+
+  /* The v200 shell supplies the upload UI. Keep the legacy card only as
+     hidden status/validation plumbing so it cannot appear as a duplicate. */
+  .cv-v200 #uploadCard{display:none!important}
 
   .cv-v200 #resultCard{display:flex;flex-direction:column}
   .cv-v200 #resultCard .legend{order:2;border-top:1px solid var(--cv-line);border-bottom:0!important}

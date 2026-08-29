@@ -187,7 +187,7 @@ function makeTodayScreen(){
       <small>WELCOME TO CREWVIEW</small>
       <h3>Bring your roster to life.</h3>
       <p>Your PDF stays on this device. Load it once to unlock Classic, Calendar, Timeline, Smart Duty and Allowances.</p>
-      <button type="button" class="btn primary" id="cvEmptyLoad">${icon("upload")} Load Current Roster</button>
+      <label class="btn primary" id="cvEmptyLoad" for="pdfInput" role="button">${icon("upload")} Load Current Roster</label>
     </article>
     <section class="cv-today-after-duty" id="cvTodayAfterDuty">
       <article class="cv-ftl-card hidden" id="cvTodayFtl">
@@ -234,7 +234,7 @@ function makeRosterScreen(){
       <b id="cvRosterBlockBadge">00:00 block</b>
     </section>
     <div class="cv-roster-tools">
-      <button type="button" id="cvRosterUpload">${icon("upload")}<span>Upload</span></button>
+      <label id="cvRosterUpload" for="pdfInput" role="button">${icon("upload")}<span>Upload</span></label>
       <button type="button" id="cvRosterSave">${icon("pdf")}<span>Save PDF</span></button>
     </div>`;
   return screen;
@@ -272,6 +272,11 @@ function makeProfileScreen(){
 }
 
 function moveExistingContent(screens,footer){
+  // Keep the native picker outside the hidden legacy upload card. iOS Safari
+  // can refuse a file dialog when its input is inside a hidden ancestor.
+  const pdfInput=$("#pdfInput");
+  if(pdfInput) document.body.append(pdfInput);
+
   const nextDuty=$("#nextDutyCard");
   const todayAfter=$("#cvTodayAfterDuty",screens.today);
   if(nextDuty) screens.today.insertBefore(nextDuty,todayAfter);
@@ -396,7 +401,6 @@ function syncRosterModeButtons(view){
 }
 
 function wireQuickActions(){
-  $("#cvEmptyLoad")?.addEventListener("click",()=>$("#pdfInput")?.click());
   $$("[data-quick-route]").forEach(button=>button.addEventListener("click",()=>routeTo(button.dataset.quickRoute)));
   $("#cvTodayEstimate")?.addEventListener("click",()=>{
     const duty=bridge.activeDuty();
@@ -409,7 +413,6 @@ function wireQuickActions(){
   });
   $("#cvProfileTheme")?.addEventListener("click",()=>$("#themeToggle")?.click());
   $("#cvProfileExport")?.addEventListener("click",()=>bridge.saveCrewViewPdfDirect());
-  $("#cvRosterUpload")?.addEventListener("click",()=>$("#pdfInput")?.click());
   $("#cvRosterSave")?.addEventListener("click",()=>bridge.saveCrewViewPdfDirect());
   $("#cvRosterPrev")?.addEventListener("click",()=>{
     if(bridge.currentRosterView()==="calendar") $("#calendarPrev")?.click();
