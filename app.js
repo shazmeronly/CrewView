@@ -5873,7 +5873,7 @@ function renderCalendarView(options={}){
 
       if(!duty) return;
 
-      selectCalendarDuty(duty,{openOverlay:true});
+      selectCalendarDuty(duty,{openOverlay:false});
 
       grid.querySelectorAll(".selected").forEach(cell=>
         cell.classList.remove("selected")
@@ -5891,6 +5891,7 @@ function renderCalendarView(options={}){
     }
   }else{
     selectedCalendarDuty=null;
+    window.dispatchEvent(new CustomEvent("crewview:calendar-selection",{detail:{row:null}}));
     closeCalendarDutyOverlay();
     grid.querySelectorAll(".selected").forEach(cell=>cell.classList.remove("selected"));
   }
@@ -5917,6 +5918,7 @@ function selectCalendarDuty(row,{openOverlay=true}={}){
 
   selectedCalendarDuty=resolveDutyForDetails(row);
   row=selectedCalendarDuty;
+  window.dispatchEvent(new CustomEvent("crewview:calendar-selection",{detail:{row}}));
   const panel=$("#calendarSelected");
   const backdrop=$("#calendarDetailBackdrop");
 
