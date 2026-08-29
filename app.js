@@ -42,6 +42,7 @@ themeToggle?.addEventListener("click",()=>{
 });
 
 import { AIRPORT_TIMEZONES } from "./airport-timezones.js";
+import { calculateFdpLimit } from "./fdp-rules.js";
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 
@@ -115,18 +116,22 @@ function applyOnePageFit(){
   stage.style.transform="none";
   stage.style.height="auto";
   if(!fitEnabled){
-    $("#tableWrap").style.overflow="auto";
-    $("#fitBtn").textContent="Fit One Page";
+    const tableWrap=$("#tableWrap");
+    const fitButton=$("#fitBtn");
+    if(tableWrap) tableWrap.style.overflow="auto";
+    if(fitButton) fitButton.textContent="Fit One Page";
     return;
   }
-  $("#tableWrap").style.overflow="hidden";
+  const tableWrap=$("#tableWrap");
+  if(tableWrap) tableWrap.style.overflow="hidden";
   requestAnimationFrame(()=>{
     const available=shell.clientWidth;
     const natural=stage.scrollWidth || table.scrollWidth;
     const scale=Math.min(1, available/natural);
     stage.style.transform=`scale(${scale})`;
     stage.style.height=`${stage.scrollHeight*scale}px`;
-    $("#fitBtn").textContent="Full Size";
+    const fitButton=$("#fitBtn");
+    if(fitButton) fitButton.textContent="Full Size";
   });
 }
 
@@ -2243,6 +2248,7 @@ function buildCompleteDuty(rows,index){
 
   if(/^MH\d+/i.test(String(duty.item||"").trim())){
     sectors.push({
+      date:duty.date,
       item:duty.item,
       dep:duty.dep,
       arr:duty.arr,
@@ -2260,6 +2266,7 @@ function buildCompleteDuty(rows,index){
 
     if(isSectorContinuation(candidate,duty)){
       sectors.push({
+        date:candidate.date||duty.date,
         item:candidate.item,
         dep:candidate.dep,
         arr:candidate.arr,
@@ -2349,6 +2356,126 @@ function smartDutyIsFlight(row){
   if(!row) return false;
   if((row._sectors||[]).some(sector=>/^MH\d+/i.test(String(sector.item||"").trim()))) return true;
   return /^MH\d+/i.test(String(row.item||"").trim());
+}
+
+function automaticFdpForDuty(row,{acclimatized=true,precedingRestMinutes,crewCount=2}={}){
+  if(!row) return null;
+
+  const sectors=Array.isArray(row._sectors) && row._sectors.length
+    ? row._sectors
+    : [{
+        date:row.date,
+        item:row.item,
+        dep:row.dep,
+        arr:row.arr,
+        block:row.block,
+        work:row.work,
+        ac:row.ac
+      }];
+  const operatingSectors=sectors.filter(sector=>
+    /^MH\d+/i.test(String(sector.item||"").trim()) &&
+    String(sector.work||row.work||"").trim().toUpperCase()!=="PS"
+  );
+
+  if(!operatingSectors.length){
+    return {
+      applicable:false,
+      reason:"Positioning or non-operating duty",
+      assumption:acclimatized
+        ? "Acclimatized Table A assumed"
+        : "Not acclimatized"
+    };
+  }
+
+  const reportMatch=String(row.dutyStart||"").match(/(\d{1,2}):(\d{2})/);
+  if(!reportMatch){
+    return {applicable:false,reason:"Roster report time is unavailable"};
+  }
+  const reportTime=`${String(reportMatch[1]).padStart(2,"0")}:${reportMatch[2]}`;
+  const sectorDurationsMinutes=operatingSectors
+    .map((sector,index)=>{
+      const arrival=String(
+        sector.arr ||
+        (index===operatingSectors.length-1 ? row._arrival : "") ||
+        ""
+      ).trim();
+      const departure=String(sector.dep||"").trim();
+      const scheduled=rosterTimeBasis==="SLT"
+        ? localClockElapsedMinutes({
+            date:sector.date||row.date,
+            dep:departure,
+            arr:arrival
+          })
+        : fixedClockElapsedMinutes(departure,arrival);
+      return Number.isFinite(scheduled) && scheduled>0
+        ? scheduled
+        : (toMinutes(sector.block)>0 ? toMinutes(sector.block) : null);
+    });
+  if(sectorDurationsMinutes.some(minutes=>!Number.isFinite(minutes) || minutes<=0)){
+    return {
+      applicable:false,
+      reason:"Scheduled timing is incomplete for one or more operating sectors",
+      assumption:acclimatized
+        ? "Acclimatized Table A assumed"
+        : "Not acclimatized"
+    };
+  }
+
+  const reportMs=smartDutyReportUtcMs(row);
+  const arrivalText=String(row._arrival||row.arr||"").trim();
+  let arrivalDate=row._arrivalDate||row.date;
+  if(
+    /\(\+1\)/.test(arrivalText) &&
+    arrivalDate===row.date
+  ){
+    arrivalDate=addRosterDays(arrivalDate,1);
+  }
+  const arrivalAirport=dutyArrivalAirport(row);
+  let arrivalMs=rosterScheduledUtcMs(arrivalDate,arrivalText,arrivalAirport);
+  while(Number.isFinite(reportMs) && Number.isFinite(arrivalMs) && arrivalMs<=reportMs){
+    arrivalMs+=86400000;
+  }
+  const plannedMinutes=Number.isFinite(reportMs)&&Number.isFinite(arrivalMs)
+    ? Math.round((arrivalMs-reportMs)/60000)
+    : null;
+
+  let rule;
+  try{
+    rule=calculateFdpLimit({
+      reportTime,
+      sectors:operatingSectors.length,
+      sectorDurationsMinutes,
+      acclimatized,
+      precedingRestMinutes,
+      crewCount
+    });
+  }catch(error){
+    return {applicable:false,reason:error.message};
+  }
+
+  return {
+    ...rule,
+    applicable:true,
+    plannedMinutes,
+    spareMinutes:Number.isFinite(plannedMinutes)
+      ? rule.limitMinutes-plannedMinutes
+      : null,
+    reportTime,
+    finalOnChocks:arrivalText,
+    aircraft:String(row.ac||operatingSectors.find(sector=>sector.ac)?.ac||"").trim(),
+    scheduledSectorCount:operatingSectors.length,
+    assumption:crewCount===4
+      ? "Confirmed four-crew long-haul complement"
+      : crewCount===3
+        ? (acclimatized
+          ? "Acclimatized Table A assumed · three-pilot crew"
+          : "Not acclimatized Table B · three-pilot crew")
+      : acclimatized
+        ? "Acclimatized Table A assumed · two-pilot crew"
+        : "Not acclimatized Table B · two-pilot crew",
+    crewComplementAssumed:crewCount===2,
+    fdpDefinition:"Roster report to final scheduled on-chocks"
+  };
 }
 
 function smartDutyEndDateTime(row){
@@ -2471,8 +2598,10 @@ function dutyDepartureAirport(row){
 }
 
 function dutyArrivalAirport(row){
+  const finalArrival=airportCode(row?._arrival||row?.arr);
+  if(finalArrival) return String(finalArrival).toUpperCase();
   const route=(row?._routeAirports||[]).filter(Boolean);
-  return String(route[route.length-1] || airportCode(row?._arrival||row?.arr) || "").toUpperCase();
+  return String(route[route.length-1] || "").toUpperCase();
 }
 
 function smartDutyEventAirport(row,field){
@@ -3323,8 +3452,14 @@ function refreshSmartDutyCard(force=false){
     smartDutyExpandedKey=dutyKey;
   }
 
+  const previousDutyKey=activeNextDuty?._smartKey||"";
   activeNextDuty=row;
   activeSmartDutyState=state;
+  if(previousDutyKey!==dutyKey){
+    window.dispatchEvent(new CustomEvent("crewview:active-duty-changed",{
+      detail:{dutyKey}
+    }));
+  }
 
   if(changed){
     smartDutyRenderSignature=signature;
@@ -6785,6 +6920,10 @@ window.CrewViewV200Bridge={
   getRows,
   activeDuty:()=>activeNextDuty,
   activeDutyState:()=>activeSmartDutyState,
+  calculateFdpLimit,
+  automaticFdpForDuty,
+  automaticFdpBaselines:()=>getSmartDutyCandidates(getRows())
+    .map(duty=>({duty,fdp:automaticFdpForDuty(duty)})),
   openDutyDetailsFor,
   closeDutyDetails,
   setSmartDutyExpanded,

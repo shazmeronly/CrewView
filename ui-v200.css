@@ -242,6 +242,16 @@
 
   .cv-today-after-duty{display:grid;gap:12px}
   .cv-today-after-duty.hidden{display:none!important}
+  .cv-ftl-card{padding:16px;border:1px solid color-mix(in srgb,var(--cv-blue) 34%,var(--cv-line));border-radius:18px;background:var(--cv-surface)}
+  .cv-ftl-card.hidden{display:none!important}
+  .cv-ftl-heading{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:12px}
+  .cv-ftl-heading>span{display:grid;gap:2px}.cv-ftl-heading small{font-size:8px;font-weight:900;letter-spacing:.11em;color:var(--cv-blue)}
+  .cv-ftl-heading strong{font-size:15px}.cv-ftl-heading em{font-style:normal;font-size:9px;color:var(--cv-muted);text-align:right}
+  .cv-ftl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .cv-ftl-grid>div{padding:11px;border-radius:13px;background:var(--cv-surface-2);display:grid;gap:3px}
+  .cv-ftl-grid small{font-size:7px;font-weight:850;letter-spacing:.07em;color:var(--cv-muted)}
+  .cv-ftl-grid strong{font-size:19px;letter-spacing:-.03em}.cv-ftl-grid .overrun strong{color:var(--cv-red)}
+  .cv-ftl-card p{margin:10px 0 0;font-size:9px;line-height:1.45;color:var(--cv-muted)}
   .cv-estimate-card{
     width:100%;padding:16px;border:1px solid color-mix(in srgb,var(--cv-teal) 35%,var(--cv-line));border-radius:18px;
     display:grid;grid-template-columns:44px minmax(0,1fr) 22px;align-items:center;gap:12px;

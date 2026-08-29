@@ -1,11 +1,22 @@
 const $=(selector,root=document)=>root.querySelector(selector);
 const $$=(selector,root=document)=>[...root.querySelectorAll(selector)];
 
-const bridge=window.CrewViewV200Bridge;
-if(!bridge){
-  console.warn("CrewView v200 shell could not find the v171 data bridge.");
-}else{
+let bridge=null;
+let v200Initialised=false;
+
+function bootCrewViewV200(){
+  if(v200Initialised) return;
+  bridge=window.CrewViewV200Bridge;
+  if(!bridge) return;
+  v200Initialised=true;
   initialiseCrewViewV200();
+}
+
+window.addEventListener("crewview:ready",bootCrewViewV200);
+if(document.readyState==="loading"){
+  document.addEventListener("DOMContentLoaded",bootCrewViewV200,{once:true});
+}else{
+  queueMicrotask(bootCrewViewV200);
 }
 
 function node(tag,className="",html=""){
@@ -98,7 +109,7 @@ function initialiseCrewViewV200(){
   startDataSync();
 
   const initialLoaded=shellHasRoster();
-  routeTo(initialLoaded?"roster":"today",{rosterMode:"classic",remember:false,scroll:false});
+  routeTo("today",{rosterMode:"classic",remember:false,scroll:false});
 
   let hadRoster=initialLoaded;
   new MutationObserver(()=>{
@@ -106,7 +117,7 @@ function initialiseCrewViewV200(){
     document.body.classList.toggle("cv-has-roster",hasRoster);
     refreshShellData();
     if(hasRoster!==hadRoster){
-      routeTo(hasRoster?"roster":"today",{rosterMode:"classic",remember:false});
+      routeTo("today",{rosterMode:"classic",remember:false});
       hadRoster=hasRoster;
     }
   }).observe(document.body,{attributes:true,attributeFilter:["class"]});
@@ -133,6 +144,15 @@ function makeTodayScreen(){
       <button type="button" class="btn primary" id="cvEmptyLoad">${icon("upload")} Load Current Roster</button>
     </article>
     <section class="cv-today-after-duty" id="cvTodayAfterDuty">
+      <article class="cv-ftl-card hidden" id="cvTodayFtl">
+        <div class="cv-ftl-heading"><span><small>AUTOMATIC FTL BASELINE</small><strong id="cvFtlStatus">Table A</strong></span><em id="cvFtlAssumption">Acclimatized assumed</em></div>
+        <div class="cv-ftl-grid">
+          <div><small>FTL LIMIT</small><strong id="cvFtlLimit">—</strong></div>
+          <div><small>PLANNED FDP</small><strong id="cvFtlPlanned">—</strong></div>
+          <div id="cvFtlMarginCell"><small>SPARE / OVERRUN</small><strong id="cvFtlMargin">—</strong></div>
+        </div>
+        <p id="cvFtlNote">Report to final scheduled on-chocks.</p>
+      </article>
       <button type="button" class="cv-estimate-card" id="cvTodayEstimate">
         <span class="cv-estimate-icon">${icon("earnings")}</span>
         <span><small>ESTIMATED FOR THIS DUTY</small><strong id="cvTodayEstimateTotal">RM0.00</strong><em id="cvTodayEstimateParts">Productivity RM0.00 · Layover RM0.00</em></span>
@@ -365,6 +385,7 @@ function startDataSync(){
   window.addEventListener("crewview:theme-changed",scheduleRefresh);
   window.addEventListener("crewview:ready",settleShellData);
   window.addEventListener("crewview:roster-state",settleShellData);
+  window.addEventListener("crewview:active-duty-changed",settleShellData);
   settleShellData();
 }
 
@@ -403,6 +424,14 @@ function money(value){
   return `RM${Number(value||0).toLocaleString("en-MY",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 }
 
+function duration(minutes,{signed=false}={}){
+  if(!Number.isFinite(Number(minutes))) return "—";
+  const value=Math.round(Number(minutes));
+  const sign=signed?(value<0?"−":"+"):"";
+  const absolute=Math.abs(value);
+  return `${sign}${String(Math.floor(absolute/60)).padStart(2,"0")}:${String(absolute%60).padStart(2,"0")}`;
+}
+
 function refreshShellData(){
   const hasRoster=shellHasRoster();
   document.body.classList.toggle("cv-has-roster",hasRoster);
@@ -432,6 +461,24 @@ function refreshShellData(){
   const layover=text("smartDutyLayoverAllowance","RM0.00");
   $("#cvTodayEstimateTotal").textContent=money(rmNumber(product)+rmNumber(layover));
   $("#cvTodayEstimateParts").textContent=`Productivity ${product} · Layover ${layover}`;
+
+  const selectedDuty=bridge.activeDuty?.();
+  const fdp=selectedDuty ? bridge.automaticFdpForDuty?.(selectedDuty) : null;
+  const ftlCard=$("#cvTodayFtl");
+  ftlCard?.classList.toggle("hidden",!fdp);
+  if(fdp){
+    $("#cvFtlStatus").textContent=fdp.applicable
+      ? (fdp.allowed===false?"NOT ALLOWED":`Table ${fdp.table}`)
+      : "NOT APPLICABLE";
+    $("#cvFtlAssumption").textContent=fdp.assumption||"";
+    $("#cvFtlLimit").textContent=fdp.applicable?duration(fdp.limitMinutes):"—";
+    $("#cvFtlPlanned").textContent=fdp.applicable?duration(fdp.plannedMinutes):"—";
+    $("#cvFtlMargin").textContent=fdp.applicable?duration(fdp.spareMinutes,{signed:true}):"—";
+    $("#cvFtlMarginCell")?.classList.toggle("overrun",fdp.applicable&&Number(fdp.spareMinutes)<0);
+    $("#cvFtlNote").textContent=fdp.applicable
+      ? `${fdp.fdpDefinition}. ${fdp.scheduledSectorCount} operating sector${fdp.scheduledSectorCount===1?"":"s"}${fdp.aircraft?` · ${fdp.aircraft}`:""}. Four-crew 17:00 cap is not applied without confirmed crew complement.`
+      : fdp.reason;
+  }
 
   const dutyCard=$("#nextDutyCard");
   const strip=$("#cvRosterDutyStrip");
