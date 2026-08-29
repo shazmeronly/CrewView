@@ -466,7 +466,10 @@ function startDataSync(){
     $("#profileForm"),
     $("#payView"),
     $("#tableWrap"),
-    $("#calendarView")
+    $("#calendarView"),
+    $("#fh"),
+    $("#dh"),
+    $("#off")
   ].filter(Boolean);
   const observer=new MutationObserver(scheduleRefresh);
   sources.forEach(source=>observer.observe(source,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["class","value"]}));
@@ -657,6 +660,34 @@ function renderCalendarInline(row){
   panel.innerHTML=`<span class="cv-calendar-inline-copy"><small>${escapeHtml(dateLabel)}</small><strong>${escapeHtml(rowTitle(row))}<em>${escapeHtml(routeFor(row))}</em></strong><span><b>Report ${escapeHtml(row.dutyStart||"—")}</b><b>Depart ${escapeHtml(clockFrom(row.dep))}</b><b>Arrive ${escapeHtml(clockFrom(row._arrival||row.arr))}</b></span></span><i>${category==="flight"?icon("plane"):icon("arrow")}</i>`;
 }
 
+function rosterTotals(rows){
+  let blockMinutes=0;
+  let dutyMinutes=0;
+  const rowsByDate=new Map();
+
+  rows.forEach(row=>{
+    if(!row) return;
+    blockMinutes+=durationMinutes(row.block);
+    dutyMinutes+=durationMinutes(row.duty);
+    const date=String(row.date||"").trim();
+    if(!date) return;
+    if(!rowsByDate.has(date)) rowsByDate.set(date,[]);
+    rowsByDate.get(date).push(row);
+  });
+
+  let offDays=0;
+  rowsByDate.forEach(dateRows=>{
+    const items=dateRows
+      .filter(row=>!row._overnightContinuation)
+      .map(row=>String(row.item||"").trim().toUpperCase());
+    const hasOff=items.some(item=>["D","DO","DO1","OFF"].includes(item));
+    const hasDuty=items.some(item=>item&&!["D","DO","DO1","OFF"].includes(item));
+    if(hasOff&&!hasDuty) offDays+=1;
+  });
+
+  return {blockMinutes,dutyMinutes,offDays};
+}
+
 function duration(minutes,{signed=false}={}){
   if(!Number.isFinite(Number(minutes))) return "—";
   const value=Math.round(Number(minutes));
@@ -676,9 +707,14 @@ function refreshShellData(){
   const fleet=input("fleet","");
   const base=input("base","");
   const meta=[fleet,rank,base].filter(Boolean).join(" · ")||"Roster profile";
-  const block=text("fh","00:00");
-  const duty=text("dh","00:00");
-  const off=text("off","0");
+  const rows=bridge.getRows?.()||[];
+  const totals=rosterTotals(rows);
+  const sourceBlock=text("fh","00:00");
+  const sourceDuty=text("dh","00:00");
+  const sourceOff=Number(text("off","0"));
+  const block=durationMinutes(sourceBlock)>0?sourceBlock:durationLabel(totals.blockMinutes);
+  const duty=durationMinutes(sourceDuty)>0?sourceDuty:durationLabel(totals.dutyMinutes);
+  const off=sourceOff>0?String(sourceOff):String(totals.offDays);
 
   $("#cvRosterName").textContent=name;
   $("#cvRosterMeta").textContent=meta;
@@ -690,7 +726,6 @@ function refreshShellData(){
   $("#cvTodayDuty").textContent=duty;
   $("#cvTodayOff").textContent=off;
 
-  const rows=bridge.getRows?.()||[];
   renderClassicCompact(compactDutyRows(rows));
   const loadedMonth=rows.map(row=>rosterDate(row.date)).find(Boolean);
   const calendarMode=bridge.currentRosterView()==="calendar";
@@ -699,12 +734,14 @@ function refreshShellData(){
   $("#cvRosterPrev").disabled=!calendarMode;
   $("#cvRosterNext").disabled=!calendarMode;
 
-  const product=text("smartDutyProductivityAllowance","RM0.00");
-  const layover=text("smartDutyLayoverAllowance","RM0.00");
-  $("#cvTodayEstimateTotal").textContent=money(rmNumber(product)+rmNumber(layover));
+  const selectedDuty=bridge.activeDuty?.();
+  const productValue=selectedDuty?Number(bridge.productivityAllowanceForDuty?.(selectedDuty)||0):0;
+  const layoverValue=selectedDuty?Number(bridge.layoverForDuty?.(selectedDuty)?.amount||0):0;
+  const product=money(productValue);
+  const layover=money(layoverValue);
+  $("#cvTodayEstimateTotal").textContent=money(productValue+layoverValue);
   $("#cvTodayEstimateParts").textContent=`Productivity ${product} · Layover ${layover}`;
 
-  const selectedDuty=bridge.activeDuty?.();
   const fdp=selectedDuty ? bridge.automaticFdpForDuty?.(selectedDuty) : null;
   const ftlCard=$("#cvTodayFtl");
   ftlCard?.classList.toggle("hidden",!fdp);
