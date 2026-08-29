@@ -434,6 +434,7 @@
 
   /* Duty details */
   .cv-v200 .duty-detail-backdrop{background:rgba(2,12,25,.62)!important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .cv-v200.duty-details-open .cv-bottom-nav{display:none!important}
   .cv-v200 .duty-detail-sheet{width:min(620px,calc(100% - 16px))!important;max-height:min(88dvh,820px)!important;padding:18px!important;border:1px solid var(--cv-line)!important;border-radius:24px 24px 0 0!important;background:var(--cv-surface)!important;color:var(--cv-text)!important;box-shadow:0 -24px 70px rgba(0,0,0,.28)!important}
   .duty-detail-tabs{margin:12px 0;padding:4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;border:1px solid var(--cv-line);border-radius:14px;background:var(--cv-surface-2)}
   .duty-detail-tabs button{height:36px;border:0;border-radius:10px;background:transparent;color:var(--cv-muted);font:inherit;font-size:10px;font-weight:850;cursor:pointer}.duty-detail-tabs button.active{background:var(--cv-blue);color:#fff}
@@ -447,7 +448,23 @@
   .duty-earnings-card.over80{border-left:4px solid var(--cv-violet);background:var(--cv-violet-soft)}.duty-earnings-card.over80 strong{color:var(--cv-violet)}
   .duty-earnings-total{padding:15px;border:1px solid color-mix(in srgb,var(--cv-green) 42%,var(--cv-line));border-radius:15px;background:var(--cv-green-soft);display:flex;justify-content:space-between;align-items:center;gap:12px}.duty-earnings-total>div{display:grid;gap:2px}.duty-earnings-total small{font-size:8px;font-weight:900;letter-spacing:.09em}.duty-earnings-total span{font-size:9px;color:var(--cv-muted)}.duty-earnings-total>strong{font-size:22px;color:var(--cv-green)}.duty-earnings-disclaimer{margin:2px 3px;font-size:9px;line-height:1.45;color:var(--cv-muted)}.duty-month-statement{width:100%!important;margin:0!important}
 
-  .cv-v200 .validation-toast{bottom:calc(82px + env(safe-area-inset-bottom))!important}
+  .cv-v200 .validation-toast{
+    top:auto!important;
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+    width:min(420px,calc(100% - 24px))!important;
+    min-height:0!important;
+    padding:10px 14px!important;
+    border-radius:14px!important;
+    gap:9px!important;
+    font-size:13px!important;
+    line-height:1.25!important;
+  }
+  .cv-v200 .validation-toast-icon{
+    width:24px!important;
+    height:24px!important;
+    flex-basis:24px!important;
+    font-size:16px!important;
+  }
 
   @media(min-width:760px){
     .cv-bottom-nav{left:50%;right:auto;bottom:18px;width:min(590px,calc(100% - 30px));height:64px;padding:6px;transform:translateX(-50%);border:1px solid var(--cv-line);border-radius:20px;box-shadow:var(--cv-shadow)}
