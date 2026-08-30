@@ -176,12 +176,16 @@ function initialiseCrewViewV200(){
     if(view==="classic"||view==="calendar"){
       localStorage.setItem("crewview-v200-roster-mode",view);
       syncRosterModeButtons(view);
+      if(view==="classic") fitClassicAfterReveal();
     }
   });
 
   window.addEventListener("pageshow",()=>{
     reconcileOverlayState();
     ensureBottomNavMounted(main,bottomNav);
+    if(document.body.dataset.appTab==="roster"&&bridge.currentRosterView()==="classic"){
+      fitClassicAfterReveal();
+    }
   });
 }
 
@@ -365,6 +369,7 @@ function wireNavigation(screens,bottomNav){
 
 function routeTo(tab,{rosterMode,remember=true,scroll=true}={}){
   if(!["today","roster","timeline","earnings","profile"].includes(tab)) tab="today";
+  let activeRosterMode=null;
 
   // The legacy view layer uses a short transition lock. Bottom navigation is
   // intentionally immediate, including when a crew member taps two tabs fast.
@@ -372,8 +377,9 @@ function routeTo(tab,{rosterMode,remember=true,scroll=true}={}){
 
   if(tab==="roster"){
     const mode=rosterMode||localStorage.getItem("crewview-v200-roster-mode")||"classic";
-    bridge.switchRosterView(mode==="calendar"?"calendar":"classic");
-    syncRosterModeButtons(mode);
+    activeRosterMode=mode==="calendar"?"calendar":"classic";
+    bridge.switchRosterView(activeRosterMode);
+    syncRosterModeButtons(activeRosterMode);
   }else if(tab==="timeline"){
     bridge.switchRosterView("timeline");
     bridge.renderTimelineView();
@@ -386,6 +392,7 @@ function routeTo(tab,{rosterMode,remember=true,scroll=true}={}){
 
   document.body.dataset.appTab=tab;
   $$("[data-app-screen]").forEach(screen=>screen.classList.toggle("hidden",screen.dataset.appScreen!==tab));
+  if(tab==="roster"&&activeRosterMode==="classic") fitClassicAfterReveal();
   $$("#cvBottomNav [data-app-tab]").forEach(button=>{
     const active=button.dataset.appTab===tab;
     button.classList.toggle("active",active);
@@ -404,6 +411,10 @@ function routeTo(tab,{rosterMode,remember=true,scroll=true}={}){
   if(remember) localStorage.setItem("crewview-v200-app-tab",tab);
   if(scroll) window.scrollTo({top:0,left:0,behavior:"auto"});
   refreshShellData();
+}
+
+function fitClassicAfterReveal(){
+  requestAnimationFrame(()=>bridge.fitClassicView?.());
 }
 
 function syncRosterModeButtons(view){

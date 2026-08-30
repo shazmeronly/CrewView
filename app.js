@@ -7068,6 +7068,7 @@ document.querySelectorAll(".pay-collapse-toggle[data-collapse-target]").forEach(
 window.CrewViewV200Bridge={
   switchRosterView,
   currentRosterView:()=>crewViewMode,
+  fitClassicView:applyOnePageFit,
   getRows,
   activeDuty:()=>activeNextDuty,
   activeDutyState:()=>activeSmartDutyState,
