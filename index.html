@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
 <link rel="stylesheet" href="style.css?v=171">
-<link rel="stylesheet" href="ui-v200.css?v=210">
+<link rel="stylesheet" href="ui-v200.css?v=211">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -304,12 +304,12 @@
   </div>
 
   <div class="legend" aria-label="Roster colour legend">
-    <span class="legend-item"><i class="swatch duty-flight"></i>Flight duty</span>
-    <span class="legend-item"><i class="swatch duty-positioning"></i>Positioning / standby</span>
-    <span class="legend-item"><i class="swatch duty-training"></i>Training / simulator</span>
+    <span class="legend-item"><i class="swatch duty-flight"></i>Flight</span>
+    <span class="legend-item"><i class="swatch duty-positioning"></i>Standby</span>
+    <span class="legend-item"><i class="swatch duty-training"></i>Training</span>
     <span class="legend-item"><i class="swatch duty-layover"></i>Layover</span>
     <span class="legend-item"><i class="swatch duty-leave"></i>Leave</span>
-    <span class="legend-item"><i class="swatch duty-off"></i>Day off</span>
+    <span class="legend-item"><i class="swatch duty-off"></i>Off</span>
   </div>
 
   <div class="fit-shell" id="fitShell">
@@ -326,9 +326,9 @@
   </div>
 </div>
   <div class="summary compact-summary">
-    <div class="stat"><small>Roster Block Hours</small><strong id="fh">00:00</strong></div>
-    <div class="stat"><small>Duty Hours</small><strong id="dh">00:00</strong></div>
-    <div class="stat"><small>Off Days</small><strong id="off">0</strong></div>
+    <div class="stat"><small>Block</small><strong id="fh">00:00</strong></div>
+    <div class="stat"><small>Duty</small><strong id="dh">00:00</strong></div>
+    <div class="stat"><small>Off</small><strong id="off">0</strong></div>
   </div>
   <p class="help"><span id="rosterSourceNote">Hours and duties are taken from the uploaded roster PDF.</span><br><br>Tap “Save PDF”. In the iPhone preview, use Share and choose “Save to Files”.</p>
 </section>
@@ -786,7 +786,7 @@ if("serviceWorker" in navigator){
 </script>
 
 <script type="module" src="app.js?v=207"></script>
-<script type="module" src="ui-v200.js?v=210"></script>
+<script type="module" src="ui-v200.js?v=211"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>

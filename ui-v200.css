@@ -474,8 +474,8 @@
     font-size:16px!important;
   }
 
-  /* Classic keeps the original fitted 31-day roster table. Calendar remains
-     a separate visual mode; Timeline owns the large chronological cards. */
+  /* Classic is a readable five-column month list. Calendar remains a separate
+     visual mode, while Timeline owns the detailed chronological cards. */
   .cv-roster-screen{display:flex;flex-direction:column}
   .cv-roster-screen>.cv-screen-heading{order:1}
   .cv-roster-screen>.cv-roster-duty-strip{display:none!important}
@@ -494,10 +494,23 @@
   body.cv-v200.cv-has-roster #cvEmptyRoster{display:none!important}
   body.cv-v200:not(.roster-loaded):not(.cv-has-roster) #cvTodayAfterDuty{display:none!important}
 
-  .cv-v200 #resultCard{display:block}
-  .cv-v200 #fitShell{display:block!important;width:100%!important;overflow:hidden!important}
-  .cv-v200 #resultCard .compact-summary{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px!important}
-  .cv-v200 #resultCard .compact-summary .stat{min-width:0;text-align:left}
+  .cv-v200 #resultCard{display:flex;flex-direction:column}
+  .cv-v200 #resultCard .legend{order:2;border-top:1px solid var(--cv-line);border-bottom:0!important}
+  .cv-v200 #fitShell{display:none!important}
+  .cv-classic-compact{order:1;width:100%;overflow:hidden}
+  .cv-classic-head,.cv-classic-row{display:grid;grid-template-columns:62px minmax(108px,1.45fr) 58px minmax(88px,1fr) 52px;align-items:stretch}
+  .cv-classic-head{min-height:38px;border-bottom:1px solid var(--cv-line);background:var(--cv-surface-3);color:var(--cv-muted)}
+  .cv-classic-head span{padding:10px 6px;display:flex;align-items:center;font-size:7.5px;font-weight:900;letter-spacing:.06em}.cv-classic-head span:not(:nth-child(2)){justify-content:center;text-align:center}
+  .cv-classic-rows{display:grid}
+  .cv-classic-row{--row-accent:var(--cv-grey);--row-bg:var(--cv-surface);position:relative;width:100%;min-height:64px;padding:0;border:0;border-bottom:1px solid color-mix(in srgb,var(--row-accent) 38%,var(--cv-line));background:linear-gradient(90deg,var(--row-bg),color-mix(in srgb,var(--row-bg) 45%,var(--cv-surface)));color:var(--cv-text);font:inherit;text-align:left;cursor:pointer}
+  .cv-classic-row:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--row-accent)}
+  .cv-classic-row.flight{--row-accent:var(--cv-blue);--row-bg:var(--cv-blue-soft)}.cv-classic-row.positioning,.cv-classic-row.standby{--row-accent:var(--cv-amber);--row-bg:var(--cv-amber-soft)}.cv-classic-row.training,.cv-classic-row.simulator{--row-accent:var(--cv-violet);--row-bg:var(--cv-violet-soft)}.cv-classic-row.layover,.cv-classic-row.continuation{--row-accent:var(--cv-teal);--row-bg:var(--cv-teal-soft)}.cv-classic-row.leave{--row-accent:var(--cv-green);--row-bg:var(--cv-green-soft)}.cv-classic-row.off,.cv-classic-row.empty,.cv-classic-row.admin{--row-accent:var(--cv-grey);--row-bg:var(--cv-grey-soft)}
+  .cv-classic-row:disabled{opacity:1;color:var(--cv-text);cursor:default;-webkit-text-fill-color:var(--cv-text)}
+  .cv-classic-row>span{min-width:0;padding:10px 6px;display:flex;align-items:center;justify-content:center;font-size:10.5px;line-height:1.25;text-align:center}
+  .cv-classic-date{gap:4px!important;font-weight:850;white-space:nowrap}.cv-classic-date b{font-size:9px;color:var(--cv-muted)}.cv-classic-date strong{font-size:12px}
+  .cv-classic-duty{align-items:flex-start!important;justify-content:center!important;flex-direction:column;text-align:left!important}.cv-classic-duty strong,.cv-classic-duty small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cv-classic-duty strong{font-size:11.5px}.cv-classic-duty small{margin-top:2px;font-size:9.5px;color:var(--cv-muted)}
+  .cv-classic-report{font-size:11px!important;font-weight:800}.cv-classic-times{overflow:hidden;font-size:10.5px!important;color:var(--cv-muted);text-overflow:ellipsis;white-space:nowrap}.cv-classic-block{font-size:11px!important;font-weight:850;color:var(--row-accent)}.cv-empty-list{margin:0;padding:30px 12px;text-align:center;color:var(--cv-muted);font-size:11px}
+  .cv-v200 #resultCard .compact-summary{order:3;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:0!important;margin:0!important;padding:0!important;border-top:1px solid var(--cv-line)!important;background:var(--cv-surface)!important}.cv-v200 #resultCard .compact-summary .stat{min-width:0;padding:14px 6px!important;border:0!important;border-right:1px solid var(--cv-line)!important;border-radius:0!important;background:var(--cv-surface)!important;text-align:center}.cv-v200 #resultCard .compact-summary .stat:last-child{border-right:0!important}.cv-v200 #resultCard .compact-summary small{font-size:8.5px!important}.cv-v200 #resultCard .compact-summary strong{font-size:20px!important}
   .cv-v200 #resultCard .help{display:none!important}
 
   .cv-v200 .calendar-content{display:flex!important;flex-direction:column!important;gap:7px!important}.cv-v200 .calendar-month-bar,.cv-v200 .calendar-tools{display:none!important}
@@ -525,6 +538,7 @@
     .cv-today-stats article{padding:12px 9px}.cv-today-stats small{font-size:6.8px}.cv-today-stats strong{font-size:17px}
     .cv-roster-profile{grid-template-columns:38px minmax(0,1fr) auto}.cv-avatar{width:36px;height:36px}.cv-roster-profile>b{font-size:8.5px;padding:6px}
     .cv-v200 #rosterTable th{font-size:6.7px!important}.cv-v200 #rosterTable td{font-size:7.7px!important;padding:7px 4px!important}
+    .cv-classic-head,.cv-classic-row{grid-template-columns:56px minmax(96px,1.4fr) 52px minmax(78px,.95fr) 46px}.cv-classic-head span{padding:9px 4px;font-size:6.5px}.cv-classic-row>span{padding:9px 4px;font-size:9.5px}.cv-classic-date{gap:3px!important}.cv-classic-date b{font-size:8px}.cv-classic-date strong{font-size:11px}.cv-classic-duty strong{font-size:10.5px}.cv-classic-duty small{font-size:8.5px}.cv-classic-report,.cv-classic-block{font-size:10px!important}.cv-classic-times{font-size:9px!important}
     .cv-v200 .calendar-grid{gap:2px!important}.cv-v200 .calendar-day{border-radius:6px!important;min-height:0!important;aspect-ratio:1/1!important}.cv-v200 .calendar-day strong{font-size:7px!important}
     .cv-v200 .pay-header{align-items:stretch!important;flex-direction:column!important}.cv-v200 .pay-grade{min-width:0!important}
     .cv-bottom-nav button span{font-size:8px}.cv-bottom-nav button svg{width:21px;height:21px}
@@ -532,5 +546,5 @@
 }
 
 @media print{
-  .cv-appbar,.cv-bottom-nav,.cv-screen-heading,.cv-roster-duty-strip,.cv-roster-profile,.cv-empty-roster,.cv-today-after-duty,.cv-profile-actions,.cv-profile-identity,.cv-privacy-card{display:none!important}
+  .cv-appbar,.cv-bottom-nav,.cv-screen-heading,.cv-roster-duty-strip,.cv-roster-profile,.cv-classic-compact,.cv-empty-roster,.cv-today-after-duty,.cv-profile-actions,.cv-profile-identity,.cv-privacy-card{display:none!important}
 }

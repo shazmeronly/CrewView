@@ -249,7 +249,7 @@ function makeRosterScreen(){
   const screen=node("section","cv-app-screen cv-roster-screen hidden");
   screen.dataset.appScreen="roster";
   screen.innerHTML=`
-    ${sectionHeading("LOADED ROSTER","Roster","Your original Classic report and colour-coded Calendar stay together.")}
+    ${sectionHeading("LOADED ROSTER","Roster","A clear daily list in Classic or a visual month in Calendar.")}
     <button type="button" class="cv-roster-duty-strip hidden" id="cvRosterDutyStrip">
       <span class="cv-duty-strip-icon">${icon("plane")}</span>
       <span><small id="cvRosterDutyState">NEXT DUTY</small><strong><b id="cvRosterDutyItem">—</b> <em id="cvRosterDutyRoute">—</em></strong><span id="cvRosterDutyMeta">Report — · —</span></span>
@@ -309,6 +309,19 @@ function moveExistingContent(screens,footer){
   const classic=$("#classicView");
   const calendar=$("#calendarView");
   [rosterMode,compactProfile,classic,calendar].filter(Boolean).forEach(element=>screens.roster.append(element));
+
+  const resultCard=$("#resultCard");
+  const tableWrap=$("#tableWrap");
+  if(resultCard&&tableWrap&&!$("#cvClassicCompact")){
+    const compact=node("section","cv-classic-compact");
+    compact.id="cvClassicCompact";
+    compact.innerHTML=`
+      <div class="cv-classic-head" aria-hidden="true">
+        <span>DATE</span><span>DUTY / ROUTE</span><span>REPORT</span><span>TIMES</span><span>BLOCK</span>
+      </div>
+      <div class="cv-classic-rows" id="cvClassicRows"></div>`;
+    resultCard.insertBefore(compact,tableWrap);
+  }
 
   const calendarGrid=$("#calendarGrid");
   if(calendarGrid&&!$("#cvCalendarInline")){
@@ -434,6 +447,11 @@ function wireQuickActions(){
   });
   $("#cvProfileTheme")?.addEventListener("click",()=>$("#themeToggle")?.click());
   $("#cvProfileExport")?.addEventListener("click",()=>bridge.saveCrewViewPdfDirect());
+  $("#cvClassicRows")?.addEventListener("click",event=>{
+    const button=event.target.closest("[data-classic-row]");
+    const row=button?classicRenderedRows[Number(button.dataset.classicRow)]:null;
+    if(row&&!button.disabled) bridge.openDutyDetailsFor(row);
+  });
   $("#cvCalendarInline")?.addEventListener("click",()=>{
     if(calendarInlineDuty) bridge.openDutyDetailsFor(calendarInlineDuty);
   });
@@ -492,6 +510,7 @@ function startDataSync(){
 }
 
 let refreshFrame=0;
+let classicRenderedRows=[];
 let calendarInlineDuty=null;
 function scheduleRefresh(){
   cancelAnimationFrame(refreshFrame);
@@ -597,7 +616,7 @@ function rowTitle(row){
   const item=String(row?._displayItems||row?.item||"").trim();
   if(category==="empty") return "—";
   if(category==="off") return "OFF DAY";
-  if(category==="layover") return `${airportFrom(row?.arr||row?.dep)||"OUTSTATION"} LAYOVER`;
+  if(category==="layover") return `${row?._layoverAirport||airportFrom(row?.arr||row?.dep)||"OUTSTATION"} LAYOVER`;
   return item||categoryName(category).toUpperCase();
 }
 
@@ -605,6 +624,144 @@ function rowDateLabel(row){
   const date=rosterDate(row?.date);
   if(!date) return escapeHtml(row?.date||"—");
   return `<b>${date.toLocaleDateString("en-GB",{weekday:"short"}).toUpperCase()}</b><strong>${String(date.getDate()).padStart(2,"0")}</strong>`;
+}
+
+function compactRouteFor(row){
+  const airports=(row?._routeAirports||[]).filter(Boolean);
+  if(airports.length>1) return airports.join("–");
+  const departure=airportFrom(row?.dep);
+  const arrival=airportFrom(row?._arrival||row?.arr);
+  return departure&&arrival?`${departure}–${arrival}`:(departure||arrival||"");
+}
+
+function compactDutyTitle(row){
+  const category=categoryFor(row);
+  const raw=String(row?._displayItems||row?.item||"").trim().toUpperCase();
+  if(category==="empty") return "—";
+  if(category==="off") return "OFF";
+  if(category==="layover") return `${row?._layoverAirport||airportFrom(row?.arr||row?.dep)||"OUTSTATION"} LAYOVER`;
+  if(category==="leave") return /LEAVE/.test(raw)?raw:`${raw||"AL"} LEAVE`;
+  if(category==="training") return /TRAIN/.test(raw)?raw:`${raw||"SIM"} TRAINING`;
+  if(category==="standby") return raw||"STBY";
+  return raw||categoryName(category).toUpperCase();
+}
+
+function compactRowTimes(row,category){
+  if(category==="layover") return String(row?._hotel||"").trim()||"Hotel not listed";
+  if(["off","leave","empty"].includes(category)) return "—";
+  const start=clockFrom(row?.dep||row?.dutyStart);
+  const end=clockFrom(row?._arrival||row?.arr);
+  return start!=="—"&&end!=="—"?`${start} → ${end}`:"—";
+}
+
+function compactRowReport(row,category){
+  return ["flight","positioning","admin"].includes(category)
+    ? String(row?.dutyStart||"—")
+    : "—";
+}
+
+function compactRowBlock(row,category){
+  let value=String(row?.block||"").trim();
+  if(category==="standby"&&durationMinutes(value)<=0) value=String(row?.duty||"").trim();
+  if(["layover","leave","off","training","empty"].includes(category)||durationMinutes(value)<=0) return "—";
+  return value.replace(/^0(?=\d:)/,"");
+}
+
+function airportForLayover(rows,index,row){
+  const explicit=airportFrom(row?._arrival||row?.arr||row?.dep);
+  if(explicit) return explicit;
+  let previous="";
+  let next="";
+  for(let cursor=index-1;cursor>=0&&!previous;cursor-=1){
+    previous=airportFrom(rows[cursor]?._arrival||rows[cursor]?.arr);
+  }
+  for(let cursor=index+1;cursor<rows.length&&!next;cursor+=1){
+    next=airportFrom(rows[cursor]?.dep);
+  }
+  return previous&&next&&previous===next?previous:(previous||next||"");
+}
+
+function hotelForLayover(rows,index,row,airport){
+  if(String(row?._hotel||"").trim()) return row._hotel;
+  for(let cursor=index-1;cursor>=0;cursor-=1){
+    const candidate=rows[cursor];
+    const hotel=String(candidate?._hotel||"").trim();
+    if(!hotel) continue;
+    const destination=airportFrom(candidate?._arrival||candidate?.arr);
+    if(!airport||!destination||destination===airport) return hotel;
+  }
+  return "";
+}
+
+function compactDutyRows(rows){
+  const output=[];
+  const handledGroups=new Set();
+  rows.forEach((row,index)=>{
+    if(!String(row?.date||"").trim()) return;
+    if(row._overnightContinuation&&!row._layoverDay) return;
+    if(row._layoverDay){
+      const airport=airportForLayover(rows,index,row);
+      output.push({...row,_layoverAirport:airport,_hotel:hotelForLayover(rows,index,row,airport)});
+      return;
+    }
+    if(!row._dutyGroup){
+      output.push({...row});
+      return;
+    }
+    if(handledGroups.has(row._dutyGroup)) return;
+    handledGroups.add(row._dutyGroup);
+    const group=rows.filter(item=>item._dutyGroup===row._dutyGroup&&!item._overnightContinuation);
+    const flights=group.filter(item=>["flight","positioning"].includes(categoryFor(item)));
+    if(!flights.length){
+      output.push({...row});
+      return;
+    }
+    const first=flights[0];
+    const last=flights.at(-1);
+    const airports=[];
+    const origin=airportFrom(first.dep);
+    if(origin) airports.push(origin);
+    flights.forEach(item=>{
+      const arrival=airportFrom(item.arr);
+      if(arrival&&airports.at(-1)!==arrival) airports.push(arrival);
+    });
+    const block=flights.reduce((sum,item)=>sum+durationMinutes(item.block),0);
+    output.push({
+      ...first,
+      _displayItems:flights.map(item=>item.item).filter(Boolean).join(" · "),
+      _routeAirports:airports,
+      _arrival:last.arr||first.arr,
+      block:block?durationLabel(block):first.block
+    });
+  });
+  return output;
+}
+
+function renderClassicCompact(rows){
+  const container=$("#cvClassicRows");
+  if(!container) return;
+  classicRenderedRows=rows.filter(row=>String(row?.date||"").trim()).slice(0,70);
+  if(!classicRenderedRows.length){
+    container.innerHTML='<p class="cv-empty-list">Load a roster to view Classic.</p>';
+    return;
+  }
+  container.innerHTML=classicRenderedRows.map((row,index)=>{
+    const category=categoryFor(row);
+    const route=compactRouteFor(row);
+    const secondary=category==="flight"||category==="positioning"
+      ? route
+      : category==="standby"
+        ? compactRowTimes(row,category).replaceAll(":","").replace(" → ","–")
+        : "";
+    const disabled=["off","empty","layover","leave"].includes(category);
+    return `<button type="button" class="cv-classic-row ${category}" data-classic-row="${index}" ${disabled?"disabled":""}>
+      <span class="cv-classic-date">${rowDateLabel(row)}</span>
+      <span class="cv-classic-duty"><strong>${escapeHtml(compactDutyTitle(row))}</strong>${secondary?`<small>${escapeHtml(secondary)}</small>`:""}</span>
+      <span class="cv-classic-report">${escapeHtml(compactRowReport(row,category))}</span>
+      <span class="cv-classic-times">${escapeHtml(compactRowTimes(row,category))}</span>
+      <span class="cv-classic-block">${escapeHtml(compactRowBlock(row,category))}</span>
+    </button>`;
+  }).join("");
 }
 
 function renderCalendarInline(row){
@@ -685,6 +842,7 @@ function refreshShellData(){
   $("#cvTodayBlock").textContent=block;
   $("#cvTodayDuty").textContent=duty;
   $("#cvTodayOff").textContent=off;
+  renderClassicCompact(compactDutyRows(rows));
 
   const selectedDuty=bridge.activeDuty?.();
   const productValue=selectedDuty?Number(bridge.productivityAllowanceForDuty?.(selectedDuty)||0):0;
