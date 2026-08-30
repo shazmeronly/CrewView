@@ -640,6 +640,7 @@ function compactDutyTitle(row){
   if(category==="empty") return "—";
   if(category==="off") return "OFF";
   if(category==="layover") return `${row?._layoverAirport||airportFrom(row?.arr||row?.dep)||"OUTSTATION"} LAYOVER`;
+  if(category==="continuation") return `${row?._layoverAirport||airportFrom(row?._arrival||row?.arr)||"DESTINATION"} ARRIVAL`;
   if(category==="leave") return /LEAVE/.test(raw)?raw:`${raw||"AL"} LEAVE`;
   if(category==="training") return /TRAIN/.test(raw)?raw:`${raw||"SIM"} TRAINING`;
   if(category==="standby") return raw||"STBY";
@@ -648,6 +649,11 @@ function compactDutyTitle(row){
 
 function compactRowTimes(row,category){
   if(category==="layover") return String(row?._hotel||"").trim()||"Hotel not listed";
+  if(category==="continuation"){
+    const arrival=clockFrom(row?._arrival||row?.arr);
+    const dutyEnd=clockFrom(row?._finalDutyEnd||row?.dutyEnd);
+    return [arrival!=="—"?`Arr ${arrival}`:"",dutyEnd!=="—"?`End ${dutyEnd}`:""].filter(Boolean).join(" · ")||"—";
+  }
   if(["off","leave","empty"].includes(category)) return "—";
   const start=clockFrom(row?.dep||row?.dutyStart);
   const end=clockFrom(row?._arrival||row?.arr);
@@ -661,7 +667,7 @@ function compactRowReport(row,category){
 }
 
 function compactRowBlock(row,category){
-  let value=String(row?.block||"").trim();
+  let value=String(row?._totalBlock||row?.block||"").trim();
   if(category==="standby"&&durationMinutes(value)<=0) value=String(row?.duty||"").trim();
   if(["layover","leave","off","training","empty"].includes(category)||durationMinutes(value)<=0) return "—";
   return value.replace(/^0(?=\d:)/,"");
@@ -694,46 +700,87 @@ function hotelForLayover(rows,index,row,airport){
 }
 
 function compactDutyRows(rows){
-  const output=[];
-  const handledGroups=new Set();
-  rows.forEach((row,index)=>{
-    if(!String(row?.date||"").trim()) return;
-    if(row._overnightContinuation&&!row._layoverDay) return;
-    if(row._layoverDay){
-      const airport=airportForLayover(rows,index,row);
-      output.push({...row,_layoverAirport:airport,_hotel:hotelForLayover(rows,index,row,airport)});
-      return;
-    }
-    if(!row._dutyGroup){
-      output.push({...row});
-      return;
-    }
-    if(handledGroups.has(row._dutyGroup)) return;
-    handledGroups.add(row._dutyGroup);
-    const group=rows.filter(item=>item._dutyGroup===row._dutyGroup&&!item._overnightContinuation);
-    const flights=group.filter(item=>["flight","positioning"].includes(categoryFor(item)));
-    if(!flights.length){
-      output.push({...row});
-      return;
-    }
-    const first=flights[0];
-    const last=flights.at(-1);
-    const airports=[];
-    const origin=airportFrom(first.dep);
-    if(origin) airports.push(origin);
-    flights.forEach(item=>{
-      const arrival=airportFrom(item.arr);
-      if(arrival&&airports.at(-1)!==arrival) airports.push(arrival);
-    });
-    const block=flights.reduce((sum,item)=>sum+durationMinutes(item.block),0);
-    output.push({
-      ...first,
-      _displayItems:flights.map(item=>item.item).filter(Boolean).join(" · "),
-      _routeAirports:airports,
-      _arrival:last.arr||first.arr,
-      block:block?durationLabel(block):first.block
-    });
+  const datedRows=rows.map((row,index)=>({row,index,date:rosterDate(row?.date)})).filter(entry=>entry.date);
+  if(!datedRows.length) return [];
+
+  const byDate=new Map();
+  datedRows.forEach(entry=>{
+    const key=[entry.date.getFullYear(),entry.date.getMonth(),entry.date.getDate()].join("-");
+    if(!byDate.has(key)) byDate.set(key,[]);
+    byDate.get(key).push(entry);
   });
+
+  const period=bridge.rosterPeriod?.();
+  const start=rosterDate(period?.start)||new Date(Math.min(...datedRows.map(entry=>entry.date.getTime())));
+  const end=rosterDate(period?.end)||new Date(Math.max(...datedRows.map(entry=>entry.date.getTime())));
+  const base=input("base","KUL").toUpperCase();
+  const priority=["flight","positioning","continuation","layover","training","standby","simulator","leave","off","admin","empty"];
+  const output=[];
+  let awayStation="";
+  let awayHotel="";
+
+  for(let cursor=new Date(start);cursor<=end;cursor.setDate(cursor.getDate()+1)){
+    const key=[cursor.getFullYear(),cursor.getMonth(),cursor.getDate()].join("-");
+    const candidates=(byDate.get(key)||[]).map(({row,index})=>{
+      const category=categoryFor(row);
+      const complete=category==="flight"
+        ? (bridge.completeDutyAt?.(index)||row)
+        : row;
+      return {...complete,_calendarCategory:category,_sourceIndex:index};
+    });
+    let primary=priority.map(category=>candidates.find(row=>categoryFor(row)===category)).find(Boolean);
+
+    if(!primary){
+      const dateLabel=`${String(cursor.getDate()).padStart(2,"0")}-${cursor.toLocaleDateString("en-GB",{month:"short"})}-${cursor.getFullYear()}`;
+      primary={date:dateLabel,day:cursor.toLocaleDateString("en-GB",{weekday:"short"}),item:"D",_calendarCategory:"off",_syntheticCalendarRow:true};
+    }
+
+    const category=categoryFor(primary);
+    if(category==="flight"||category==="positioning"){
+      const routeAirports=(primary._routeAirports||[]).map(airportFrom).filter(Boolean);
+      const destination=routeAirports.length>1
+        ? routeAirports.at(-1)
+        : airportFrom(primary._arrival||primary.arr)||routeAirports.at(-1);
+      if(destination&&destination!==base){
+        awayStation=destination;
+        awayHotel=String(primary._hotel||"").trim()||awayHotel;
+      }else if(destination===base){
+        awayStation="";
+        awayHotel="";
+      }
+    }
+
+    if(category==="continuation"){
+      const airport=airportFrom(primary._arrival||primary.arr)||awayStation;
+      if(airport&&airport!==base){
+        primary={
+          ...primary,
+          _calendarCategory:"layover",
+          _layoverDay:true,
+          _layoverAirport:airport,
+          _hotel:String(primary._hotel||"").trim()||awayHotel
+        };
+        awayStation=airport;
+      }else{
+        primary={...primary,_layoverAirport:airport};
+        if(airport===base){
+          awayStation="";
+          awayHotel="";
+        }
+      }
+    }else if(category==="layover"){
+      const airport=primary._layoverAirport||airportForLayover(rows,primary._sourceIndex,primary)||awayStation;
+      primary={
+        ...primary,
+        _layoverAirport:airport,
+        _hotel:String(primary._hotel||"").trim()||hotelForLayover(rows,primary._sourceIndex,primary,airport)||awayHotel
+      };
+      if(airport) awayStation=airport;
+    }
+
+    output.push(primary);
+  }
+
   return output;
 }
 

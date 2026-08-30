@@ -7070,6 +7070,10 @@ window.CrewViewV200Bridge={
   currentRosterView:()=>crewViewMode,
   fitClassicView:applyOnePageFit,
   getRows,
+  rosterPeriod:()=>officialRosterPeriod
+    ? {start:fmtDate(officialRosterPeriod.start),end:fmtDate(officialRosterPeriod.end)}
+    : null,
+  completeDutyAt:index=>buildCompleteDuty(getRows(),index),
   activeDuty:()=>activeNextDuty,
   activeDutyState:()=>activeSmartDutyState,
   calculateFdpLimit,
