@@ -246,7 +246,6 @@ function makeRosterScreen(){
   screen.dataset.appScreen="roster";
   screen.innerHTML=`
     ${sectionHeading("LOADED ROSTER","Roster","Your original Classic report and colour-coded Calendar stay together.")}
-    <div class="cv-roster-month"><button type="button" id="cvRosterPrev" aria-label="Previous month">‹</button><strong id="cvRosterMonth">Loaded roster</strong><button type="button" id="cvRosterNext" aria-label="Next month">›</button></div>
     <button type="button" class="cv-roster-duty-strip hidden" id="cvRosterDutyStrip">
       <span class="cv-duty-strip-icon">${icon("plane")}</span>
       <span><small id="cvRosterDutyState">NEXT DUTY</small><strong><b id="cvRosterDutyItem">—</b> <em id="cvRosterDutyRoute">—</em></strong><span id="cvRosterDutyMeta">Report — · —</span></span>
@@ -256,11 +255,7 @@ function makeRosterScreen(){
       <span class="cv-avatar" id="cvRosterAvatar">CV</span>
       <span><strong id="cvRosterName">Crew Member</strong><small id="cvRosterMeta">Roster profile</small></span>
       <b id="cvRosterBlockBadge">00:00 block</b>
-    </section>
-    <div class="cv-roster-tools">
-      <label id="cvRosterUpload" for="pdfInput" role="button">${icon("upload")}<span>Upload</span></label>
-      <button type="button" id="cvRosterSave">${icon("pdf")}<span>Save PDF</span></button>
-    </div>`;
+    </section>`;
   return screen;
 }
 
@@ -310,15 +305,6 @@ function moveExistingContent(screens,footer){
   const classic=$("#classicView");
   const calendar=$("#calendarView");
   [rosterMode,compactProfile,classic,calendar].filter(Boolean).forEach(element=>screens.roster.append(element));
-
-  const resultCard=$("#resultCard");
-  const tableWrap=$("#tableWrap");
-  if(resultCard&&tableWrap&&!$("#cvClassicCompact")){
-    const compact=node("section","cv-classic-compact");
-    compact.id="cvClassicCompact";
-    compact.innerHTML=`<div class="cv-classic-head"><span>DATE</span><span>DUTY / ROUTE</span><span>REPORT</span><span>TIMES</span><span>BLOCK</span></div><div class="cv-classic-rows" id="cvClassicRows"></div>`;
-    resultCard.insertBefore(compact,tableWrap);
-  }
 
   const calendarGrid=$("#calendarGrid");
   if(calendarGrid&&!$("#cvCalendarInline")){
@@ -437,18 +423,6 @@ function wireQuickActions(){
   });
   $("#cvProfileTheme")?.addEventListener("click",()=>$("#themeToggle")?.click());
   $("#cvProfileExport")?.addEventListener("click",()=>bridge.saveCrewViewPdfDirect());
-  $("#cvRosterSave")?.addEventListener("click",()=>bridge.saveCrewViewPdfDirect());
-  $("#cvRosterPrev")?.addEventListener("click",()=>{
-    if(bridge.currentRosterView()==="calendar") $("#calendarPrev")?.click();
-  });
-  $("#cvRosterNext")?.addEventListener("click",()=>{
-    if(bridge.currentRosterView()==="calendar") $("#calendarNext")?.click();
-  });
-  $("#cvClassicRows")?.addEventListener("click",event=>{
-    const button=event.target.closest("[data-classic-row]");
-    const row=button?classicRenderedRows[Number(button.dataset.classicRow)]:null;
-    if(row) bridge.openDutyDetailsFor(row);
-  });
   $("#cvCalendarInline")?.addEventListener("click",()=>{
     if(calendarInlineDuty) bridge.openDutyDetailsFor(calendarInlineDuty);
   });
@@ -507,7 +481,6 @@ function startDataSync(){
 }
 
 let refreshFrame=0;
-let classicRenderedRows=[];
 let calendarInlineDuty=null;
 function scheduleRefresh(){
   cancelAnimationFrame(refreshFrame);
@@ -623,54 +596,6 @@ function rowDateLabel(row){
   return `<b>${date.toLocaleDateString("en-GB",{weekday:"short"}).toUpperCase()}</b><strong>${String(date.getDate()).padStart(2,"0")}</strong>`;
 }
 
-function compactDutyRows(rows){
-  const output=[];
-  const handledGroups=new Set();
-  rows.forEach(row=>{
-    if(!String(row.date||"").trim()) return;
-    if(!row._dutyGroup){ output.push({...row}); return; }
-    if(handledGroups.has(row._dutyGroup)) return;
-    handledGroups.add(row._dutyGroup);
-    const group=rows.filter(item=>item._dutyGroup===row._dutyGroup);
-    const flights=group.filter(item=>categoryFor(item)==="flight");
-    if(!flights.length){ output.push({...row}); return; }
-    const first=flights[0];
-    const last=flights.at(-1);
-    const airports=[];
-    const origin=airportFrom(first.dep);
-    if(origin) airports.push(origin);
-    flights.forEach(item=>{
-      const arrival=airportFrom(item.arr);
-      if(arrival&&airports.at(-1)!==arrival) airports.push(arrival);
-    });
-    const block=flights.reduce((sum,item)=>sum+durationMinutes(item.block),0);
-    output.push({...first,_displayItems:flights.map(item=>item.item).filter(Boolean).join(" · "),_routeAirports:airports,_arrival:last.arr||first.arr,block:block?durationLabel(block):first.block});
-  });
-  return output;
-}
-
-function renderClassicCompact(rows){
-  const container=$("#cvClassicRows");
-  if(!container) return;
-  classicRenderedRows=rows.filter(row=>String(row.date||"").trim()).slice(0,70);
-  if(!classicRenderedRows.length){
-    container.innerHTML='<p class="cv-empty-list">Load a roster to view Classic.</p>';
-    return;
-  }
-  container.innerHTML=classicRenderedRows.map((row,index)=>{
-    const category=categoryFor(row);
-    const route=routeFor(row);
-    const times=[clockFrom(row.dep),clockFrom(row._arrival||row.arr)].filter(value=>value!=="—").join(" → ")||"—";
-    return `<button type="button" class="cv-classic-row ${category}" data-classic-row="${index}" ${category==="empty"?"disabled":""}>
-      <span class="cv-classic-date">${rowDateLabel(row)}</span>
-      <span class="cv-classic-duty"><strong>${escapeHtml(rowTitle(row))}</strong><small>${escapeHtml(route||categoryName(category))}</small></span>
-      <span class="cv-classic-report">${escapeHtml(row.dutyStart||"—")}</span>
-      <span class="cv-classic-times">${escapeHtml(times)}</span>
-      <span class="cv-classic-block">${escapeHtml(row.block||"—")}</span>
-    </button>`;
-  }).join("");
-}
-
 function renderCalendarInline(row){
   const panel=$("#cvCalendarInline");
   calendarInlineDuty=row;
@@ -749,14 +674,6 @@ function refreshShellData(){
   $("#cvTodayBlock").textContent=block;
   $("#cvTodayDuty").textContent=duty;
   $("#cvTodayOff").textContent=off;
-
-  renderClassicCompact(compactDutyRows(rows));
-  const loadedMonth=rows.map(row=>rosterDate(row.date)).find(Boolean);
-  const calendarMode=bridge.currentRosterView()==="calendar";
-  const monthLabel=calendarMode?text("calendarMonthTitle",""):(loadedMonth?loadedMonth.toLocaleDateString("en-GB",{month:"long",year:"numeric"}):"");
-  $("#cvRosterMonth").textContent=monthLabel||"Loaded roster";
-  $("#cvRosterPrev").disabled=!calendarMode;
-  $("#cvRosterNext").disabled=!calendarMode;
 
   const selectedDuty=bridge.activeDuty?.();
   const productValue=selectedDuty?Number(bridge.productivityAllowanceForDuty?.(selectedDuty)||0):0;
