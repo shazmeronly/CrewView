@@ -215,7 +215,7 @@ function makeTodayScreen(){
       <small>WELCOME TO CREWVIEW</small>
       <h3>Bring your roster to life.</h3>
       <p>Your PDF stays on this device. Load it once to unlock Classic, Calendar, Timeline, Smart Duty and Allowances.</p>
-      <label class="btn primary" id="cvEmptyLoad" for="pdfInput" role="button">${icon("upload")} Load Current Roster</label>
+      <button class="btn primary" id="cvEmptyLoad" type="button">${icon("upload")} Load Current Roster</button>
     </article>
     <section class="cv-today-after-duty" id="cvTodayAfterDuty">
       <article class="cv-ftl-card hidden" id="cvTodayFtl">
@@ -435,6 +435,7 @@ function syncRosterModeButtons(view){
 }
 
 function wireQuickActions(){
+  $("#cvEmptyLoad")?.addEventListener("click",()=>bridge.openRosterFilePicker?.());
   $$("[data-quick-route]").forEach(button=>button.addEventListener("click",()=>routeTo(button.dataset.quickRoute)));
   $("#cvTodayEstimate")?.addEventListener("click",()=>{
     const duty=bridge.activeDuty();

@@ -6392,12 +6392,30 @@ $("#selectedDetailsBtn")?.addEventListener("click",()=>{
   openDutyDetailsFor(selectedCalendarDuty);
 });
 
+function openRosterFilePicker(){
+  const picker=$("#pdfInput");
+  if(!picker) return;
+
+  // Selecting the same revised PDF twice does not fire `change` on iOS unless
+  // the previous native value is cleared before opening the picker.
+  picker.value="";
+  if(typeof picker.showPicker==="function"){
+    try{
+      picker.showPicker();
+      return;
+    }catch(_error){
+      // Older iOS WebKit exposes showPicker but still requires click().
+    }
+  }
+  picker.click();
+}
+
 $("#pdfInput").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file)return;
   try{await parsePDF(file)}catch(err){console.error(err);status.textContent="Could not read this PDF automatically. Load the sample or add rows manually. "+err.message}
 });
-$("#loadAnotherBtn")?.addEventListener("click",()=>$("#pdfInput")?.click());
-$("#replaceRosterBtn")?.addEventListener("click",()=>$("#pdfInput")?.click());
+$("#loadAnotherBtn")?.addEventListener("click",openRosterFilePicker);
+$("#replaceRosterBtn")?.addEventListener("click",openRosterFilePicker);
 $("#headerClearBtn")?.addEventListener("click",()=>$("#clearBtn")?.click());
 $("#clearBtn")?.addEventListener("click",event=>{
   event.preventDefault();
@@ -7070,6 +7088,7 @@ window.CrewViewV200Bridge={
   currentRosterView:()=>crewViewMode,
   fitClassicView:applyOnePageFit,
   getRows,
+  openRosterFilePicker,
   rosterPeriod:()=>officialRosterPeriod
     ? {start:fmtDate(officialRosterPeriod.start),end:fmtDate(officialRosterPeriod.end)}
     : null,
