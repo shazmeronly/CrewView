@@ -311,8 +311,8 @@ function moveExistingContent(screens,footer){
   [rosterMode,compactProfile,classic,calendar].filter(Boolean).forEach(element=>screens.roster.append(element));
 
   const resultCard=$("#resultCard");
-  const tableWrap=$("#tableWrap");
-  if(resultCard&&tableWrap&&!$("#cvClassicCompact")){
+  const fitShell=$("#fitShell");
+  if(resultCard&&fitShell&&!$("#cvClassicCompact")){
     const compact=node("section","cv-classic-compact");
     compact.id="cvClassicCompact";
     compact.innerHTML=`
@@ -320,7 +320,7 @@ function moveExistingContent(screens,footer){
         <span>DATE</span><span>DUTY / ROUTE</span><span>REPORT</span><span>TIMES</span><span>BLOCK</span>
       </div>
       <div class="cv-classic-rows" id="cvClassicRows"></div>`;
-    resultCard.insertBefore(compact,tableWrap);
+    resultCard.insertBefore(compact,fitShell);
   }
 
   const calendarGrid=$("#calendarGrid");
