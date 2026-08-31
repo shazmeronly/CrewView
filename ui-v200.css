@@ -118,20 +118,28 @@
   .cv-appbar-title{position:absolute;left:50%;min-width:0;display:grid;justify-items:center;line-height:1.05;transform:translateX(-50%)}
   .cv-appbar-title small{font-size:8px;font-weight:850;letter-spacing:.14em;color:var(--cv-muted)}
   .cv-appbar-title strong{font-size:14px;margin-top:3px}
-  .cv-appbar-actions{grid-column:2;width:100%;min-width:0;display:grid;grid-template-columns:auto minmax(12px,1fr) auto;align-items:center;gap:10px}
-  .cv-appbar-actions .loaded-roster-actions{grid-column:1;display:flex;gap:6px}
+  .cv-appbar-actions{grid-column:2;width:100%;min-width:0;display:grid;grid-template-columns:auto minmax(12px,1fr) auto auto;align-items:center;gap:8px}
+  .cv-appbar-actions .loaded-roster-actions{display:contents}
   .cv-appbar-actions .loaded-roster-actions[aria-hidden="true"]{display:none}
   .cv-appbar-actions .header-icon-btn,
   .cv-appbar-actions .theme-toggle{
-    grid-column:3;
     width:40px!important;height:40px!important;min-width:40px!important;
     margin:0!important;padding:0!important;
     display:grid!important;place-items:center!important;
     border:1px solid color-mix(in srgb,var(--cv-blue) 26%,var(--cv-line))!important;
     border-radius:14px!important;
-    color:#f5c451!important;
+    color:var(--cv-text)!important;
     background:linear-gradient(145deg,color-mix(in srgb,var(--cv-blue) 9%,var(--cv-surface)),var(--cv-surface))!important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 7px 18px rgba(0,12,28,.22)!important;
+  }
+  .cv-appbar-actions #headerClearBtn{grid-column:1;color:#f17b82!important}
+  .cv-appbar-actions #replaceRosterBtn{grid-column:3;color:#58a4ff!important}
+  .cv-appbar-actions .theme-toggle{grid-column:4;color:#f5c451!important}
+  .cv-appbar-actions #replaceRosterBtn span{position:relative;width:20px;height:20px;display:block;font-size:0!important}
+  .cv-appbar-actions #replaceRosterBtn span:before{
+    content:"";position:absolute;inset:0;background:currentColor;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z'/%3E%3Cpath d='M14 2v6h6M12 18v-6M9 15l3-3 3 3'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z'/%3E%3Cpath d='M14 2v6h6M12 18v-6M9 15l3-3 3 3'/%3E%3C/svg%3E") center/contain no-repeat
   }
   .cv-appbar-actions .theme-toggle span:first-child{position:relative;width:19px;height:19px;display:block;font-size:0!important}
   .cv-appbar-actions .theme-toggle span:first-child:before{
@@ -144,6 +152,8 @@
     mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41'/%3E%3C/svg%3E")
   }
   html[data-theme="light"] .cv-appbar-actions .theme-toggle{color:#173f6b!important;background:linear-gradient(145deg,#fff,#edf4fb)!important;box-shadow:inset 0 1px 0 #fff,0 6px 16px rgba(36,76,118,.13)!important}
+  html[data-theme="light"] .cv-appbar-actions #replaceRosterBtn{color:#176bc2!important;background:linear-gradient(145deg,#fff,#edf4fb)!important;box-shadow:inset 0 1px 0 #fff,0 6px 16px rgba(36,76,118,.13)!important}
+  html[data-theme="light"] .cv-appbar-actions #headerClearBtn{color:#c94d58!important;background:linear-gradient(145deg,#fff,#f8eef0)!important;box-shadow:inset 0 1px 0 #fff,0 6px 16px rgba(113,48,57,.1)!important}
   html[data-theme="light"] .cv-appbar-actions .theme-toggle span:first-child:before{
     -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z'/%3E%3C/svg%3E");
     mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z'/%3E%3C/svg%3E")
