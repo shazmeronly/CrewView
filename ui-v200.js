@@ -209,7 +209,10 @@ function makeTodayScreen(){
   const screen=node("section","cv-app-screen cv-today-screen");
   screen.dataset.appScreen="today";
   screen.innerHTML=`
-    ${sectionHeading("TODAY","Your duty at a glance","Smart Duty, actual times and estimated allowances in one place.")}
+    <div class="cv-today-intro">
+      <small id="cvTodayDateLabel">TODAY</small>
+      <h2>Your duty at a glance</h2>
+    </div>
     <article class="cv-empty-roster" id="cvEmptyRoster">
       ${brandMark("cv-empty-mark")}
       <small>WELCOME TO CREWVIEW</small>
@@ -218,28 +221,38 @@ function makeTodayScreen(){
       <button class="btn primary" id="cvEmptyLoad" type="button">${icon("upload")} Load Current Roster</button>
     </article>
     <section class="cv-today-after-duty" id="cvTodayAfterDuty">
+      <section class="cv-duty-journey" aria-label="Duty timeline">
+        <span><i></i><small>Report</small><strong id="cvJourneyReport">—</strong></span>
+        <span><i></i><small>Depart</small><strong id="cvJourneyDepart">—</strong></span>
+        <span><i></i><small>Arrive</small><strong id="cvJourneyArrive">—</strong></span>
+        <span><i></i><small>Release</small><strong id="cvJourneyRelease">—</strong></span>
+      </section>
+      <section class="cv-upcoming-section">
+        <div class="cv-section-label"><span>Upcoming</span></div>
+        <div class="cv-upcoming-grid" id="cvTodayUpcoming"></div>
+      </section>
+      <div class="cv-today-insights">
       <article class="cv-ftl-card hidden" id="cvTodayFtl">
-        <div class="cv-ftl-heading"><span><small>AUTOMATIC FTL BASELINE</small><strong id="cvFtlStatus">Table A</strong></span><em id="cvFtlAssumption">Acclimatized assumed</em></div>
+        <div class="cv-ftl-heading"><span>${icon("shield")}<small>DUTY LIMIT</small><strong id="cvFtlLimit">—</strong></span></div>
         <div class="cv-ftl-grid">
-          <div><small>FTL LIMIT</small><strong id="cvFtlLimit">—</strong></div>
-          <div><small>PLANNED FDP</small><strong id="cvFtlPlanned">—</strong></div>
-          <div id="cvFtlMarginCell"><small>SPARE / OVERRUN</small><strong id="cvFtlMargin">—</strong></div>
+          <div><small id="cvFtlStatus">Table A</small><strong><span id="cvFtlPlanned">—</span> planned</strong></div>
+          <div id="cvFtlMarginCell"><small id="cvFtlAssumption">Acclimatized</small><strong id="cvFtlMargin">—</strong></div>
         </div>
         <p id="cvFtlNote">Report to final scheduled on-chocks.</p>
       </article>
+      <article class="cv-layover-card" id="cvTodayLayover">
+        <div class="cv-layover-heading"><span class="cv-bed-icon" aria-hidden="true"></span><small>LAYOVER</small></div>
+        <strong id="cvTodayLayoverTitle">No layover</strong>
+        <span id="cvTodayLayoverHotel">This duty returns to base.</span>
+      </article>
+      </div>
       <button type="button" class="cv-estimate-card" id="cvTodayEstimate">
         <span class="cv-estimate-icon">${icon("earnings")}</span>
-        <span><small>ESTIMATED FOR THIS DUTY</small><strong id="cvTodayEstimateTotal">RM0.00</strong><em id="cvTodayEstimateParts">Productivity RM0.00 · Layover RM0.00</em></span>
+        <span><small>ALLOWANCE FOR THIS FLIGHT</small><strong id="cvTodayEstimateTotal">RM0.00</strong><em id="cvTodayEstimateParts">Productivity RM0.00 · Layover RM0.00</em></span>
         <b>${icon("arrow")}</b>
       </button>
-      <div class="cv-today-stats">
-        <article><small>BLOCK THIS MONTH</small><strong id="cvTodayBlock">00:00</strong></article>
-        <article><small>DUTY HOURS</small><strong id="cvTodayDuty">00:00</strong></article>
-        <article><small>OFF DAYS</small><strong id="cvTodayOff">0</strong></article>
-      </div>
       <div class="cv-quick-actions">
-        <button type="button" data-quick-route="roster">${icon("roster")}<span><strong>Open roster</strong><small>Classic or Calendar</small></span>${icon("arrow")}</button>
-        <button type="button" data-quick-route="earnings">${icon("earnings")}<span><strong>Month statement</strong><small>Productivity and layovers</small></span>${icon("arrow")}</button>
+        <button type="button" data-quick-route="roster">${icon("roster")}<span><strong>Open Classic Roster</strong><small>View the complete monthly roster</small></span>${icon("arrow")}</button>
       </div>
     </section>`;
   return screen;
@@ -861,6 +874,40 @@ function duration(minutes,{signed=false}={}){
   return `${sign}${String(Math.floor(absolute/60)).padStart(2,"0")}:${String(absolute%60).padStart(2,"0")}`;
 }
 
+function renderTodayUpcoming(rows,selectedDuty){
+  const container=$("#cvTodayUpcoming");
+  if(!container) return;
+  const daily=compactDutyRows(rows);
+  if(!daily.length){
+    container.innerHTML='<p class="cv-upcoming-empty">No upcoming roster entries.</p>';
+    return;
+  }
+
+  const selectedDate=rosterDate(selectedDuty?.date)?.getTime();
+  let selectedIndex=-1;
+  if(Number.isFinite(selectedDate)){
+    selectedIndex=daily.findIndex(row=>{
+      const date=rosterDate(row?.date)?.getTime();
+      const sameItem=String(row?._displayItems||row?.item||"").toUpperCase().includes(String(selectedDuty?._displayItems||selectedDuty?.item||"").toUpperCase());
+      return date===selectedDate&&sameItem;
+    });
+    if(selectedIndex<0) selectedIndex=daily.findIndex(row=>rosterDate(row?.date)?.getTime()===selectedDate);
+  }
+
+  const upcoming=daily.slice(Math.max(0,selectedIndex+1)).filter(row=>categoryFor(row)!=="empty").slice(0,3);
+  container.innerHTML=upcoming.length?upcoming.map(row=>{
+    const category=categoryFor(row);
+    const date=rosterDate(row?.date);
+    const dateLabel=date?date.toLocaleDateString("en-GB",{weekday:"short",day:"2-digit"}).toUpperCase():String(row?.date||"");
+    const detail=category==="flight"||category==="positioning"
+      ? compactRouteFor(row)
+      : category==="standby"
+        ? compactRowTimes(row,category).replace(" → ","–")
+        : categoryName(category).toUpperCase();
+    return `<article class="cv-upcoming-card ${category}"><small>${escapeHtml(dateLabel)}</small><strong>${escapeHtml(compactDutyTitle(row))}</strong><span>${escapeHtml(detail||"—")}</span></article>`;
+  }).join(""):'<p class="cv-upcoming-empty">No more duties in this roster.</p>';
+}
+
 function refreshShellData(){
   const hasRoster=shellHasRoster();
   document.body.classList.toggle("cv-has-roster",hasRoster);
@@ -887,18 +934,34 @@ function refreshShellData(){
   $("#cvRosterBlockBadge").textContent=`${block} block`;
   $("#cvProfileName").textContent=name;
   $("#cvProfileMeta").textContent=hasRoster?meta:"No roster loaded";
-  $("#cvTodayBlock").textContent=block;
-  $("#cvTodayDuty").textContent=duty;
-  $("#cvTodayOff").textContent=off;
+  if($("#cvTodayBlock")) $("#cvTodayBlock").textContent=block;
+  if($("#cvTodayDuty")) $("#cvTodayDuty").textContent=duty;
+  if($("#cvTodayOff")) $("#cvTodayOff").textContent=off;
   renderClassicCompact(compactDutyRows(rows));
 
   const selectedDuty=bridge.activeDuty?.();
+  const selectedLayover=selectedDuty?bridge.layoverForDuty?.(selectedDuty):null;
   const productValue=selectedDuty?Number(bridge.productivityAllowanceForDuty?.(selectedDuty)||0):0;
-  const layoverValue=selectedDuty?Number(bridge.layoverForDuty?.(selectedDuty)?.amount||0):0;
+  const layoverValue=Number(selectedLayover?.amount||0);
   const product=money(productValue);
   const layover=money(layoverValue);
   $("#cvTodayEstimateTotal").textContent=money(productValue+layoverValue);
   $("#cvTodayEstimateParts").textContent=`Productivity ${product} · Layover ${layover}`;
+
+  const date=rosterDate(selectedDuty?.date)||new Date();
+  $("#cvTodayDateLabel").textContent=date.toLocaleDateString("en-GB",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase();
+  $("#cvJourneyReport").textContent=text("nextDutyReport");
+  $("#cvJourneyDepart").textContent=text("smartDutyDepTime");
+  $("#cvJourneyArrive").textContent=text("smartDutyArrTime");
+  $("#cvJourneyRelease").textContent=text("smartDutyEndTime");
+  renderTodayUpcoming(rows,selectedDuty);
+
+  const layoverCard=$("#cvTodayLayover");
+  layoverCard?.classList.toggle("has-layover",Boolean(selectedLayover));
+  $("#cvTodayLayoverTitle").textContent=selectedLayover
+    ? `${selectedLayover.airport} · ${duration(selectedLayover.durationMinutes)}`
+    : "No destination layover";
+  $("#cvTodayLayoverHotel").textContent=selectedLayover?.hotel||"This duty returns to base.";
 
   const fdp=selectedDuty ? bridge.automaticFdpForDuty?.(selectedDuty) : null;
   const ftlCard=$("#cvTodayFtl");
