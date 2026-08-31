@@ -533,40 +533,36 @@
   .cv-v200 #rosterTable th:nth-child(10),.cv-v200 #rosterTable td:nth-child(10){width:8%!important}
   .cv-v200 #rosterTable th:nth-child(11),.cv-v200 #rosterTable td:nth-child(11){width:6%!important;text-align:center!important}
 
-  /* New CrewView theme, while retaining the familiar Classic grid. */
-  .cv-v200 #rosterTable tbody tr td{background:var(--cv-surface-2)!important;color:var(--cv-text)!important}
-  .cv-v200 #rosterTable tbody tr td:nth-child(1),.cv-v200 #rosterTable tbody tr td:nth-child(2){background:color-mix(in srgb,var(--cv-blue) 14%,var(--cv-surface))!important;font-weight:850!important}
-  .cv-v200 #rosterTable tbody tr td:nth-child(3),.cv-v200 #rosterTable tbody tr td:nth-child(4){background:color-mix(in srgb,var(--cv-blue) 9%,var(--cv-surface))!important}
-  .cv-v200 #rosterTable tbody tr td:nth-child(5),.cv-v200 #rosterTable tbody tr td:nth-child(6),.cv-v200 #rosterTable tbody tr td:nth-child(7){background:var(--cv-blue-soft)!important}
-  .cv-v200 #rosterTable tbody tr td:nth-child(8),.cv-v200 #rosterTable tbody tr td:nth-child(11){background:var(--cv-surface-3)!important}
-  .cv-v200 #rosterTable tbody tr td:nth-child(9),.cv-v200 #rosterTable tbody tr td:nth-child(10){background:color-mix(in srgb,var(--cv-teal) 9%,var(--cv-surface))!important}
+  /* New CrewView theme, while retaining the familiar Classic grid. Keep the
+     table neutral; colour identifies duty type instead of colouring columns. */
+  .cv-v200 #rosterTable th{background:#0b2138!important;color:#8fa6bf!important;border-color:rgba(126,158,191,.18)!important}
+  .cv-v200 #rosterTable tbody tr td{background:#102a44!important;color:#edf4fc!important;border-color:rgba(126,158,191,.16)!important}
+  .cv-v200 #rosterTable tbody tr:nth-child(even) td{background:#0e263f!important}
+  .cv-v200 #rosterTable tbody tr td:nth-child(1),.cv-v200 #rosterTable tbody tr td:nth-child(2){font-weight:850!important}
   .cv-v200 #rosterTable tbody tr.row-duty td:first-child{box-shadow:inset 6px 0 0 var(--cv-blue)}
-  .cv-v200 #rosterTable tbody tr.row-duty td:nth-child(4),.cv-v200 #rosterTable tbody tr.row-duty td:nth-child(9),.cv-v200 #rosterTable tbody tr.row-duty td:nth-child(10){color:var(--cv-blue)!important;font-weight:850!important}
-  .cv-v200 #rosterTable tbody tr.row-off td,.cv-v200 #rosterTable tbody tr.row-empty td{background:var(--cv-grey-soft)!important;color:var(--cv-muted)!important}
+  .cv-v200 #rosterTable tbody tr.row-duty td:nth-child(4){color:#69aaff!important;font-weight:850!important}
+  .cv-v200 #rosterTable tbody tr.row-duty td:nth-child(9),.cv-v200 #rosterTable tbody tr.row-duty td:nth-child(10){color:#dbeaff!important;font-weight:800!important}
+  .cv-v200 #rosterTable tbody tr.row-off td,.cv-v200 #rosterTable tbody tr.row-empty td{background:#172a3d!important;color:#8294a8!important}
   .cv-v200 #rosterTable tbody tr.row-off td:first-child,.cv-v200 #rosterTable tbody tr.row-empty td:first-child{box-shadow:inset 6px 0 0 var(--cv-grey)}
-  .cv-v200 #rosterTable tbody tr.row-training td{background:var(--cv-violet-soft)!important;color:var(--cv-text)!important}
+  .cv-v200 #rosterTable tbody tr.row-training td{background:#1c2947!important;color:#edf4fc!important}
   .cv-v200 #rosterTable tbody tr.row-training td:first-child{box-shadow:inset 6px 0 0 var(--cv-violet)}
-  .cv-v200 #rosterTable tbody tr.row-training td:nth-child(4){color:var(--cv-violet)!important;font-weight:850!important}
-  .cv-v200 #rosterTable tbody tr.row-positioning td,.cv-v200 #rosterTable tbody tr.row-standby td{background:var(--cv-amber-soft)!important;color:var(--cv-text)!important}
+  .cv-v200 #rosterTable tbody tr.row-training td:nth-child(4){color:#ad95ff!important;font-weight:850!important}
+  .cv-v200 #rosterTable tbody tr.row-positioning td,.cv-v200 #rosterTable tbody tr.row-standby td{background:#302b25!important;color:#edf4fc!important}
   .cv-v200 #rosterTable tbody tr.row-positioning td:first-child,.cv-v200 #rosterTable tbody tr.row-standby td:first-child{box-shadow:inset 6px 0 0 var(--cv-amber)}
-  .cv-v200 #rosterTable tbody tr.row-positioning td:nth-child(4),.cv-v200 #rosterTable tbody tr.row-standby td:nth-child(4){color:var(--cv-amber)!important;font-weight:850!important}
-  .cv-v200 #rosterTable tbody tr.row-leave td{background:var(--cv-green-soft)!important;color:var(--cv-text)!important}
+  .cv-v200 #rosterTable tbody tr.row-positioning td:nth-child(4),.cv-v200 #rosterTable tbody tr.row-standby td:nth-child(4){color:#f0b640!important;font-weight:850!important}
+  .cv-v200 #rosterTable tbody tr.row-leave td{background:#173b3a!important;color:#edf4fc!important}
   .cv-v200 #rosterTable tbody tr.row-leave td:first-child{box-shadow:inset 6px 0 0 var(--cv-green)}
-  .cv-v200 #rosterTable tbody tr.row-layover td,.cv-v200 #rosterTable tbody tr.row-overnight-continuation td{background:var(--cv-teal-soft)!important;color:var(--cv-text)!important}
+  .cv-v200 #rosterTable tbody tr.row-layover td,.cv-v200 #rosterTable tbody tr.row-overnight-continuation td{background:#123b40!important;color:#edf4fc!important}
   .cv-v200 #rosterTable tbody tr.row-layover td:first-child,.cv-v200 #rosterTable tbody tr.row-overnight-continuation td:first-child{box-shadow:inset 6px 0 0 var(--cv-teal)}
   .cv-v200 #rosterTable tbody tr[data-ftl-summary] td[data-k="item"]::after{display:none!important}
 
-  /* Light mode uses the same soft navy/blue surfaces as the new app shell.
-     Colour identifies the duty type without returning to the old spreadsheet
-     palette where every column competed for attention. */
+  /* Light mode follows the same restrained hierarchy. */
   html[data-theme="light"] .cv-v200 #resultCard{border-color:#d5e1ed!important;box-shadow:0 14px 34px rgba(24,55,91,.09)!important}
   html[data-theme="light"] .cv-v200 #rosterTable th{background:#eaf2fb!important;color:#50657c!important;border-color:#d3e0ec!important}
-  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td{border-color:#d7e3ee!important;color:#0b2340!important}
-  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(1),html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(2){background:#e7f1fd!important}
-  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(3),html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(4){background:#f0f6fd!important}
-  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(5),html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(6),html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(7){background:#edf5ff!important}
-  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(8),html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(11){background:#f5f8fc!important}
-  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(9),html[data-theme="light"] .cv-v200 #rosterTable tbody tr td:nth-child(10){background:#edf8f6!important}
+  html[data-theme="light"] .cv-v200 #rosterTable tbody tr td{background:#f8fbfe!important;border-color:#d7e3ee!important;color:#0b2340!important}
+  html[data-theme="light"] .cv-v200 #rosterTable tbody tr:nth-child(even) td{background:#f2f7fc!important}
+  html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-duty td:nth-child(4){color:#1269c7!important}
+  html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-duty td:nth-child(9),html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-duty td:nth-child(10){color:#244d79!important}
   html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-off td,html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-empty td{background:#f1f4f7!important;color:#65758a!important}
   html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-training td{background:#f1edff!important;color:#0b2340!important}
   html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-positioning td,html[data-theme="light"] .cv-v200 #rosterTable tbody tr.row-standby td{background:#fff4dc!important;color:#0b2340!important}
