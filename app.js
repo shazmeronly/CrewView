@@ -3289,7 +3289,10 @@ function renderSmartDutyStateOverview(row,state,dutyLayover){
     $("#smartDutyNextReportDate").textContent="—";
   }
 
-  $("#smartDutyProductivityAllowance").textContent=moneyRM(productivityAllowanceForDuty(row));
+  const standby=isPayStandby(row);
+  $("#smartDutyProductivityAllowance").textContent=standby
+    ? "Standby excluded"
+    : moneyRM(productivityAllowanceForDuty(row));
   $("#smartDutyLayoverAllowance").textContent=moneyRM(dutyLayover?.amount||0);
 
   const routeStatus=$("#smartDutyRouteStatus");
@@ -4218,16 +4221,17 @@ function isPayEligibleFlight(row){
 function payDutyGroups(){
   const rows=getRows();
   const groups=[];
-  const seen=new Set();
   rows.forEach((row,index)=>{
-    if(!isPayEligibleFlight(row)) return;
-    const key=row._dutyGroup || [row.date,row.dutyStart,index].join("|");
-    if(seen.has(key)) return;
-    seen.add(key);
-    const members=row._dutyGroup ? rows.filter(r=>r._dutyGroup===row._dutyGroup) : [row];
-    const eligible=members.filter(isPayEligibleFlight);
+    if(!isPayEligibleFlight(row) || !String(row.dutyStart||"").trim()) return;
+
+    // Pilot PDF duty-group ids are date-based, so separate flight duties on
+    // the same date can share one. Group from this report-time row and its
+    // continuation sectors instead of borrowing another duty's hours.
+    const duty=buildCompleteDuty(rows,index);
+    const eligible=(duty._sectors?.length ? duty._sectors : [row])
+      .filter(isPayEligibleFlight);
     if(!eligible.length) return;
-    const dutyMinutes=toMinutes(row.duty || members.find(r=>toMinutes(r.duty)>0)?.duty);
+    const dutyMinutes=toMinutes(duty._totalDuty||row.duty);
     if(dutyMinutes<=0) return;
     const items=eligible.map(r=>String(r.item||"").trim()).filter(Boolean);
     const routeParts=[];
@@ -4238,7 +4242,8 @@ function payDutyGroups(){
       if(arr) routeParts.push(arr);
     });
     groups.push({
-      key,date:row.date||"",items:[...new Set(items)].join(" / "),
+      key:[row.date,row.dutyStart,items.join("/")].join("|"),
+      date:row.date||"",items:[...new Set(items)].join(" / "),
       route:routeParts.join(" → ")||routeFromRow(row),minutes:dutyMinutes
     });
   });
