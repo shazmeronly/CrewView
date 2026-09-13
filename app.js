@@ -757,6 +757,40 @@ function normalizePilotContinuationColumns(rows){
     return row;
   });
 }
+
+/*
+ * A split overnight duty can print Flying Hrs 0:00 and Duty Hrs 11:25 while
+ * PDF geometry shifts those values into Duty End and Flying Hrs. Repair only
+ * the first flight of a same-date continuation duty so genuine midnight Duty
+ * End values remain untouched.
+ */
+function repairSplitPilotDutyColumns(rows){
+  return rows.map((sourceRow,index)=>{
+    const row={...sourceRow};
+    const next=rows[index+1];
+    const nextIsContinuation=Boolean(
+      next &&
+      String(next.date||"").trim()===String(row.date||"").trim() &&
+      /^MH\d{2,4}$/i.test(String(next.item||"").trim()) &&
+      !String(next.dutyStart||"").trim()
+    );
+
+    if(
+      /^MH\d{2,4}$/i.test(String(row.item||"").trim()) &&
+      nextIsContinuation &&
+      String(row.dutyStart||"").trim() &&
+      !String(row.duty||"").trim() &&
+      /^0+:00$/.test(String(row.dutyEnd||"").trim()) &&
+      /^\d{1,2}:\d{2}$/.test(String(row.block||"").trim())
+    ){
+      row.duty=row.block;
+      row.block=row.dutyEnd;
+      row.dutyEnd="";
+    }
+
+    return row;
+  });
+}
 function buildRows(items,w,h,pageNumber=1){
   const X={
     date:[0.02,0.09],
@@ -1954,6 +1988,7 @@ function restoreMissingPilotDates(rows,pdfText){
     const item=String(recoveredRow.item||"").trim().toUpperCase();
 
     const visualMatch=output.find(current=>
+      String(current.date||"").trim()===String(recoveredRow.date||"").trim() &&
       String(current.item||"").trim().toUpperCase()===item &&
       current._recoveredFromText!==true
     );
@@ -4003,6 +4038,7 @@ async function parsePDF(file){
   // Normalize shifted multi-sector rows before monthly FH/DH validation.
   // This must run even when a PDF revision omits continuation metadata.
   allRows=normalizePilotContinuationColumns(allRows);
+  allRows=repairSplitPilotDutyColumns(allRows);
 
   allRows=markRemainingBlankDaysAsOff(allRows);
 
@@ -6710,4 +6746,3 @@ document.querySelectorAll(".pay-collapse-toggle[data-collapse-target]").forEach(
     button.textContent=collapsed?"Show more":"Show less";
   });
 });
-
