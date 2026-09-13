@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=177">
+<link rel="stylesheet" href="style.css?v=178">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -142,6 +142,15 @@
           <small>Enter operational times in UTC. CrewView converts them to airport local time automatically.</small>
         </div>
         <button type="button" class="ops-reset smart-duty-control" id="opsResetBtn">Reset</button>
+      </div>
+
+      <div class="ops-sector-nav hidden" id="opsSectorNav">
+        <button type="button" class="smart-duty-control" id="opsSectorPrev" aria-label="Previous flight sector">‹</button>
+        <div>
+          <span id="opsSectorCount">SECTOR 1 OF 1</span>
+          <strong id="opsSectorTitle">—</strong>
+        </div>
+        <button type="button" class="smart-duty-control" id="opsSectorNext" aria-label="Next flight sector">›</button>
       </div>
 
       <div class="ops-display-row">
@@ -758,7 +767,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=177"></script>
+<script type="module" src="app.js?v=178"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>

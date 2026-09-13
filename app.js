@@ -2439,6 +2439,63 @@ function smartDutyKey(row){
 const SMART_DUTY_STORAGE_KEY="crewview-operational-times-v2-utc";
 const SMART_DUTY_TIME_MODE_KEY="crewview-operational-display-mode-v1";
 const SMART_DUTY_FIELDS=["pushback","airborne","landing","onChocks","dutyEnd"];
+const SMART_DUTY_SECTOR_FIELDS=["pushback","airborne","landing","onChocks"];
+const smartDutySectorSelections=new Map();
+
+function smartDutySectorCount(row){
+  return Math.max(1,Array.isArray(row?._sectors)?row._sectors.length:0);
+}
+
+function smartDutySectorRow(row,index=0){
+  if(!row) return null;
+  const count=smartDutySectorCount(row);
+  const safeIndex=Math.max(0,Math.min(count-1,Number(index)||0));
+  const sector=(row._sectors||[])[safeIndex];
+  if(!sector) return row;
+
+  const depAirport=airportCode(sector.dep);
+  const arrAirport=airportCode(sector.arr);
+  return {
+    ...row,
+    ...sector,
+    _sectorIndex:safeIndex,
+    _displayItems:sector.item||row.item,
+    _routeAirports:[depAirport,arrAirport].filter(Boolean),
+    _arrival:sector.arr||row.arr,
+    _sectors:[sector]
+  };
+}
+
+function smartDutySectorStorageKey(row,index=0){
+  const baseKey=smartDutyKey(row);
+  return Number(index)>0 ? `${baseKey}|sector:${Number(index)+1}` : baseKey;
+}
+
+function completedSmartDutySectorIndex(row){
+  const count=smartDutySectorCount(row);
+  for(let index=0;index<count;index++){
+    const record=operationalRecord(row,index);
+    if(!Number.isFinite(operationalEvent(record,"onChocks").at)) return index;
+  }
+  return count-1;
+}
+
+function selectedSmartDutySectorIndex(row){
+  const count=smartDutySectorCount(row);
+  const key=smartDutyKey(row);
+  const selected=smartDutySectorSelections.get(key);
+  if(Number.isInteger(selected) && selected>=0 && selected<count) return selected;
+  const fallback=completedSmartDutySectorIndex(row);
+  smartDutySectorSelections.set(key,fallback);
+  return fallback;
+}
+
+function selectSmartDutySector(row,index){
+  if(!row) return;
+  const count=smartDutySectorCount(row);
+  const safeIndex=Math.max(0,Math.min(count-1,Number(index)||0));
+  smartDutySectorSelections.set(smartDutyKey(row),safeIndex);
+}
 
 function airportTimezone(code){
   const iata=String(code||"").trim().toUpperCase();
@@ -2674,7 +2731,7 @@ function plausibleOperationalEpoch(value){
   return Number.isFinite(n) && n>=Date.UTC(2000,0,1) && n<=Date.UTC(2100,0,1);
 }
 
-function repairOperationalRecord(row,record){
+function repairOperationalRecord(row,record,{allowDutyEndAuto=true,dutyRow=row}={}){
   if(!row || !record || typeof record!=="object") return {record:record||{},changed:false};
   const fixed={...record};
   const report=smartDutyReportUtcMs(row);
@@ -2715,11 +2772,11 @@ function repairOperationalRecord(row,record){
   }
 
   const chocks=fixed.onChocks;
-  if(chocks && plausibleOperationalEpoch(chocks.at)){
+  if(allowDutyEndAuto && chocks && plausibleOperationalEpoch(chocks.at)){
     const duty=fixed.dutyEnd;
     if(!duty || (duty.source==="auto-onchocks-plus-45" && !plausibleOperationalEpoch(duty.at))){
       const dutyEndAt=chocks.at+45*60000;
-      const airport=smartDutyEventAirport(row,"dutyEnd");
+      const airport=smartDutyEventAirport(dutyRow,"dutyEnd");
       fixed.dutyEnd={utcTime:formatUtcHHMM(dutyEndAt),time:formatUtcHHMM(dutyEndAt),at:dutyEndAt,source:"auto-onchocks-plus-45",airport,timezone:airportTimezone(airport)};
       fixed.completedAt=dutyEndAt;
       changed=true;
@@ -2729,11 +2786,31 @@ function repairOperationalRecord(row,record){
   return {record:fixed,changed};
 }
 
-function operationalRecord(row){
+function operationalRecord(row,sectorIndex=0){
   if(!row) return {};
   const store=loadOperationalStore();
-  const key=smartDutyKey(row);
-  const repaired=repairOperationalRecord(row,store[key]||{});
+  const count=smartDutySectorCount(row);
+  const safeIndex=Math.max(0,Math.min(count-1,Number(sectorIndex)||0));
+  const key=smartDutySectorStorageKey(row,safeIndex);
+  const contextRow=smartDutySectorRow(row,safeIndex);
+  const repaired=repairOperationalRecord(contextRow,store[key]||{}, {
+    allowDutyEndAuto:count===1,
+    dutyRow:row
+  });
+
+  // v176 and earlier treated the first block-in of a multi-sector duty as the
+  // end of the whole duty. Remove only that automatically generated value so
+  // the return sector becomes available; a manually entered release is kept.
+  if(
+    safeIndex===0 &&
+    count>1 &&
+    repaired.record.dutyEnd?.source==="auto-onchocks-plus-45"
+  ){
+    delete repaired.record.dutyEnd;
+    repaired.record.completedAt=null;
+    repaired.changed=true;
+  }
+
   if(repaired.changed){
     store[key]=repaired.record;
     saveOperationalStore(store);
@@ -2783,12 +2860,13 @@ function previousOperationalTimestamp(record,field){
   return null;
 }
 
-function inferManualUtcTimestamp(row,field,timeText,record){
+function inferManualUtcTimestamp(row,field,timeText,record,minimumAt=null){
   const minutes=clockMinutes(timeText);
   if(minutes===null) return null;
 
   const report=smartDutyReportUtcMs(row);
-  const previous=previousOperationalTimestamp(record,field);
+  const recordPrevious=previousOperationalTimestamp(record,field);
+  const previous=Number.isFinite(recordPrevious) ? recordPrevious : minimumAt;
   const anchor=Number.isFinite(previous) ? previous : (Number.isFinite(report) ? report : Date.now());
   const anchorDay=Date.UTC(
     new Date(anchor).getUTCFullYear(),
@@ -2821,16 +2899,30 @@ function inferManualUtcTimestamp(row,field,timeText,record){
 function setOperationalEvent(row,field,time,{capturedNow=false}={}){
   if(!row) return;
   const store=loadOperationalStore();
-  const key=smartDutyKey(row);
+  const sectorCount=smartDutySectorCount(row);
+  const selectedIndex=selectedSmartDutySectorIndex(row);
+  const sectorIndex=field==="dutyEnd" ? 0 : selectedIndex;
+  const key=smartDutySectorStorageKey(row,sectorIndex);
+  const mainKey=smartDutySectorStorageKey(row,0);
+  const contextRow=field==="dutyEnd" ? row : smartDutySectorRow(row,sectorIndex);
   const record={...(store[key]||{})};
   const clean=String(time||"").trim();
+  const previousSectorRecord=sectorIndex>0
+    ? operationalRecord(row,sectorIndex-1)
+    : null;
+  const previousSectorOnChocks=operationalEvent(previousSectorRecord,"onChocks");
+  const minimumAt=Number.isFinite(previousSectorOnChocks.at)
+    ? previousSectorOnChocks.at
+    : null;
 
   if(clean){
     // Operational records are minute-precision. Do not let hidden seconds from
     // a "Now" tap change Taxi/Block/Duty totals by one minute.
-    let rawAt=capturedNow ? Date.now() : inferManualUtcTimestamp(row,field,clean,record);
+    let rawAt=capturedNow
+      ? Date.now()
+      : inferManualUtcTimestamp(contextRow,field,clean,record,minimumAt);
     if(!capturedNow && !plausibleOperationalEpoch(rawAt)){
-      const report=smartDutyReportUtcMs(row);
+      const report=smartDutyReportUtcMs(contextRow);
       const base=Number.isFinite(report)?report:Date.now();
       const baseDay=Date.UTC(new Date(base).getUTCFullYear(),new Date(base).getUTCMonth(),new Date(base).getUTCDate());
       const candidate=utcTimestampForDay(baseDay,clean);
@@ -2838,7 +2930,7 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
     }
     const at=Number.isFinite(rawAt) ? Math.floor(rawAt/60000)*60000 : null;
     const shownTime=Number.isFinite(at) ? formatUtcHHMM(at) : clean;
-    const airport=smartDutyEventAirport(row,field);
+    const airport=smartDutyEventAirport(contextRow,field);
     record[field]={
       utcTime:shownTime,
       time:shownTime,
@@ -2851,24 +2943,36 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
     // Company roster duty debrief is 45 minutes after block-in. Once On Chocks
     // is entered, pre-fill Duty End/Released to the latest time: On Chocks +45.
     // It remains editable if an actual release time later differs.
-    if(field==="onChocks" && Number.isFinite(at)){
+    if(field==="onChocks" && Number.isFinite(at) && sectorIndex===sectorCount-1){
       const dutyEndAt=at+45*60000;
       const dutyEndAirport=smartDutyEventAirport(row,"dutyEnd");
-      record.dutyEnd={
+      const mainRecord=key===mainKey ? record : {...(store[mainKey]||{})};
+      mainRecord.dutyEnd={
         utcTime:formatUtcHHMM(dutyEndAt),
         time:formatUtcHHMM(dutyEndAt),
         at:dutyEndAt,
-        source:"auto-onchocks-plus-45",
+        source:sectorCount>1 ? "auto-final-sector-plus-45" : "auto-onchocks-plus-45",
         airport:dutyEndAirport,
         timezone:airportTimezone(dutyEndAirport)
       };
-      record.completedAt=dutyEndAt;
+      mainRecord.completedAt=dutyEndAt;
+      mainRecord.updatedAt=Date.now();
+      if(key!==mainKey) store[mainKey]=mainRecord;
+    }else if(field==="onChocks" && Number.isFinite(at) && sectorIndex<sectorCount-1){
+      // Saving block-in completes only this sector. Move the form to the next
+      // flight without ending the overall duty.
+      selectSmartDutySector(row,sectorIndex+1);
     }
   }else{
     delete record[field];
-    if(field==="onChocks" && record.dutyEnd?.source==="auto-onchocks-plus-45"){
-      delete record.dutyEnd;
-      record.completedAt=null;
+    if(field==="onChocks" && sectorIndex===sectorCount-1){
+      const mainRecord=key===mainKey ? record : {...(store[mainKey]||{})};
+      if(["auto-onchocks-plus-45","auto-final-sector-plus-45"].includes(mainRecord.dutyEnd?.source)){
+        delete mainRecord.dutyEnd;
+        mainRecord.completedAt=null;
+        mainRecord.updatedAt=Date.now();
+        if(key!==mainKey) store[mainKey]=mainRecord;
+      }
     }
   }
 
@@ -2885,7 +2989,26 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
 function resetOperationalRecord(row){
   if(!row) return;
   const store=loadOperationalStore();
-  delete store[smartDutyKey(row)];
+  const sectorIndex=selectedSmartDutySectorIndex(row);
+  const key=smartDutySectorStorageKey(row,sectorIndex);
+  if(sectorIndex===0 && smartDutySectorCount(row)>1){
+    const firstSectorRecord={...(store[key]||{})};
+    SMART_DUTY_SECTOR_FIELDS.forEach(field=>delete firstSectorRecord[field]);
+    firstSectorRecord.updatedAt=Date.now();
+    store[key]=firstSectorRecord;
+  }else{
+    delete store[key];
+  }
+
+  if(sectorIndex===smartDutySectorCount(row)-1){
+    const mainKey=smartDutySectorStorageKey(row,0);
+    const mainRecord=store[mainKey];
+    if(mainRecord && ["auto-onchocks-plus-45","auto-final-sector-plus-45"].includes(mainRecord.dutyEnd?.source)){
+      delete mainRecord.dutyEnd;
+      mainRecord.completedAt=null;
+      store[mainKey]=mainRecord;
+    }
+  }
   saveOperationalStore(store);
   applyOperationalOverlayToClassic();
 }
@@ -2917,12 +3040,12 @@ function formatSignedMinutes(minutes){
   return `${sign}${hhmm(Math.abs(Math.round(minutes)))}`;
 }
 
-function operationalMetrics(row,record){
+function operationalMetrics(row,record,dutyRecord=record){
   const pushback=operationalEvent(record,"pushback");
   const airborne=operationalEvent(record,"airborne");
   const landing=operationalEvent(record,"landing");
   const onChocks=operationalEvent(record,"onChocks");
-  const dutyEnd=operationalEvent(record,"dutyEnd");
+  const dutyEnd=operationalEvent(dutyRecord,"dutyEnd");
   const reportAt=smartDutyReportUtcMs(row);
   const reportEvent=Number.isFinite(reportAt)?{at:reportAt,time:formatUtcHHMM(reportAt)}:null;
   const actualDuty=durationBetweenOperationalEvents(reportEvent,dutyEnd);
@@ -3222,7 +3345,11 @@ function applySmartDutyTimeDisplayMode(mode){
 }
 
 function setSmartDutyOperationalInputs(row){
-  const record=operationalRecord(row);
+  const sectorCount=smartDutySectorCount(row);
+  const sectorIndex=selectedSmartDutySectorIndex(row);
+  const sectorRow=smartDutySectorRow(row,sectorIndex);
+  const sectorRecord=operationalRecord(row,sectorIndex);
+  const dutyRecord=operationalRecord(row,0);
   const fieldIds={
     pushback:"#opsPushback",
     airborne:"#opsAirborne",
@@ -3239,17 +3366,41 @@ function setSmartDutyOperationalInputs(row){
   };
 
   Object.entries(fieldIds).forEach(([field,selector])=>{
-    const event=operationalEvent(record,field);
+    const event=operationalEvent(
+      field==="dutyEnd" ? dutyRecord : sectorRecord,
+      field
+    );
     const input=$(selector);
     if(input && document.activeElement!==input){
       input.value=event.time||"";
     }
     const local=$(localIds[field]);
     if(local){
-      local.textContent=formatLocalOperationalTime(row,field,event);
+      local.textContent=formatLocalOperationalTime(
+        field==="dutyEnd" ? row : sectorRow,
+        field,
+        event
+      );
       local.classList.toggle("has-time",Number.isFinite(event.at));
     }
   });
+
+  const sectorNav=$("#opsSectorNav");
+  sectorNav?.classList.toggle("hidden",sectorCount<2);
+  $("#opsSectorCount").textContent=`SECTOR ${sectorIndex+1} OF ${sectorCount}`;
+  const sectorDep=dutyDepartureAirport(sectorRow);
+  const sectorArr=dutyArrivalAirport(sectorRow);
+  $("#opsSectorTitle").textContent=[
+    sectorRow._displayItems||sectorRow.item||`Sector ${sectorIndex+1}`,
+    sectorDep&&sectorArr ? `${sectorDep} → ${sectorArr}` : ""
+  ].filter(Boolean).join(" · ");
+  $("#opsSectorPrev").disabled=sectorIndex<=0;
+  $("#opsSectorNext").disabled=sectorIndex>=sectorCount-1;
+  $("#opsResetBtn").textContent=sectorCount>1?"Reset Sector":"Reset";
+
+  const dutyEndField=$(".ops-duty-end-field");
+  const awaitingFinalSector=sectorCount>1 && sectorIndex<sectorCount-1;
+  dutyEndField?.classList.toggle("hidden",awaitingFinalSector);
 
   const reportMs=smartDutyReportUtcMs(row);
   const reportAirport=dutyDepartureAirport(row);
@@ -3262,7 +3413,7 @@ function setSmartDutyOperationalInputs(row){
     ? formatLocalOperationalTime(row,"pushback",reportEvent)
     : "Local —";
 
-  const metrics=operationalMetrics(row,record);
+  const metrics=operationalMetrics(row,sectorRecord,dutyRecord);
   $("#actualTaxiOut").textContent=formatOperationalDuration(metrics.taxiOut);
   $("#actualAirTime").textContent=formatOperationalDuration(metrics.airTime);
   $("#actualTaxiIn").textContent=formatOperationalDuration(metrics.taxiIn);
@@ -3273,14 +3424,23 @@ function setSmartDutyOperationalInputs(row){
 
   const timezoneStatus=$("#opsTimezoneStatus");
   if(timezoneStatus){
-    const dep=dutyDepartureAirport(row);
-    const arr=dutyArrivalAirport(row);
+    const dep=dutyDepartureAirport(sectorRow);
+    const arr=dutyArrivalAirport(sectorRow);
     const depKnown=Boolean(AIRPORT_TIMEZONES[dep]);
     const arrKnown=Boolean(AIRPORT_TIMEZONES[arr]);
     timezoneStatus.textContent=depKnown&&arrKnown
       ? `${dep} ${airportTimezone(dep)} · ${arr} ${airportTimezone(arr)}`
       : "Airport timezone not found for one station; device timezone fallback is being used.";
     timezoneStatus.classList.toggle("warning",!(depKnown&&arrKnown));
+  }
+
+  const accuracyNote=$("#opsAccuracyNote");
+  if(accuracyNote){
+    accuracyNote.textContent=awaitingFinalSector
+      ? "UTC is the master record. Enter this sector’s four operational times. After On Chocks, CrewView saves the sector and opens the next flight automatically. Duty End is entered only after the final sector."
+      : sectorCount>1
+        ? "UTC is the master record. This is the final sector. After On Chocks, Duty End / Released is automatically set to +45 minutes and remains editable. Actual Duty runs from roster Report to final release."
+        : "UTC is the master record. “Now” records the displayed UTC minute; manual entries are interpreted as UTC and anchored to this duty. After On Chocks, Duty End / Released is automatically set to +45 minutes and remains editable. Actual Duty runs from roster Report to Duty End / Released.";
   }
 
   applySmartDutyTimeDisplayMode(smartDutyTimeDisplayMode());
@@ -3356,11 +3516,15 @@ function renderSmartDutyStateOverview(row,state,dutyLayover,calledUp=false){
   timingRow?.classList.toggle("hidden",state==="active");
 
   if(state==="active"){
-    const record=operationalRecord(row);
+    const sectorIndex=selectedSmartDutySectorIndex(row);
+    const sectorRow=smartDutySectorRow(row,sectorIndex);
+    const record=operationalRecord(row,sectorIndex);
     const pushback=operationalEvent(record,"pushback");
     const landing=operationalEvent(record,"landing");
-    const dep=Number.isFinite(pushback.at) ? `${pushback.time} UTC` : `Dep ${smartDutyClockParts(depText)}`;
-    const arr=Number.isFinite(landing.at) ? `${landing.time} UTC` : `Arr ${smartDutyClockParts(arrText)}`;
+    const sectorDep=String(sectorRow.dep||depText);
+    const sectorArr=String(sectorRow._arrival||sectorRow.arr||arrText);
+    const dep=Number.isFinite(pushback.at) ? `${pushback.time} UTC` : `Dep ${smartDutyClockParts(sectorDep)}`;
+    const arr=Number.isFinite(landing.at) ? `${landing.time} UTC` : `Arr ${smartDutyClockParts(sectorArr)}`;
     $("#smartDutyRouteStatusLeft").textContent=dep;
     $("#smartDutyRouteStatusRight").textContent=arr;
     $("#smartDutyRouteStatusCenter").textContent=calledUp
@@ -3484,6 +3648,7 @@ function refreshSmartDutyCard(force=false){
   const reportMs=row._reportUtcMs||smartDutyReportUtcMs(row)||row._dt.getTime();
   const endMs=row._estimatedEndUtcMs||smartDutyEndUtcMs(row)||row._estimatedEnd?.getTime()||reportMs+12*3600000;
   const record=operationalRecord(row);
+  const phaseRecord=operationalRecord(row,selectedSmartDutySectorIndex(row));
 
   card.classList.remove("soon","urgent");
 
@@ -3514,7 +3679,7 @@ function refreshSmartDutyCard(force=false){
   $("#smartDutyElapsed").textContent=shortDuration(elapsed);
   $("#smartDutyRemaining").textContent=state==="completed" ? "00h 00m" : shortDuration(remaining);
   $("#smartDutyPhase").textContent=
-    state==="completed" ? "COMPLETED" : smartDutyPhase(row,record,role);
+    state==="completed" ? "COMPLETED" : smartDutyPhase(row,phaseRecord,role);
 
   if(role==="pilot" && smartDutyIsFlight(row)){
     setSmartDutyOperationalInputs(row);
@@ -3645,6 +3810,28 @@ $("#nextDutyCard")?.addEventListener("click",event=>{
   }
 });
 
+$("#opsSectorPrev")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  if(!activeNextDuty) return;
+  selectSmartDutySector(
+    activeNextDuty,
+    selectedSmartDutySectorIndex(activeNextDuty)-1
+  );
+  refreshSmartDutyCard(true);
+});
+
+$("#opsSectorNext")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  if(!activeNextDuty) return;
+  selectSmartDutySector(
+    activeNextDuty,
+    selectedSmartDutySectorIndex(activeNextDuty)+1
+  );
+  refreshSmartDutyCard(true);
+});
+
 document.querySelectorAll("[data-ops-now]").forEach(button=>{
   button.addEventListener("click",event=>{
     event.preventDefault();
@@ -3668,8 +3855,14 @@ function normalizeOpsTypedTime(value){
 
 function restoreOpsInputFromStore(input){
   if(!activeNextDuty) return;
-  const record=operationalRecord(activeNextDuty);
-  const event=operationalEvent(record,input.dataset.opsField);
+  const field=input.dataset.opsField;
+  const record=field==="dutyEnd"
+    ? operationalRecord(activeNextDuty,0)
+    : operationalRecord(
+        activeNextDuty,
+        selectedSmartDutySectorIndex(activeNextDuty)
+      );
+  const event=operationalEvent(record,field);
   input.value=event.time||"";
 }
 

@@ -4828,6 +4828,46 @@ tbody tr.row-overnight-continuation + tr td{
   font-size:8px;
   font-weight:800;
 }
+.ops-sector-nav{
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr) 32px;
+  align-items:center;
+  gap:7px;
+  margin-bottom:8px;
+  padding:6px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:10px;
+  background:rgba(255,255,255,.08);
+}
+.ops-sector-nav.hidden{display:none}
+.ops-sector-nav button{
+  width:32px;
+  height:32px;
+  border:1px solid rgba(255,255,255,.20);
+  border-radius:8px;
+  background:rgba(255,255,255,.10);
+  color:#fff;
+  font-size:20px;
+  font-weight:900;
+  line-height:1;
+}
+.ops-sector-nav button:disabled{opacity:.28}
+.ops-sector-nav>div{min-width:0;text-align:center}
+.ops-sector-nav span{
+  display:block;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.12em;
+  opacity:.68;
+}
+.ops-sector-nav strong{
+  display:block;
+  margin-top:2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:11px;
+}
 .pilot-ops-grid{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
