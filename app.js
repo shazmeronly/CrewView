@@ -2454,14 +2454,16 @@ function smartDutySectorRow(row,index=0){
   if(!sector) return row;
 
   const depAirport=airportCode(sector.dep);
-  const arrAirport=airportCode(sector.arr);
+  // Overnight arrivals may be printed on a separate Classic row.
+  const arrival=sector.arr || (safeIndex===count-1 ? row._arrival : "") || "";
+  const arrAirport=airportCode(arrival);
   return {
     ...row,
     ...sector,
     _sectorIndex:safeIndex,
     _displayItems:sector.item||row.item,
     _routeAirports:[depAirport,arrAirport].filter(Boolean),
-    _arrival:sector.arr||row.arr,
+    _arrival:arrival,
     _sectors:[sector]
   };
 }
@@ -2587,6 +2589,7 @@ function dutyArrivalAirport(row){
 }
 
 function smartDutyEventAirport(row,field){
+  if(field==="dutyEnd") return airportCode(row?._arrival)||dutyArrivalAirport(row);
   return ["pushback","airborne"].includes(field)
     ? dutyDepartureAirport(row)
     : dutyArrivalAirport(row);
@@ -3123,38 +3126,69 @@ function applyOperationalOverlayToClassic(){
   if(!tbody) return;
   clearClassicActualOverlay();
 
-  let previousDuty=null;
-  let previousRecord=null;
+  // Use the same scheduled rows and complete-duty identity as Smart Duty.
+  // A multi-sector record is keyed by all flight numbers and the full route;
+  // looking it up with an individual Classic row cannot find that record.
+  const rows=getRows();
+  const tableRows=[...tbody.rows];
+  let duty=null;
+  let firstRow=null;
+  let previousRow=null;
+  let sectorIndex=0;
+  let record=null;
+  let dutyRecord=null;
 
-  [...tbody.rows].forEach(tr=>{
-    const row=scheduledClassicRow(tr);
+  rows.forEach((row,index)=>{
+    const tr=tableRows[index];
     const isFlight=/^MH\d+/i.test(String(row.item||"").trim());
+    const newDuty=isFlight && String(row.dutyStart||"").trim();
+    const continuation=duty && isSectorContinuation(row,firstRow);
+    const overnight=duty && !continuation && isOvernightContinuationRow(row,previousRow);
 
-    if(isFlight && String(row.dutyStart||"").trim()){
-      previousDuty=row;
-      previousRecord=classicOperationalRecord(row);
-      const record=previousRecord;
-      const pushback=operationalEvent(record,"pushback");
-      const onChocks=operationalEvent(record,"onChocks");
-      const dutyEnd=operationalEvent(record,"dutyEnd");
-      const metrics=operationalMetrics(row,record);
-
-      if(Number.isFinite(pushback.at)) setClassicActualCell(tr,"dep",classicActualStationTime(row,"pushback",pushback));
-      if(Number.isFinite(onChocks.at) && String(row.arr||"").trim()) setClassicActualCell(tr,"arr",classicActualStationTime(row,"onChocks",onChocks));
-      if(metrics.block) setClassicActualCell(tr,"block",`${formatOperationalDuration(metrics.block)} ACT`);
-      if(metrics.actualDuty) setClassicActualCell(tr,"duty",`${formatOperationalDuration(metrics.actualDuty)} ACT`);
-      if(Number.isFinite(dutyEnd.at) && String(row.dutyEnd||"").trim()) setClassicActualCell(tr,"dutyEnd",classicActualStationTime(row,"dutyEnd",dutyEnd).replace(/^\S+\s+/,""));
+    if(newDuty){
+      duty=buildCompleteDuty(rows,index);
+      firstRow=row;
+      sectorIndex=0;
+      dutyRecord=operationalRecord(duty);
+      // Retain support for older single-sector keys without allowing a
+      // partial multi-sector row to invent a premature duty release.
+      if(!Object.keys(dutyRecord).length && smartDutySectorCount(duty)===1){
+        dutyRecord=classicOperationalRecord(row);
+      }
+      record=dutyRecord;
+    }else if(continuation){
+      sectorIndex++;
+      record=operationalRecord(duty,sectorIndex);
+    }else if(!overnight){
+      duty=null;
+      firstRow=null;
+      previousRow=null;
+      record=null;
+      dutyRecord=null;
       return;
     }
 
-    // Overnight arrival/duty-end values live on the following continuation
-    // row in Classic view, but belong to the preceding flight's UTC record.
-    if(row._overnightContinuation && previousDuty && previousRecord){
-      const onChocks=operationalEvent(previousRecord,"onChocks");
-      const dutyEnd=operationalEvent(previousRecord,"dutyEnd");
-      if(Number.isFinite(onChocks.at)) setClassicActualCell(tr,"arr",classicActualStationTime(previousDuty,"onChocks",onChocks));
-      if(Number.isFinite(dutyEnd.at)) setClassicActualCell(tr,"dutyEnd",classicActualStationTime(previousDuty,"dutyEnd",dutyEnd).replace(/^\S+\s+/,""));
+    const sectorRow=smartDutySectorRow(duty,sectorIndex);
+    const pushback=operationalEvent(record,"pushback");
+    const onChocks=operationalEvent(record,"onChocks");
+    const dutyEnd=operationalEvent(dutyRecord,"dutyEnd");
+    const finalSector=sectorIndex===smartDutySectorCount(duty)-1;
+    const metrics=operationalMetrics(duty,record,dutyRecord);
+
+    if(!overnight && isFlight){
+      if(Number.isFinite(pushback.at)) setClassicActualCell(tr,"dep",classicActualStationTime(sectorRow,"pushback",pushback));
+      if(metrics.block) setClassicActualCell(tr,"block",`${formatOperationalDuration(metrics.block)} ACT`);
     }
+    if(Number.isFinite(onChocks.at) && String(row.arr||"").trim()){
+      setClassicActualCell(tr,"arr",classicActualStationTime(sectorRow,"onChocks",onChocks));
+    }
+    if(metrics.actualDuty && (newDuty || String(row.duty||"").trim())){
+      setClassicActualCell(tr,"duty",`${formatOperationalDuration(metrics.actualDuty)} ACT`);
+    }
+    if(finalSector && Number.isFinite(dutyEnd.at) && String(row.dutyEnd||"").trim()){
+      setClassicActualCell(tr,"dutyEnd",classicActualStationTime(duty,"dutyEnd",dutyEnd).replace(/^\S+\s+/,""));
+    }
+    previousRow=row;
   });
 
   if(fitEnabled) setTimeout(applyOnePageFit,0);
