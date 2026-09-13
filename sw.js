@@ -1,15 +1,16 @@
-const CACHE = "crewview-v221";
+const CACHE = "crewview-v222";
 const PDF_MAIN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css?v=171",
-  "./ui-v200.css?v=221",
-  "./app.js?v=209",
+  "./ui-v200.css?v=222",
+  "./app.js?v=222",
   "./ui-v200.js?v=221",
   "./airport-timezones.js",
   "./fdp-rules.js",
+  "./roster-parser-utils.js",
   "./crewview-mark-final.png",
   "./manifest.webmanifest",
   "./icon-192.png",
@@ -62,7 +63,7 @@ self.addEventListener("fetch", event => {
   event.respondWith((async()=>{
     const url=new URL(event.request.url);
     const sameOrigin=url.origin===self.location.origin;
-    const coreAsset=sameOrigin && /\/(?:app\.js|style\.css|ui-v200\.js|ui-v200\.css|airport-timezones\.js|fdp-rules\.js)$/.test(url.pathname);
+    const coreAsset=sameOrigin && /\/(?:app\.js|style\.css|ui-v200\.js|ui-v200\.css|airport-timezones\.js|fdp-rules\.js|roster-parser-utils\.js)$/.test(url.pathname);
 
     // Code and CSS are network-first. This prevents a newly fetched index.html
     // from being paired with an older cached app.js/style.css after deployment.

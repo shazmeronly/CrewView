@@ -2,6 +2,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test fdp-rules.test.js"
+    "test": "node --test fdp-rules.test.js roster-parser-utils.test.js"
   }
 }

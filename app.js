@@ -43,6 +43,10 @@ themeToggle?.addEventListener("click",()=>{
 
 import { AIRPORT_TIMEZONES } from "./airport-timezones.js";
 import { calculateFdpLimit } from "./fdp-rules.js";
+import {
+  findRecoveredVisualMatch,
+  repairSplitPilotDutyColumns
+} from "./roster-parser-utils.js";
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs";
 
@@ -550,10 +554,10 @@ function validateKnownRoster(rows){
   );
 
   if(officialFH && parsedFH!==officialFH){
-    issues.push(`Parsed flying hours ${parsedFH} do not match roster total ${officialFH}`);
+    issues.push(`Flying-hour rows total ${parsedFH}; roster header shows ${officialFH}.`);
   }
   if(officialDH && parsedDH!==officialDH){
-    issues.push(`Parsed duty hours ${parsedDH} do not match roster total ${officialDH}`);
+    issues.push(`Duty-hour rows total ${parsedDH}; roster header shows ${officialDH}.`);
   }
 
   // Exact fixtures are revision-specific. Only run their required-row checks
@@ -653,9 +657,9 @@ function renderValidation(result){
 
   element.classList.remove("hidden","pass","fail","neutral");
   element.classList.add(
-    result.known
-      ? (result.passed?"pass":"fail")
-      : "neutral"
+    result.passed
+      ? (result.known?"pass":"neutral")
+      : "fail"
   );
 
   if(result.passed){
@@ -1984,10 +1988,7 @@ function restoreMissingPilotDates(rows,pdfText){
   recovered.forEach(recoveredRow=>{
     const item=String(recoveredRow.item||"").trim().toUpperCase();
 
-    const visualMatch=output.find(current=>
-      String(current.item||"").trim().toUpperCase()===item &&
-      current._recoveredFromText!==true
-    );
+    const visualMatch=findRecoveredVisualMatch(output,recoveredRow);
 
     if(visualMatch){
       /*
@@ -4283,6 +4284,7 @@ async function parsePDF(file){
   // Normalize shifted multi-sector rows before monthly FH/DH validation.
   // This must run even when a PDF revision omits continuation metadata.
   allRows=normalizePilotContinuationColumns(allRows);
+  allRows=repairSplitPilotDutyColumns(allRows);
 
   allRows=markRemainingBlankDaysAsOff(allRows);
 
@@ -4411,10 +4413,7 @@ async function parsePDF(file){
 
   setTimeout(resetUploadScrollPosition,120);
 
-  const validationMessage=($("#validationResult")?.textContent||"").trim();
-  showValidationToast(
-    validationMessage || `${loadedRosterMonth()?.toLocaleString("en-US",{month:"long",year:"numeric"})||"Roster"} validation passed.`
-  );
+  showValidationToast(validation);
 }
 
 
@@ -6023,14 +6022,39 @@ document.addEventListener("keydown",event=>{
 
 let validationToastTimer=null;
 
-function showValidationToast(message){
+function showValidationToast(result){
   const toast=$("#validationToast");
   const text=$("#validationToastText");
+  const icon=toast?.querySelector(".validation-toast-icon");
 
-  if(!toast||!text) return;
+  if(!toast||!text||!icon) return;
 
   clearTimeout(validationToastTimer);
-  text.textContent=message||"Roster validation passed.";
+  const failed=Boolean(result && typeof result==="object" && !result.passed);
+  const message=typeof result==="string"
+    ? result
+    : result?.message || "Roster validation passed.";
+
+  toast.classList.toggle("validation-fail",failed);
+  toast.classList.toggle("validation-pass",!failed);
+  toast.setAttribute("role",failed?"alert":"status");
+  toast.setAttribute("aria-live",failed?"assertive":"polite");
+  icon.textContent=failed?"!":"✓";
+
+  text.replaceChildren();
+  const title=document.createElement("strong");
+  title.textContent=message;
+  text.append(title);
+
+  if(failed && Array.isArray(result.issues) && result.issues.length){
+    const list=document.createElement("ul");
+    result.issues.forEach(issue=>{
+      const item=document.createElement("li");
+      item.textContent=issue;
+      list.append(item);
+    });
+    text.append(list);
+  }
 
   toast.classList.remove("hidden","leaving");
   requestAnimationFrame(()=>toast.classList.add("show"));
@@ -6043,7 +6067,7 @@ function showValidationToast(message){
       toast.classList.add("hidden");
       toast.classList.remove("leaving");
     },260);
-  },3000);
+  },failed?6500:3000);
 }
 
 function setPrimaryRosterViewVisibility(view){
