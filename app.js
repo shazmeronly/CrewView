@@ -3066,6 +3066,17 @@ function getUpcomingDuty(rows){
   return getSmartDutyCandidates(rows).find(duty=>(duty._reportUtcMs||duty._dt.getTime())>nowMs)||null;
 }
 
+function isActivatedStandbySequence(active,next,reportMs,endMs){
+  if(!active || !next || !isPayStandby(active) || !smartDutyIsFlight(next)) return false;
+  if(String(active.date||"")!==String(next.date||"")) return false;
+
+  const standbyEnd=endMs(active);
+  const flightReport=reportMs(next);
+  return Number.isFinite(standbyEnd) &&
+    Number.isFinite(flightReport) &&
+    Math.abs(flightReport-standbyEnd)<=5*60000;
+}
+
 function getSmartDutySelection(rows){
   const now=new Date();
   const nowMs=now.getTime();
@@ -3096,6 +3107,13 @@ function getSmartDutySelection(rows){
     if(Number.isFinite(actualDutyEnd.at) && actualDutyEnd.at<=nowMs) return false;
     return nowMs<=endMs(duty);
   });
+
+  // An operating duty rostered exactly when S1-S4 standby ends means the
+  // standby has been activated. Show the called-up flight immediately rather
+  // than leaving Smart Duty on the standby card until flight report time.
+  if(active && future && isActivatedStandbySequence(active,future,reportMs,endMs)){
+    return {row:future,state:"active",callupFrom:active};
+  }
 
   if(active) return {row:active,state:"active"};
 
@@ -3265,7 +3283,7 @@ function setSmartDutyExpanded(expanded){
 }
 
 
-function renderSmartDutyStateOverview(row,state,dutyLayover){
+function renderSmartDutyStateOverview(row,state,dutyLayover,calledUp=false){
   const depText=String(row.dep||"");
   const arrText=String(row._arrival||row.arr||"");
   const dutyEndText=String(row._finalDutyEnd||row.dutyEnd||"");
@@ -3308,7 +3326,9 @@ function renderSmartDutyStateOverview(row,state,dutyLayover){
     const arr=Number.isFinite(landing.at) ? `${landing.time} UTC` : `Arr ${smartDutyClockParts(arrText)}`;
     $("#smartDutyRouteStatusLeft").textContent=dep;
     $("#smartDutyRouteStatusRight").textContent=arr;
-    $("#smartDutyRouteStatusCenter").textContent=smartDutyPhase(row,record,smartCrewRole());
+    $("#smartDutyRouteStatusCenter").textContent=calledUp
+      ? "CALLED UP"
+      : smartDutyPhase(row,record,smartCrewRole());
   }
 
   const overview=$("#smartDutyStateOverview");
@@ -3330,10 +3350,11 @@ function refreshSmartDutyCard(force=false){
     return;
   }
 
-  const {row,state,layover:selectionLayover}=selection;
+  const {row,state,layover:selectionLayover,callupFrom}=selection;
+  const calledUp=Boolean(callupFrom);
   const role=smartCrewRole();
   const dutyKey=row._smartKey||smartDutyKey(row);
-  const signature=`${dutyKey}|${state}|${role}`;
+  const signature=`${dutyKey}|${state}|${role}|${calledUp?"callup":"standard"}`;
   const changed=force || signature!==smartDutyRenderSignature;
 
   // A newly selected duty starts compact. The crew member can tap the card
@@ -3352,6 +3373,7 @@ function refreshSmartDutyCard(force=false){
     card.classList.add(`state-${state}`);
 
     $("#smartDutyEyebrow").textContent=
+      calledUp ? "CALLED UP" :
       state==="active" ? "ACTIVE DUTY" :
       state==="completed" ? "COMPLETED DUTY" :
       state==="layover" ? "LAYOVER" :
@@ -3372,13 +3394,13 @@ function refreshSmartDutyCard(force=false){
             ? `${departureAirport} → ${arrivalAirport}`
             : (departureAirport||arrivalAirport||"—"));
 
-    $("#smartDutyRightLabel").textContent="REPORT";
+    $("#smartDutyRightLabel").textContent=calledUp?"FLIGHT REPORT":"REPORT";
     $("#nextDutyReport").textContent=row.dutyStart||"—";
     $("#nextDutyDate").textContent=`${row.date} · ${row.day||dayName(row.date)}`;
     $("#nextDutyEnd").textContent=row._finalDutyEnd||row.dutyEnd||"—";
     $("#nextDutyAircraft").textContent=row.ac||"—";
     const dutyLayover=selectionLayover||layoverForDuty(row);
-    renderSmartDutyStateOverview(row,state,dutyLayover);
+    renderSmartDutyStateOverview(row,state,dutyLayover,calledUp);
     $("#smartDutyLayoverStrip")?.classList.toggle("hidden",!dutyLayover);
     if(dutyLayover){
       $("#smartDutyLayoverStation").textContent=`Layover in ${dutyLayover.airport}`;
@@ -3461,14 +3483,24 @@ function refreshSmartDutyCard(force=false){
     setSmartDutyOperationalInputs(row);
   }
 
-  renderSmartDutyStateOverview(row,state,selectionLayover||layoverForDuty(row));
+  renderSmartDutyStateOverview(row,state,selectionLayover||layoverForDuty(row),calledUp);
 
   if(state==="active"){
-    $("#smartDutyCountdownLabel").textContent="Elapsed";
-    $("#nextDutyCountdown").textContent=shortDuration(elapsed);
-    const span=Math.max(1,endMs-reportMs);
-    const pct=Math.max(0,Math.min(100,(elapsed/span)*100));
-    $("#nextDutyProgress").style.width=`${pct}%`;
+    if(calledUp && reportMs>now.getTime()){
+      const callupStart=callupFrom._reportUtcMs||smartDutyReportUtcMs(callupFrom)||now.getTime();
+      const untilReport=reportMs-now.getTime();
+      const callupWindow=Math.max(1,reportMs-callupStart);
+      const callupElapsed=Math.max(0,now.getTime()-callupStart);
+      $("#smartDutyCountdownLabel").textContent="Report in";
+      $("#nextDutyCountdown").textContent=formatCountdown(untilReport);
+      $("#nextDutyProgress").style.width=`${Math.max(0,Math.min(100,(callupElapsed/callupWindow)*100))}%`;
+    }else{
+      $("#smartDutyCountdownLabel").textContent="Elapsed";
+      $("#nextDutyCountdown").textContent=shortDuration(elapsed);
+      const span=Math.max(1,endMs-reportMs);
+      const pct=Math.max(0,Math.min(100,(elapsed/span)*100));
+      $("#nextDutyProgress").style.width=`${pct}%`;
+    }
   }else{
     const dutyEndEvent=operationalEvent(record,"dutyEnd");
     $("#smartDutyCountdownLabel").textContent="Finished";
