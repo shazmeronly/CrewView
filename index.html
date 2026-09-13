@@ -316,7 +316,7 @@
       <div>
         <span class="pay-eyebrow">CREWVIEW ALLOWANCES</span>
         <h2>Allowances</h2>
-        <p id="payMonthLabel">Estimated from your loaded roster</p>
+        <p id="payMonthLabel">Actual duty where entered; roster estimate otherwise</p>
       </div>
       <label class="pay-grade">
         <span>Grade</span>
@@ -341,7 +341,7 @@
           <div class="pay-card-title"><span>Productivity Allowance</span><b id="payPaAmount">RM0.00</b></div>
           <div class="pay-metric"><strong id="payEligibleDuty">00:00</strong><small>eligible duty hours</small></div>
           <p id="payPaFormula">—</p>
-          <small class="pay-rule">Operating and positioning flight duty only. Standby and observation duties are excluded.</small>
+          <small class="pay-rule">Actual operating and positioning duty where entered; roster duty is used as an estimate otherwise. All standby and observation duties are excluded.</small>
         </article>
 
         <article class="pay-card">
@@ -758,7 +758,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=175"></script>
+<script type="module" src="app.js?v=176"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>

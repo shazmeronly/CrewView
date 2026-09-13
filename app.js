@@ -4247,11 +4247,40 @@ function isPayEligibleFlight(row){
   return /^MH\d+/.test(item) && ["OP","PS","SFP"].includes(work);
 }
 
+function isInsideOfficialRosterPeriod(row){
+  if(!officialRosterPeriod) return true;
+  const date=parseRosterDate(row?.date);
+  return Boolean(
+    date &&
+    date>=officialRosterPeriod.start &&
+    date<=officialRosterPeriod.end
+  );
+}
+
+function productivityDutyTime(duty,row){
+  // Productivity uses actual operating/positioning duty when the crew member
+  // has entered a Duty End/Released time. The S1-S4 standby period remains a
+  // separate, excluded roster duty and is never added to this duration.
+  const actual=operationalMetrics(duty,operationalRecord(duty)).actualDuty;
+  if(actual && Number.isFinite(actual.minutes) && actual.minutes>0){
+    return {minutes:Math.round(actual.minutes),source:"actual"};
+  }
+
+  return {
+    minutes:toMinutes(duty._totalDuty||row.duty),
+    source:"roster"
+  };
+}
+
 function payDutyGroups(){
   const rows=getRows();
   const groups=[];
   rows.forEach((row,index)=>{
-    if(!isPayEligibleFlight(row) || !String(row.dutyStart||"").trim()) return;
+    if(
+      !isInsideOfficialRosterPeriod(row) ||
+      !isPayEligibleFlight(row) ||
+      !String(row.dutyStart||"").trim()
+    ) return;
 
     // Pilot PDF duty-group ids are date-based, so separate flight duties on
     // the same date can share one. Group from this report-time row and its
@@ -4260,8 +4289,8 @@ function payDutyGroups(){
     const eligible=(duty._sectors?.length ? duty._sectors : [row])
       .filter(isPayEligibleFlight);
     if(!eligible.length) return;
-    const dutyMinutes=toMinutes(duty._totalDuty||row.duty);
-    if(dutyMinutes<=0) return;
+    const dutyTime=productivityDutyTime(duty,row);
+    if(dutyTime.minutes<=0) return;
     const items=eligible.map(r=>String(r.item||"").trim()).filter(Boolean);
     const routeParts=[];
     eligible.forEach((r,i)=>{
@@ -4273,7 +4302,9 @@ function payDutyGroups(){
     groups.push({
       key:[row.date,row.dutyStart,items.join("/")].join("|"),
       date:row.date||"",items:[...new Set(items)].join(" / "),
-      route:routeParts.join(" → ")||routeFromRow(row),minutes:dutyMinutes
+      route:routeParts.join(" → ")||routeFromRow(row),
+      minutes:dutyTime.minutes,
+      source:dutyTime.source
     });
   });
   return groups;
@@ -4364,7 +4395,9 @@ function renderPayView(){
   const total=paAmount+over80Amount;
   const month=loadedRosterMonth();
 
-  $("#payMonthLabel").textContent=month ? `${monthFormatter.format(month)} · roster estimate` : "Estimated from your loaded roster";
+  $("#payMonthLabel").textContent=month
+    ? `${monthFormatter.format(month)} · actual duty where entered`
+    : "Actual duty where entered; roster estimate otherwise";
   $("#payEstimatedTotal").textContent=moneyRM(total);
   $("#payPaAmount").textContent=moneyRM(paAmount);
   $("#payEligibleDuty").textContent=hhmm(eligibleMinutes);
@@ -4377,7 +4410,8 @@ function renderPayView(){
   $("#payDutyCount").textContent=`${duties.length} ${duties.length===1?"duty":"duties"}`;
   $("#payBreakdownList").innerHTML=duties.length ? duties.map(d=>{
     const amount=d.minutes/60*rule.pa;
-    return `<div class="pay-breakdown-row"><div><strong>${esc(d.date)} · ${esc(d.items||"Flight")}</strong><small>${esc(d.route)}</small></div><span class="pay-breakdown-hours">${hhmm(d.minutes)}</span><span class="pay-breakdown-amount">${moneyRM(amount)}</span></div>`;
+    const source=d.source==="actual"?"Actual duty":"Roster estimate";
+    return `<div class="pay-breakdown-row"><div><strong>${esc(d.date)} · ${esc(d.items||"Flight")}</strong><small>${esc(d.route)} · ${source}</small></div><span class="pay-breakdown-hours">${hhmm(d.minutes)}</span><span class="pay-breakdown-amount">${moneyRM(amount)}</span></div>`;
   }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';
   const layoverTotal=renderLayoverAllowance();
   const combinedEl=$("#payCombinedTotal");
