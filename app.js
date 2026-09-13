@@ -492,12 +492,26 @@ const VALIDATION_FIXTURES={
   }
 };
 
+// Some issued rosters contain an internal difference between the official
+// monthly header and the sum of their printed detail rows. Keep these exact,
+// verified source-PDF discrepancies separate from parser failures. The header
+// remains authoritative for the monthly totals displayed by CrewView.
+const KNOWN_SOURCE_TOTAL_DIFFERENCES={
+  "2026-09":{
+    officialFH:"68:29",
+    parsedFH:"68:29",
+    officialDH:"140:46",
+    parsedDH:"141:23"
+  }
+};
+
 function validateKnownRoster(rows){
   const fixture=officialRosterPeriod
     ? VALIDATION_FIXTURES[officialRosterPeriod.key]
     : null;
 
   const issues=[];
+  const notices=[];
   const fingerprints=rosterFingerprint(rows);
 
   // Generic integrity check for every roster revision: only rows inside the
@@ -518,11 +532,28 @@ function validateKnownRoster(rows){
     validationRows.reduce((sum,row)=>sum+toMinutes(row.duty),0)
   );
 
-  if(officialFH && parsedFH!==officialFH){
-    issues.push(`Flying-hour rows total ${parsedFH}; roster header shows ${officialFH}.`);
-  }
-  if(officialDH && parsedDH!==officialDH){
-    issues.push(`Duty-hour rows total ${parsedDH}; roster header shows ${officialDH}.`);
+  const knownSourceDifference=officialRosterPeriod
+    ? KNOWN_SOURCE_TOTAL_DIFFERENCES[officialRosterPeriod.key]
+    : null;
+  const matchesKnownSourceDifference=Boolean(
+    knownSourceDifference &&
+    officialFH===knownSourceDifference.officialFH &&
+    parsedFH===knownSourceDifference.parsedFH &&
+    officialDH===knownSourceDifference.officialDH &&
+    parsedDH===knownSourceDifference.parsedDH
+  );
+
+  if(matchesKnownSourceDifference){
+    notices.push(
+      `Official Duty Hours ${officialDH} retained; printed duty rows total ${parsedDH}.`
+    );
+  }else{
+    if(officialFH && parsedFH!==officialFH){
+      issues.push(`Flying-hour rows total ${parsedFH}; roster header shows ${officialFH}.`);
+    }
+    if(officialDH && parsedDH!==officialDH){
+      issues.push(`Duty-hour rows total ${parsedDH}; roster header shows ${officialDH}.`);
+    }
   }
 
   // Exact fixtures are revision-specific. Only run their required-row checks
@@ -587,13 +618,16 @@ function validateKnownRoster(rows){
     passed:issues.length===0,
     label,
     issues,
+    notices,
     message:issues.length
       ? `${label} validation found ${issues.length} issue${issues.length===1?"":"s"}.`
-      : revisedKnownMonth
-        ? `${label} revised roster validated successfully.`
-        : fixture
-          ? `${label} validation passed.`
-          : "Roster converted and integrity checks passed."
+      : notices.length
+        ? "Roster loaded using official monthly totals."
+        : revisedKnownMonth
+          ? `${label} revised roster validated successfully.`
+          : fixture
+            ? `${label} validation passed.`
+            : "Roster converted and integrity checks passed."
   };
 }
 
@@ -628,7 +662,10 @@ function renderValidation(result){
   );
 
   if(result.passed){
-    element.innerHTML=`<strong>✓ ${esc(result.message)}</strong>`;
+    const notices=Array.isArray(result.notices)?result.notices:[];
+    element.innerHTML=notices.length
+      ? `<strong>ⓘ ${esc(result.message)}</strong><ul>${notices.map(notice=>`<li>${esc(notice)}</li>`).join("")}</ul>`
+      : `<strong>✓ ${esc(result.message)}</strong>`;
   }else{
     element.innerHTML=`
       <strong>⚠ ${esc(result.message)}</strong>
@@ -5785,15 +5822,23 @@ function showValidationToast(result){
 
   clearTimeout(validationToastTimer);
   const failed=Boolean(result && typeof result==="object" && !result.passed);
+  const hasNotice=Boolean(
+    !failed &&
+    result &&
+    typeof result==="object" &&
+    Array.isArray(result.notices) &&
+    result.notices.length
+  );
   const message=typeof result==="string"
     ? result
     : result?.message || "Roster validation passed.";
 
   toast.classList.toggle("validation-fail",failed);
-  toast.classList.toggle("validation-pass",!failed);
+  toast.classList.toggle("validation-notice",hasNotice);
+  toast.classList.toggle("validation-pass",!failed&&!hasNotice);
   toast.setAttribute("role",failed?"alert":"status");
   toast.setAttribute("aria-live",failed?"assertive":"polite");
-  icon.textContent=failed?"!":"✓";
+  icon.textContent=failed?"!":hasNotice?"i":"✓";
 
   text.replaceChildren();
   const title=document.createElement("strong");
