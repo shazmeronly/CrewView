@@ -2986,7 +2986,7 @@ function setOperationalEvent(row,field,time,{capturedNow=false}={}){
 
   store[key]=record;
   saveOperationalStore(store);
-  applyOperationalOverlayToClassic();
+  refreshOperationalViews();
 }
 
 function resetOperationalRecord(row){
@@ -3013,7 +3013,15 @@ function resetOperationalRecord(row){
     }
   }
   saveOperationalStore(store);
+  refreshOperationalViews();
+}
+
+function refreshOperationalViews(){
   applyOperationalOverlayToClassic();
+  // Pay reads canonical saved UTC events, so a final block-in, edited release
+  // or reset must immediately update its totals and per-duty breakdown.
+  renderPayView();
+  if(crewViewMode==="timeline") renderTimelineView();
 }
 
 function durationBetweenOperationalEvents(startEvent,endEvent){
