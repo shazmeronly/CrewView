@@ -21,6 +21,16 @@ context.rows[0].duty='07:44';context.officialDH='146:40';assert.equal(validate()
 context.officialDH='146:39';context.rows[0].block='70:01';assert.equal(validate().passed,false);
 context.rows[0].block='70:02';context.rows.push({date:'01-Sep-2026',item:'duty-0',duty:'0:00'});
 assert.ok(validate().issues.some(issue=>issue.startsWith('Duplicate rows:')));
+// Latest Actual Roster removes the 09-Sep standby and moves MH159 to 18-Sep.
+context.rows=duties.filter(([day])=>day!=='09').map(([day,duty],i)=>({
+ date:`${day==='17'?'18':day}-Sep-2026`,item:`duty-${i}`,duty,block:i===0?'70:02':''
+}));
+context.rows.push({date:'01-Oct-2026',item:'MH144',duty:'13:25',block:'0:00'});
+context.officialFH='70:02';context.officialDH='139:40';
+assert.equal(validate().passed,true);assert.equal(validate().notices.length,1);
+assert.match(validate().notices[0],/139:40.*135:51/);
+context.rows[0].duty='07:43';assert.equal(validate().passed,false);
+context.rows[0].duty='07:44';context.rows[0].block='70:01';assert.equal(validate().passed,false);
 // Earlier verified September revision still produces a notice.
 context.rows=[{date:'01-Sep-2026',item:'old-revision',block:'68:29',duty:'141:23'}];
 context.officialFH='68:29';context.officialDH='140:46';
