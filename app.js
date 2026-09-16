@@ -497,12 +497,19 @@ const VALIDATION_FIXTURES={
 // verified source-PDF discrepancies separate from parser failures. The header
 // remains authoritative for the monthly totals displayed by CrewView.
 const KNOWN_SOURCE_TOTAL_DIFFERENCES={
-  "2026-09":{
+  "2026-09":[{
     officialFH:"68:29",
     parsedFH:"68:29",
     officialDH:"140:46",
     parsedDH:"141:23"
-  }
+  },{
+    // September revision supplied 16-Sep: independently summed printed
+    // Duty Hrs, excluding the 01-Oct carry-over row (13:25).
+    officialFH:"70:02",
+    parsedFH:"70:02",
+    officialDH:"146:39",
+    parsedDH:"142:50"
+  }]
 };
 
 function validateKnownRoster(rows){
@@ -532,15 +539,14 @@ function validateKnownRoster(rows){
     validationRows.reduce((sum,row)=>sum+toMinutes(row.duty),0)
   );
 
-  const knownSourceDifference=officialRosterPeriod
-    ? KNOWN_SOURCE_TOTAL_DIFFERENCES[officialRosterPeriod.key]
-    : null;
-  const matchesKnownSourceDifference=Boolean(
-    knownSourceDifference &&
-    officialFH===knownSourceDifference.officialFH &&
-    parsedFH===knownSourceDifference.parsedFH &&
-    officialDH===knownSourceDifference.officialDH &&
-    parsedDH===knownSourceDifference.parsedDH
+  const knownSourceDifferences=officialRosterPeriod
+    ? (KNOWN_SOURCE_TOTAL_DIFFERENCES[officialRosterPeriod.key]||[])
+    : [];
+  const matchesKnownSourceDifference=knownSourceDifferences.some(difference=>
+    officialFH===difference.officialFH &&
+    parsedFH===difference.parsedFH &&
+    officialDH===difference.officialDH &&
+    parsedDH===difference.parsedDH
   );
 
   if(matchesKnownSourceDifference){
