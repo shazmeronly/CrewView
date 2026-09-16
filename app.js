@@ -509,6 +509,13 @@ const KNOWN_SOURCE_TOTAL_DIFFERENCES={
     parsedFH:"70:02",
     officialDH:"146:39",
     parsedDH:"142:50"
+  },{
+    // Actual Roster PDF: 09-Sep off, MH159 on 18-Sep. Printed September
+    // Duty Hrs independently sum to 135:51; header retains 139:40.
+    officialFH:"70:02",
+    parsedFH:"70:02",
+    officialDH:"139:40",
+    parsedDH:"135:51"
   }]
 };
 
