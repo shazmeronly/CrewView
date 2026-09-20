@@ -492,41 +492,56 @@ const VALIDATION_FIXTURES={
   }
 };
 
-// Some issued rosters contain an internal difference between the official
-// monthly header and the sum of their printed detail rows. Keep these exact,
-// verified source-PDF discrepancies separate from parser failures. The header
-// remains authoritative for the monthly totals displayed by CrewView.
-const KNOWN_SOURCE_TOTAL_DIFFERENCES={
-  "2026-09":[{
-    officialFH:"68:29",
-    parsedFH:"68:29",
-    officialDH:"140:46",
-    parsedDH:"141:23"
-  },{
-    // September revision supplied 16-Sep: independently summed printed
-    // Duty Hrs, excluding the 01-Oct carry-over row (13:25).
-    officialFH:"70:02",
-    parsedFH:"70:02",
-    officialDH:"146:39",
-    parsedDH:"142:50"
-  },{
-    // Actual Roster PDF: 09-Sep off, MH159 on 18-Sep. Printed September
-    // Duty Hrs independently sum to 135:51; header retains 139:40.
-    officialFH:"70:02",
-    parsedFH:"70:02",
-    officialDH:"139:40",
-    parsedDH:"135:51"
-  },{
-    // 20-Sep Actual Roster: MH122 replaces MH140 on 23-Sep.
-    // September printed Duty Hrs sum to 135:30; header shows 135:15.
-    officialFH:"66:59",
-    parsedFH:"66:59",
-    officialDH:"135:15",
-    parsedDH:"135:30"
-  }]
-};
+// Read source evidence directly from PDF text items, before row reconstruction,
+// recovery, deduplication or actual-time overlays. Unknown layouts fail closed.
+function readPilotSourceEvidence(items,width){
+  const inColumn=(item,left,right)=>item.x>=width*left && item.x<width*right;
+  const hasDutyHeader=items.some(item=>inColumn(item,.64,.68) && /^Duty$/i.test(item.s));
+  const hasItemHeader=items.some(item=>inColumn(item,.235,.285) && /^Item$/i.test(item.s));
+  if(!hasDutyHeader || !hasItemHeader) return null;
+  const evidence={flights:[],duties:[]};
+  let date="", activity="";
+  for(const item of [...items].sort((a,b)=>a.sourceIndex-b.sourceIndex)){
+    const value=String(item.s||"").trim();
+    if(inColumn(item,.02,.09) && /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(value)){
+      date=value;
+      activity="";
+    }
+    if(inColumn(item,.09,.18) && /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*)$/i.test(value)) activity=value.toUpperCase();
+    if(inColumn(item,.235,.285) && /^MH\d{2,4}$/i.test(value)){
+      if(!date) return null;
+      activity=value.toUpperCase();
+      evidence.flights.push({date,item:activity});
+    }
+    if(inColumn(item,.64,.68) && /^\d+:\d{2}$/.test(value)){
+      if(!date || Number(value.split(":")[1])>59) return null;
+      if(toMinutes(value)>0){
+        if(!activity) return null;
+        evidence.duties.push({date,item:activity,minutes:toMinutes(value)});
+      }
+    }
+  }
+  return evidence.duties.length && evidence.flights.length ? evidence : null;
+}
 
-function validateKnownRoster(rows){
+function reconcileSourceEvidence(rows,evidence){
+  if(!evidence) return {verified:false,issues:[]};
+  const same=(a,b)=>JSON.stringify(a.sort())===JSON.stringify(b.sort());
+  const flights=rows.filter(row=>!row._overnightContinuation && /^MH\d+/i.test(row.item||""))
+    .map(row=>`${row.date}|${String(row.item).trim().toUpperCase()}`);
+  const duties=rows.filter(row=>toMinutes(row.duty)>0)
+    .map(row=>`${row.date}|${String(row.item||"").trim().toUpperCase()}|${toMinutes(row.duty)}`);
+  const issues=[];
+  if(!same(flights,evidence.flights.map(row=>`${row.date}|${row.item}`))){
+    issues.push("Extracted flight rows do not match the PDF's printed flight numbers and dates.");
+  }
+  if(!same(duties,evidence.duties.map(row=>`${row.date}|${row.item}|${row.minutes}`))){
+    issues.push("Extracted duty-hour entries do not match the PDF's printed duty-hour entries.");
+  }
+  return {verified:issues.length===0,issues};
+}
+
+function validateKnownRoster(rows,sourceEvidence=null){
   const fixture=officialRosterPeriod
     ? VALIDATION_FIXTURES[officialRosterPeriod.key]
     : null;
@@ -553,25 +568,15 @@ function validateKnownRoster(rows){
     validationRows.reduce((sum,row)=>sum+toMinutes(row.duty),0)
   );
 
-  const knownSourceDifferences=officialRosterPeriod
-    ? (KNOWN_SOURCE_TOTAL_DIFFERENCES[officialRosterPeriod.key]||[])
-    : [];
-  const matchesKnownSourceDifference=knownSourceDifferences.some(difference=>
-    officialFH===difference.officialFH &&
-    parsedFH===difference.parsedFH &&
-    officialDH===difference.officialDH &&
-    parsedDH===difference.parsedDH
-  );
-
-  if(matchesKnownSourceDifference){
-    notices.push(
-      `Official Duty Hours ${officialDH} retained; printed duty rows total ${parsedDH}.`
-    );
-  }else{
-    if(officialFH && parsedFH!==officialFH){
-      issues.push(`Flying-hour rows total ${parsedFH}; roster header shows ${officialFH}.`);
-    }
-    if(officialDH && parsedDH!==officialDH){
+  const sourceCheck=reconcileSourceEvidence(rows,sourceEvidence);
+  issues.push(...sourceCheck.issues);
+  if(officialFH && parsedFH!==officialFH){
+    issues.push(`Flying-hour rows total ${parsedFH}; roster header shows ${officialFH}.`);
+  }
+  if(officialDH && parsedDH!==officialDH){
+    if(sourceCheck.verified){
+      notices.push(`PDF source difference: header Duty Hours ${officialDH}; verified printed duty rows ${parsedDH}. Official header retained.`);
+    }else{
       issues.push(`Duty-hour rows total ${parsedDH}; roster header shows ${officialDH}.`);
     }
   }
@@ -4198,6 +4203,7 @@ async function parsePDF(file){
   let allRows=[];
   let allText=[];
   let pairingMode=false;
+  let sourceEvidence={flights:[],duties:[]};
 
   for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
     const page=await pdf.getPage(pageNumber);
@@ -4226,6 +4232,7 @@ async function parsePDF(file){
 
     if(rosterType==="cabin"){
       pairingMode=true;
+      sourceEvidence=null;
 
       const attempts=pairingCoordinateCandidates(
         textContent,
@@ -4257,6 +4264,13 @@ async function parsePDF(file){
 
       allRows.push(...selected.rows);
     }else{
+      const pageEvidence=readPilotSourceEvidence(viewportItems,viewport.width);
+      if(sourceEvidence && pageEvidence){
+        sourceEvidence.flights.push(...pageEvidence.flights);
+        sourceEvidence.duties.push(...pageEvidence.duties);
+      }else{
+        sourceEvidence=null;
+      }
       const pilotRows=buildRows(
         viewportItems,
         viewport.width,
@@ -4422,7 +4436,7 @@ async function parsePDF(file){
   saveRosterSnapshot(allRows);
   updateRosterSourceNote();
 
-  const validation=validateKnownRoster(allRows);
+  const validation=validateKnownRoster(allRows,sourceEvidence);
   renderValidation(validation);
 
   const firstDate=allRows

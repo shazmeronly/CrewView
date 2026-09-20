@@ -1,51 +1,32 @@
-const fs=require('node:fs');
-const vm=require('node:vm');
-const assert=require('node:assert/strict');
-const path=require('node:path');
+const fs=require('node:fs');const vm=require('node:vm');const assert=require('node:assert/strict');const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
 const functions=source.match(/^function [^\n]+\{[^\n]*\}$|^function [^\n]+\{\n[\s\S]*?^\}/gm).join('\n');
-const constants=['VALIDATION_FIXTURES','KNOWN_SOURCE_TOTAL_DIFFERENCES'].map(name=>source.match(new RegExp(`const ${name}=\\{[\\s\\S]*?^\\};`,'m'))[0]).join('\n');
-const context=vm.createContext({officialFH:'70:02',officialDH:'146:39',officialRosterPeriod:{key:'2026-09',start:new Date(2026,8,1),end:new Date(2026,8,30)}});
-vm.runInContext(functions+'\n'+constants,context);
-// Independently verified Duty Hrs printed in SEPTEMBER 2026(2).pdf.
-const duties=[['01','07:44'],['02','07:43'],['04','09:54'],['05','10:03'],['07','09:24'],['08','06:59'],['09','06:59'],['12','12:47'],['13','03:10'],['13','12:52'],['16','11:10'],['17','11:10'],['21','10:15'],['23','10:45'],['28','11:55']];
-context.rows=duties.map(([day,duty],i)=>({date:`${day}-Sep-2026`,item:`duty-${i}`,duty,block:i===0?'70:02':''}));
-context.rows.push({date:'01-Oct-2026',item:'MH144',duty:'13:25',block:'0:00'});
-const validate=()=>vm.runInContext('validateKnownRoster(rows)',context);
-let result=validate();
-assert.equal(result.passed,true);assert.equal(result.notices.length,1);
-assert.match(result.notices[0],/146:39.*142:50/);
-// The exact exception must not hide a lost minute or an unexpected header.
-context.rows[0].duty='07:43';assert.equal(validate().passed,false);
-context.rows[0].duty='07:44';context.officialDH='146:40';assert.equal(validate().passed,false);
-context.officialDH='146:39';context.rows[0].block='70:01';assert.equal(validate().passed,false);
-context.rows[0].block='70:02';context.rows.push({date:'01-Sep-2026',item:'duty-0',duty:'0:00'});
-assert.ok(validate().issues.some(issue=>issue.startsWith('Duplicate rows:')));
-// Latest Actual Roster removes the 09-Sep standby and moves MH159 to 18-Sep.
-context.rows=duties.filter(([day])=>day!=='09').map(([day,duty],i)=>({
- date:`${day==='17'?'18':day}-Sep-2026`,item:`duty-${i}`,duty,block:i===0?'70:02':''
-}));
-context.rows.push({date:'01-Oct-2026',item:'MH144',duty:'13:25',block:'0:00'});
-context.officialFH='70:02';context.officialDH='139:40';
-assert.equal(validate().passed,true);assert.equal(validate().notices.length,1);
-assert.match(validate().notices[0],/139:40.*135:51/);
-context.rows[0].duty='07:43';assert.equal(validate().passed,false);
-context.rows[0].duty='07:44';context.rows[0].block='70:01';assert.equal(validate().passed,false);
-// 20-Sep revision: MH158 duty changes to 10:34; SYD return to 11:00.
-context.rows=duties.filter(([day])=>day!=='09').map(([day,duty],i)=>({
- date:`${day==='17'?'18':day}-Sep-2026`,item:`duty-${i}`,
- duty:day==='16'?'10:34':day==='23'?'11:00':duty,block:i===0?'66:59':''
-}));
-context.rows.push({date:'01-Oct-2026',item:'MH144',duty:'13:25',block:'0:00'});
-context.officialFH='66:59';context.officialDH='135:15';
-assert.equal(validate().passed,true);assert.equal(validate().notices.length,1);
-assert.match(validate().notices[0],/135:15.*135:30/);
-context.rows[0].duty='07:43';assert.equal(validate().passed,false);
-context.rows[0].duty='07:44';context.rows[0].block='66:58';assert.equal(validate().passed,false);
-// Earlier verified September revision still produces a notice.
-context.rows=[{date:'01-Sep-2026',item:'old-revision',block:'68:29',duty:'141:23'}];
-context.officialFH='68:29';context.officialDH='140:46';
-assert.equal(validate().passed,true);assert.equal(validate().notices.length,1);
-// Matching totals need neither warning nor source discrepancy notice.
-context.officialDH='141:23';assert.equal(validate().passed,true);assert.equal(validate().notices.length,0);
-console.log('PASS: verified PDF discrepancy notice, October exclusion, unknown differences and duplicates still fail, previous revision retained');
+const ctx=vm.createContext({officialFH:'02:00',officialDH:'04:15',officialRosterPeriod:{key:'2027-01',start:new Date(2027,0,1),end:new Date(2027,0,31)}});
+vm.runInContext(functions+'\n'+source.match(/const VALIDATION_FIXTURES=\{[\s\S]*?^\};/m)[0],ctx);
+function items(){return [
+ {x:650,s:'Duty'},{x:240,s:'Item'},
+ {x:25,s:'01-Jan-2027'},{x:240,s:'MH123'},{x:650,s:'03:00'},
+ {x:25,s:'02-Jan-2027'},{x:100,s:'S4-330'},{x:650,s:'01:00'},
+ {x:25,s:'01-Feb-2027'},{x:240,s:'MH124'},{x:650,s:'05:00'}
+].map((v,sourceIndex)=>({...v,sourceIndex}));}
+ctx.items=items();ctx.evidence=vm.runInContext('readPilotSourceEvidence(items,1000)',ctx);
+const original=[{date:'01-Jan-2027',item:'MH123',block:'02:00',duty:'03:00'},{date:'02-Jan-2027',item:'S4-330',duty:'01:00'},{date:'01-Feb-2027',item:'MH124',duty:'05:00'}];
+ctx.rows=structuredClone(original);
+const validate=()=>vm.runInContext('validateKnownRoster(rows,evidence)',ctx);
+assert.equal(validate().passed,true);assert.match(validate().notices[0],/04:15.*04:00/);
+// Future totals and months require no hardcoded exception.
+ctx.officialDH='07:37';assert.equal(validate().passed,true);
+ctx.officialDH='04:00';assert.equal(validate().notices.length,0);
+ctx.officialDH='04:15';
+// Balanced corruption cannot pass merely because the aggregate still matches.
+ctx.rows[0].duty='02:59';ctx.rows[1].duty='01:01';assert.equal(validate().passed,false);
+ctx.rows=structuredClone(original);ctx.rows[0].date='03-Jan-2027';assert.equal(validate().passed,false);
+ctx.rows=structuredClone(original);ctx.rows.pop();assert.equal(validate().passed,false);
+ctx.rows=structuredClone(original);ctx.rows.push({...ctx.rows[0]});assert.equal(validate().passed,false);
+ctx.rows=structuredClone(original);ctx.rows[0].block='01:59';assert.equal(validate().passed,false);
+ctx.rows=structuredClone(original);ctx.evidence=null;assert.equal(validate().passed,false);
+// Missing column headings or unidentified positive duty entries fail closed.
+ctx.items=items().filter(i=>i.s!=='Duty');assert.equal(vm.runInContext('readPilotSourceEvidence(items,1000)',ctx),null);
+ctx.items=items().filter(i=>i.s!=='S4-330');assert.equal(vm.runInContext('readPilotSourceEvidence(items,1000)',ctx),null);
+assert.ok(!source.includes('KNOWN_SOURCE_TOTAL_DIFFERENCES'));
+console.log('PASS: arbitrary revisions, exact entries, dates, carry-over, duplicates, balanced corruption, flying-hour warnings and unsupported layout fallback');
