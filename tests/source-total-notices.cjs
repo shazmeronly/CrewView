@@ -31,6 +31,17 @@ assert.equal(validate().passed,true);assert.equal(validate().notices.length,1);
 assert.match(validate().notices[0],/139:40.*135:51/);
 context.rows[0].duty='07:43';assert.equal(validate().passed,false);
 context.rows[0].duty='07:44';context.rows[0].block='70:01';assert.equal(validate().passed,false);
+// 20-Sep revision: MH158 duty changes to 10:34; SYD return to 11:00.
+context.rows=duties.filter(([day])=>day!=='09').map(([day,duty],i)=>({
+ date:`${day==='17'?'18':day}-Sep-2026`,item:`duty-${i}`,
+ duty:day==='16'?'10:34':day==='23'?'11:00':duty,block:i===0?'66:59':''
+}));
+context.rows.push({date:'01-Oct-2026',item:'MH144',duty:'13:25',block:'0:00'});
+context.officialFH='66:59';context.officialDH='135:15';
+assert.equal(validate().passed,true);assert.equal(validate().notices.length,1);
+assert.match(validate().notices[0],/135:15.*135:30/);
+context.rows[0].duty='07:43';assert.equal(validate().passed,false);
+context.rows[0].duty='07:44';context.rows[0].block='66:58';assert.equal(validate().passed,false);
 // Earlier verified September revision still produces a notice.
 context.rows=[{date:'01-Sep-2026',item:'old-revision',block:'68:29',duty:'141:23'}];
 context.officialFH='68:29';context.officialDH='140:46';

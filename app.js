@@ -516,6 +516,13 @@ const KNOWN_SOURCE_TOTAL_DIFFERENCES={
     parsedFH:"70:02",
     officialDH:"139:40",
     parsedDH:"135:51"
+  },{
+    // 20-Sep Actual Roster: MH122 replaces MH140 on 23-Sep.
+    // September printed Duty Hrs sum to 135:30; header shows 135:15.
+    officialFH:"66:59",
+    parsedFH:"66:59",
+    officialDH:"135:15",
+    parsedDH:"135:30"
   }]
 };
 
