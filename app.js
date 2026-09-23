@@ -6676,11 +6676,23 @@ function restoreCachedRoster(){
   officialFH=cached.officialFH||null;
   officialDH=cached.officialDH||null;
   officialRosterPeriod=deserializeRosterPeriod(cached.officialRosterPeriod);
-  rosterTimeBasis=["LT","SLT","UTC"].includes(cached.rosterTimeBasis) ? cached.rosterTimeBasis : "LT";
   Object.entries(cached.profile||{}).forEach(([id,value])=>{
     const input=$("#"+id);
     if(input) input.value=value||"";
   });
+
+  const storedTimeBasis=["LT","SLT","UTC"].includes(cached.rosterTimeBasis)
+    ? cached.rosterTimeBasis
+    : "LT";
+  rosterTimeBasis=storedTimeBasis;
+
+  // v185 could save an unlabeled UTC iFlight roster as LT. Re-run the new
+  // calendar-anchor detector on cached rows so existing users are repaired
+  // immediately after deployment without having to clear or re-upload first.
+  if(storedTimeBasis==="LT"){
+    const redetected=detectRosterTimeBasis(cached.rows,"");
+    if(redetected==="UTC") rosterTimeBasis="UTC";
+  }
 
   setRows(annotateOperationalDates(cached.rows));
   updateRosterSourceNote();
