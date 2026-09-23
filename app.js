@@ -300,7 +300,7 @@ function updateStats(){
     fh+=toMinutes(row.block);
     dh+=toMinutes(row.duty);
 
-    const date=String(row.date||"").trim();
+    const date=String(operationalRosterDate(row)||"").trim();
     if(!date) return;
 
     if(!rowsByDate.has(date)) rowsByDate.set(date,[]);
@@ -528,9 +528,9 @@ function reconcileSourceEvidence(rows,evidence){
   if(!evidence) return {verified:false,issues:[]};
   const same=(a,b)=>JSON.stringify(a.sort())===JSON.stringify(b.sort());
   const flights=rows.filter(row=>!row._overnightContinuation && /^MH\d+/i.test(row.item||""))
-    .map(row=>`${row.date}|${String(row.item).trim().toUpperCase()}`);
+    .map(row=>`${sourceRosterDate(row)}|${String(row.item).trim().toUpperCase()}`);
   const duties=rows.filter(row=>toMinutes(row.duty)>0)
-    .map(row=>`${row.date}|${String(row.item||"").trim().toUpperCase()}|${toMinutes(row.duty)}`);
+    .map(row=>`${sourceRosterDate(row)}|${String(row.item||"").trim().toUpperCase()}|${toMinutes(row.duty)}`);
   const issues=[];
   if(!same(flights,evidence.flights.map(row=>`${row.date}|${row.item}`))){
     issues.push("Extracted flight rows do not match the PDF's printed flight numbers and dates.");
@@ -556,7 +556,7 @@ function validateKnownRoster(rows,sourceEvidence=null){
   // but must not contaminate this month's validation.
   const validationRows=rows.filter(row=>{
     if(!officialRosterPeriod) return true;
-    const date=parseRosterDate(row.date);
+    const date=parseRosterDate(operationalRosterDate(row));
     if(!date) return false;
     return date>=officialRosterPeriod.start && date<=officialRosterPeriod.end;
   });
@@ -737,6 +737,80 @@ function closest(items, xMin,xMax, y, tol=9){
               .sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").trim();
 }
 function cleanTime(v){return v.replace(/\s+/g,"").replace("(+ 1)","(+1)")}
+
+// The PDF can be exported in UTC. Keep that source date for UTC arithmetic,
+// but use the reporting-station calendar date for roster grouping/display.
+// This prevents month-boundary duties from moving into the wrong roster month.
+function formatOperationalRosterDate(parts){
+  if(!parts?.year || !parts?.month || !parts?.day) return "";
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const month=months[Number(parts.month)-1];
+  if(!month) return "";
+  return `${String(parts.day).padStart(2,"0")}-${month}-${parts.year}`;
+}
+
+function sourceRosterDate(row){
+  return String(row?._sourceDate||row?.date||"").trim();
+}
+
+function operationalDateReportAirport(row){
+  const match=String(row?.dep||"").toUpperCase().match(/\b([A-Z]{3})\b/);
+  return match?.[1] || baseAirportCode();
+}
+
+function operationalRosterDate(row){
+  const sourceDate=sourceRosterDate(row);
+  if(!sourceDate) return "";
+
+  const explicit=String(row?._operationalDate||"").trim();
+  if(typeof rosterTimeBasis==="undefined" || rosterTimeBasis!=="UTC"){
+    return explicit || sourceDate;
+  }
+
+  const date=rosterDateComponents(sourceDate);
+  let sourceDutyStart=String(row?._sourceDutyStart||row?.dutyStart||"").trim();
+  const airport=operationalDateReportAirport(row);
+
+  // Older cached UTC rosters did not retain the printed 16:00 UTC anchor on
+  // KUL off-day rows because the Classic table intentionally hides it. In a
+  // KUL roster that anchor is local midnight on the following calendar day.
+  if(
+    !sourceDutyStart &&
+    airport==="KUL" &&
+    /^(?:D|DO\d?|OFF)$/i.test(String(row?.item||"").trim())
+  ) sourceDutyStart="16:00";
+
+  const time=sourceDutyStart.match(/(\d{1,2}):(\d{2})/);
+  if(!date || !time) return explicit || sourceDate;
+
+  const utcMs=Date.UTC(
+    date.year,
+    date.month-1,
+    date.day,
+    Number(time[1]),
+    Number(time[2]),
+    0,
+    0
+  );
+  const local=timePartsInZone(utcMs,airportTimezone(airport));
+  return formatOperationalRosterDate(local) || explicit || sourceDate;
+}
+
+function annotateOperationalDates(rows){
+  return (rows||[]).map(sourceRow=>{
+    const sourceDate=sourceRosterDate(sourceRow);
+    const sourceDutyStart=String(sourceRow?._sourceDutyStart||sourceRow?.dutyStart||"").trim();
+    const row={...sourceRow,_sourceDate:sourceDate,_sourceDutyStart:sourceDutyStart};
+    const operationalDate=operationalRosterDate(row) || sourceDate;
+    return {
+      ...row,
+      date:operationalDate,
+      day:dayName(operationalDate),
+      _operationalDate:operationalDate,
+      _operationalDay:dayName(operationalDate)
+    };
+  });
+}
 
 /*
  * Some iFlight multi-sector rows omit Duty Report / Duty Hrs on the second
@@ -966,8 +1040,10 @@ function buildRows(items,w,h,pageNumber=1){
 
           rows.push({
             date:currentDate,
+            _sourceDate:currentDate,
             day:dayName(currentDate),
             dutyStart:/^(D|DO|DO1|OFF)$/i.test(item) ? "" : dutyStart,
+            _sourceDutyStart:dutyStart,
             item,
             dep,
             arr,
@@ -1013,8 +1089,10 @@ function buildRows(items,w,h,pageNumber=1){
 
     rows.push({
       date:currentDate,
+      _sourceDate:currentDate,
       day:dayName(currentDate),
       dutyStart:isContinuation ? "" : dutyStart,
+      _sourceDutyStart:dutyStart,
       item,
       dep,
       arr,
@@ -2252,9 +2330,10 @@ function rosterScheduledUtcMs(dateText,timeText,airport=""){
 }
 
 function dutyDateTime(row){
-  if(!row?.date || !row?.dutyStart) return null;
+  const sourceDate=sourceRosterDate(row);
+  if(!sourceDate || !row?.dutyStart) return null;
   const dep=(parseStationClock(row.dep)||{}).station || baseAirportCode();
-  const ms=rosterScheduledUtcMs(row.date,row.dutyStart,dep);
+  const ms=rosterScheduledUtcMs(sourceDate,row.dutyStart,dep);
   return Number.isFinite(ms) ? new Date(ms) : null;
 }
 
@@ -2679,7 +2758,7 @@ function zonedWallTimeToUtcMs(dateText,timeText,timeZone){
 function smartDutyReportUtcMs(row){
   if(!row) return null;
   const airport=dutyDepartureAirport(row)||baseAirportCode();
-  const resolved=rosterScheduledUtcMs(row.date,row.dutyStart,airport);
+  const resolved=rosterScheduledUtcMs(sourceRosterDate(row),row.dutyStart,airport);
   if(Number.isFinite(resolved)) return resolved;
   const fallback=row._dt||dutyDateTime(row);
   return fallback instanceof Date ? fallback.getTime() : null;
@@ -4332,6 +4411,10 @@ async function parsePDF(file){
     combinedText
   );
 
+  // Preserve the PDF's UTC source date separately, then normalize the visible
+  // roster date to the reporting station's calendar date before calendar fill.
+  allRows=annotateOperationalDates(allRows);
+
   allRows=applyPilotHotelAssignments(allRows,combinedText);
 
   allRows=fillEveryDay(
@@ -5484,7 +5567,7 @@ function calendarCategory(row){
 }
 
 function calendarDateKey(row){
-  const d=parseRosterDate(row?.date||"");
+  const d=parseRosterDate(operationalRosterDate(row));
   if(!d) return "";
   return [
     d.getFullYear(),
@@ -6569,7 +6652,7 @@ function restoreCachedRoster(){
     if(input) input.value=value||"";
   });
 
-  setRows(cached.rows);
+  setRows(annotateOperationalDates(cached.rows));
   updateRosterSourceNote();
   document.body.classList.add("roster-loaded");
   $("#uploadCard")?.setAttribute("aria-hidden","true");
