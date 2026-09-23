@@ -2289,6 +2289,41 @@ function detectRosterTimeBasis(rows,pdfText){
   if(/(?:^|\s)SLT(?:\s|$)/i.test(text)) return "SLT";
   if(/(?:^|\s)UTC(?:\s|$)|\bZULU\b/i.test(text)) return "UTC";
 
+  /*
+   * iFlight can export a UTC roster without printing the word "UTC". Flight
+   * elapsed times alone cannot distinguish that from base-local LT because
+   * both are fixed-clock systems. Full-day OFF/DO rows give us a reliable
+   * calendar anchor instead: a base-local midnight is printed at its UTC
+   * equivalent (for KUL, 16:00 on the preceding UTC date).
+   *
+   * Require at least two such anchors so one unusual ground-duty time cannot
+   * reclassify an LT roster. This keeps 31-Aug MH388 on operational 01-Sep
+   * while moving 30-Sep MH144 to operational 01-Oct.
+   */
+  const base=baseAirportCode();
+  const baseZone=airportTimezone(base);
+  let utcCalendarAnchors=0;
+
+  (rows||[]).forEach(row=>{
+    const item=String(row?.item||"").trim().toUpperCase();
+    if(!["D","DO","DO1","OFF"].includes(item)) return;
+
+    const sourceDate=String(row?._sourceDate||row?.date||"").trim();
+    const sourceTime=String(row?._sourceDutyStart||row?.dutyStart||"").trim();
+    const date=rosterDateComponents(sourceDate);
+    const time=sourceTime.match(/(\d{1,2}):(\d{2})/);
+    if(!date||!time) return;
+
+    const utcMs=Date.UTC(
+      date.year,date.month-1,date.day,
+      Number(time[1]),Number(time[2]),0,0
+    );
+    const local=timePartsInZone(utcMs,baseZone);
+    if(local?.hour==="00" && local?.minute==="00") utcCalendarAnchors++;
+  });
+
+  if(utcCalendarAnchors>=2) return "UTC";
+
   let localEvidence=0, fixedEvidence=0;
   (rows||[]).forEach(row=>{
     if(!/^MH\d+/i.test(String(row?.item||""))) return;
@@ -2308,12 +2343,7 @@ function detectRosterTimeBasis(rows,pdfText){
   // time matches the published block time on cross-zone sectors.
   if(localEvidence>fixedEvidence && localEvidence>0) return "SLT";
 
-  /*
-   * iFlight LT is a single local reference (the crew/base local clock), so
-   * simple wall-clock subtraction matches block time. UTC is also fixed-zone;
-   * therefore an unlabeled UTC PDF is mathematically indistinguishable from
-   * LT from the rows alone. Explicit UTC labels are handled above.
-   */
+  // Remaining fixed-clock rosters are ordinary base-local LT.
   if(fixedEvidence>0) return "LT";
   return "LT";
 }
