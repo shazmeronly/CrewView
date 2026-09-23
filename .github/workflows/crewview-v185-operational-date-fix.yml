@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          python3 .github/crewview-v185-patch.py > .github/v185-patch.log 2>&1
+          python3 .github/crewview-v185-runner.py > .github/v185-patch.log 2>&1
           code=$?
           cat .github/v185-patch.log
           if [ "$code" -ne 0 ]; then
@@ -38,7 +38,7 @@ jobs:
           node tests/operational-roster-sync.cjs
       - name: Commit tested fix
         run: |
-          rm -f .github/workflows/crewview-v185-operational-date-fix.yml .github/crewview-v185-patch.py .github/v185-patch.log
+          rm -f .github/workflows/crewview-v185-operational-date-fix.yml .github/crewview-v185-patch.py .github/crewview-v185-runner.py .github/v185-patch.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
