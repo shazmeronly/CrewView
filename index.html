@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=188">
+<link rel="stylesheet" href="style.css?v=189">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -439,7 +439,11 @@
   <div class="timeline-shell">
     <div class="timeline-monthbar">
       <div class="timeline-month-title"><span aria-hidden="true">▣</span><strong id="timelineMonthLabel">LOADED ROSTER</strong></div>
-      <button type="button" class="timeline-today" id="timelineToday">Today</button>
+      <div class="timeline-month-actions">
+        <button type="button" class="timeline-month-nav" id="timelinePrevMonth" aria-label="Previous saved roster month">‹</button>
+        <button type="button" class="timeline-today" id="timelineToday">Today</button>
+        <button type="button" class="timeline-month-nav" id="timelineNextMonth" aria-label="Next saved roster month">›</button>
+      </div>
     </div>
     <div class="timeline-list" id="timelineList"></div>
     <p class="timeline-note">Hotels are shown only when provided by the roster. Allowance figures are CrewView estimates.</p>
@@ -777,7 +781,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=188"></script>
+<script type="module" src="app.js?v=189"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>
