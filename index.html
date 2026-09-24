@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CrewView">
-<link rel="stylesheet" href="style.css?v=187">
+<link rel="stylesheet" href="style.css?v=188">
 </head>
 <body>
 <div class="crewview-splash" id="crewViewSplash" aria-hidden="true">
@@ -32,8 +32,8 @@
     </div>
     <div class="header-actions">
       <div class="loaded-roster-actions" id="loadedRosterActions" aria-label="Roster actions" aria-hidden="true">
-        <button id="replaceRosterBtn" class="header-icon-btn" type="button" aria-label="Replace roster" title="Replace roster">
-          <span aria-hidden="true">↻</span>
+        <button id="replaceRosterBtn" class="header-icon-btn" type="button" aria-label="Add or update roster" title="Add or update roster">
+          <span aria-hidden="true">＋</span>
         </button>
         <button id="headerClearBtn" class="header-icon-btn danger-icon" type="button" aria-label="Clear current roster" title="Clear current roster">
           <span aria-hidden="true">×</span>
@@ -47,6 +47,16 @@
   </div>
 </header>
 <main>
+<div class="roster-library-bar hidden" id="rosterLibraryBar" aria-label="Saved rosters">
+  <button class="roster-month-nav" id="rosterMonthPrev" type="button" aria-label="Previous saved month">‹</button>
+  <div class="roster-month-picker">
+    <span>ROSTER</span>
+    <select id="rosterMonthSelect" aria-label="Choose saved roster month"></select>
+    <small id="rosterLibraryCount">0 saved</small>
+  </div>
+  <button class="roster-month-nav" id="rosterMonthNext" type="button" aria-label="Next saved month">›</button>
+  <button class="roster-add-btn" id="rosterAddBtn" type="button" aria-label="Add or update roster" title="Add or update roster">＋</button>
+</div>
 <nav class="view-switcher hidden" id="viewSwitcher" aria-label="Roster view">
   <button class="view-tab active" type="button" data-view="classic">Classic</button>
   <button class="view-tab" type="button" data-view="calendar">Calendar</button>
@@ -56,13 +66,13 @@
 <section class="card upload-card" id="uploadCard">
   <div class="drop">
     <div style="font-size:36px">📄</div>
-    <strong>Upload Current Roster</strong>
+    <strong>Upload Roster</strong>
     <p class="help compact-help">The file is processed inside your browser. It is not uploaded anywhere.</p>
-    <label class="btn primary" for="pdfInput">Load Current Roster</label>
-    <input id="pdfInput" type="file" accept="application/pdf,.pdf">
+    <label class="btn primary" for="pdfInput">Add Roster</label>
+    <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple>
   </div>
   <div class="actions clean-actions">
-    <button class="btn secondary" id="loadAnotherBtn">Load Another Roster</button>
+    <button class="btn secondary" id="loadAnotherBtn">Add Another Roster</button>
     <button class="btn danger" id="clearBtn" type="button">Clear</button>
   </div>
   <div class="status" id="status">No roster loaded.</div>
@@ -767,7 +777,7 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
-<script type="module" src="app.js?v=187"></script>
+<script type="module" src="app.js?v=188"></script>
 
   <div id="validationToast" class="validation-toast hidden" role="status" aria-live="polite">
     <span class="validation-toast-icon">✓</span>
