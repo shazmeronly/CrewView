@@ -1,0 +1,36 @@
+name: CrewView v189 timeline month navigation
+
+on:
+  push:
+    branches:
+      - fix/timeline-continuous-months-v189
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply timeline patch
+        run: python3 .github/v189_timeline_patch.py
+      - name: Run regression checks
+        run: |
+          node --check app.js
+          node tests/timeline-month-navigation.cjs
+          node tests/unlabeled-utc-basis.cjs
+          node tests/operational-date-boundary.cjs
+          node tests/source-total-notices.cjs
+          node tests/operational-roster-sync.cjs
+      - name: Commit tested fix
+        run: |
+          rm -f .github/workflows/crewview-v189-timeline-months.yml .github/v189_timeline_patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Timeline month navigation and auto-today (v189)"
+          git push origin HEAD:fix/timeline-continuous-months-v189
