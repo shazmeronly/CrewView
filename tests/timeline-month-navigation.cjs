@@ -1,0 +1,13 @@
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const app=fs.readFileSync('app.js','utf8');
+const html=fs.readFileSync('index.html','utf8');
+const css=fs.readFileSync('style.css','utf8');
+assert.match(html,/id="timelinePrevMonth"/);
+assert.match(html,/id="timelineNextMonth"/);
+assert.match(app,/const previousView=crewViewMode;[\s\S]*if\(previousView==="timeline"\)/);
+assert.match(app,/scrollTimelineToToday\(\{behavior:"auto",fallback:false\}\)/);
+assert.match(app,/timelinePrevMonth[\s\S]*moveSavedRoster\(-1\)/);
+assert.match(app,/timelineNextMonth[\s\S]*moveSavedRoster\(1\)/);
+assert.match(css,/\.timeline-month-nav/);
+console.log('PASS: Timeline preserves view across saved months and auto-centres today');

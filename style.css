@@ -5698,6 +5698,9 @@ body .calendar-selected.v125-duty-sheet.open{
 .timeline-month-title{display:flex;align-items:center;gap:8px;color:#72a9f8;font-size:12px;letter-spacing:.08em}
 .timeline-month-title span{opacity:.7}.timeline-month-title strong{font-size:12px}
 .timeline-today{border:1px solid var(--line);border-radius:12px;background:var(--panel,#fff);color:inherit;padding:8px 12px;font-size:11px;font-weight:800}
+.timeline-month-actions{display:flex;align-items:center;gap:6px}
+.timeline-month-nav{width:34px;height:34px;border:1px solid var(--line);border-radius:12px;background:var(--panel,#fff);color:inherit;font-size:20px;line-height:1;font-weight:800;display:grid;place-items:center}
+.timeline-month-nav:disabled{opacity:.32}
 .timeline-list{position:relative}
 .timeline-note{text-align:center;color:var(--muted);font-size:9px;line-height:1.4;margin:14px 28px}
 .timeline-empty{padding:28px;text-align:center;border:1px solid var(--line);border-radius:16px;color:var(--muted)}

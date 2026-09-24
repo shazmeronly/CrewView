@@ -299,12 +299,45 @@ function renderRosterMonthSwitcher(){
 }
 
 function switchSavedRoster(key){
+  const previousView=crewViewMode;
   const cached=loadRosterSnapshot(key);
   if(!cached) return false;
-  return applyRosterSnapshot(cached,{
+
+  const switched=applyRosterSnapshot(cached,{
     statusText:`Showing ${rosterMonthLabel(activeRosterKey)}.`,
     resetViewport:false
   });
+  if(!switched || previousView==="classic") return switched;
+
+  // Changing the saved month must not kick the user back to Classic.
+  clearTimeout(crewViewTransitionTimer);
+  document.body.classList.remove("view-switching","view-switch-cover");
+  crewViewMode=previousView;
+  setPrimaryRosterViewVisibility(previousView);
+  document.body.classList.remove("calendar-mode","timeline-mode","pay-mode");
+
+  if(previousView==="calendar"){
+    document.body.classList.add("calendar-mode");
+    calendarCursor=loadedRosterMonth();
+    selectedCalendarDuty=null;
+    renderCalendarView({suppressAutoSelect:false});
+  }else if(previousView==="timeline"){
+    document.body.classList.add("timeline-mode");
+    renderTimelineView();
+    requestAnimationFrame(()=>{
+      const foundToday=scrollTimelineToToday({behavior:"auto",fallback:false});
+      if(!foundToday) window.scrollTo({top:0,left:0,behavior:"auto"});
+    });
+  }else if(previousView==="pay"){
+    document.body.classList.add("pay-mode");
+    renderPayView();
+  }
+
+  document.querySelectorAll(".view-tab[data-view]").forEach(tab=>
+    tab.classList.toggle("active",tab.dataset.view===previousView)
+  );
+  localStorage.setItem("crewview-roster-view",previousView);
+  return true;
 }
 
 function moveSavedRoster(direction){
@@ -5731,6 +5764,16 @@ function renderTimelineView(){
   const month=loadedRosterMonth();
   const monthLabel=month?month.toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase():"LOADED ROSTER";
   $("#timelineMonthLabel").textContent=monthLabel;
+
+  const library=loadRosterLibrary();
+  const keys=savedRosterKeys(library);
+  const current=resolveRosterKey(library,activeRosterKey||library.activeKey);
+  const currentIndex=keys.indexOf(current);
+  const previous=$("#timelinePrevMonth");
+  const next=$("#timelineNextMonth");
+  if(previous) previous.disabled=currentIndex<=0;
+  if(next) next.disabled=currentIndex<0 || currentIndex>=keys.length-1;
+
   if(!events.length){
     list.innerHTML='<div class="timeline-empty">No roster events found.</div>';
     return;
@@ -5751,16 +5794,22 @@ function renderTimelineView(){
   }).join("");
 }
 
-function scrollTimelineToToday(){
+function scrollTimelineToToday({behavior="smooth",fallback=true}={}){
   const now=new Date();
   const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const key=`${String(now.getDate()).padStart(2,"0")}-${months[now.getMonth()]}-${now.getFullYear()}`;
   const exact=document.querySelector(`[data-timeline-date="${key}"]`);
-  const target=exact||document.querySelector(".cv-tl-item.is-next")||document.querySelector(".cv-tl-item");
-  target?.scrollIntoView({behavior:"smooth",block:"center"});
+  const target=exact || (fallback
+    ? document.querySelector(".cv-tl-item.is-next")||document.querySelector(".cv-tl-item")
+    : null);
+  if(!target) return false;
+  target.scrollIntoView({behavior,block:"center"});
+  return Boolean(exact);
 }
 
-$("#timelineToday")?.addEventListener("click",scrollTimelineToToday);
+$("#timelineToday")?.addEventListener("click",()=>scrollTimelineToToday());
+$("#timelinePrevMonth")?.addEventListener("click",()=>moveSavedRoster(-1));
+$("#timelineNextMonth")?.addEventListener("click",()=>moveSavedRoster(1));
 
 /* Calendar View: visual layer only. The Malaysia Airlines PDF parser is unchanged. */
 let crewViewMode="classic";
@@ -6554,6 +6603,11 @@ function switchRosterView(view){
       document.body.classList.remove("calendar-mode","timeline-mode","pay-mode");
       document.body.classList.add("timeline-mode");
       renderTimelineView();
+      crewViewScrollPositions.timeline=0;
+      requestAnimationFrame(()=>{
+        const foundToday=scrollTimelineToToday({behavior:"auto",fallback:false});
+        if(!foundToday) window.scrollTo({top:0,left:0,behavior:"auto"});
+      });
     }else if(goingToPay){
       setPrimaryRosterViewVisibility("pay");
       document.body.classList.remove("calendar-mode","timeline-mode");
