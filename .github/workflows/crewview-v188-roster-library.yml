@@ -1,0 +1,35 @@
+name: CrewView v188 continuous roster library
+
+on:
+  push:
+    branches:
+      - feature/continuous-roster-library-v188
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply roster-library patch
+        run: python3 .github/crewview-v188-patch.py
+      - name: Run regression checks
+        run: |
+          node --check app.js
+          node tests/roster-library.cjs
+          node tests/unlabeled-utc-basis.cjs
+          node tests/operational-date-boundary.cjs
+          node tests/source-total-notices.cjs
+          node tests/operational-roster-sync.cjs
+      - name: Commit tested feature
+        run: |
+          rm -f .github/workflows/crewview-v188-roster-library.yml .github/crewview-v188-patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add continuous roster library (v188)"
+          git push origin HEAD:feature/continuous-roster-library-v188
