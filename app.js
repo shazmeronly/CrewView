@@ -740,6 +740,24 @@ const VALIDATION_FIXTURES={
       ["17-Aug-2026","DSA","KUL 08:30","KUL 17:30","17:30"],
       ["31-Aug-2026","MH191","DEL 01:30","KUL 06:55","07:40"]
     ]
+  },
+  "2026-11":{
+    label:"November 2026",
+    fh:"20:30",
+    dh:"86:30",
+    required:[
+      ["02-Nov-2026","MH052","KUL 22:40","",""],
+      ["04-Nov-2026","MH053","KIX 09:25","KUL 15:55","16:40"],
+      ["06-Nov-2026","MH2634","KUL 14:45","LBU 17:15","18:00"],
+      ["07-Nov-2026","MH6184","LBU 09:00","HKG 12:00",""],
+      ["07-Nov-2026","MH6185","HKG 14:00","KUL 17:50","18:35"],
+      ["10-Nov-2026","738HIP1Z","KUL 08:30","KUL 17:30","17:30"],
+      ["11-Nov-2026","738HIP1Z","KUL 08:30","KUL 17:30","17:30"],
+      ["12-Nov-2026","738HIP1Z","KUL 08:30","KUL 17:30","17:30"],
+      ["13-Nov-2026","738HCDCZ","KUL 08:30","KUL 17:30","17:30"],
+      ["16-Nov-2026","738HCDCZ","KUL 08:30","KUL 17:30","17:30"],
+      ["17-Nov-2026","738HCDCZ","KUL 08:30","KUL 17:30","17:30"]
+    ]
   }
 };
 
@@ -758,7 +776,7 @@ function readPilotSourceEvidence(items,width){
       date=value;
       activity="";
     }
-    if(inColumn(item,.09,.18) && /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*)$/i.test(value)) activity=value.toUpperCase();
+    if(inColumn(item,.09,.18) && isPilotDateOnlyActivityCode(value)) activity=value.toUpperCase();
     if(inColumn(item,.235,.285) && /^MH\d{2,4}$/i.test(value)){
       if(!date) return null;
       activity=value.toUpperCase();
@@ -982,6 +1000,12 @@ function parseHeader(text){
   if(dh){officialDH=dh[1];$("#dh").textContent=officialDH;}
   updateCompactProfile();
   updateRosterSourceNote();
+}
+function isPilotDateOnlyActivityCode(value){
+  // Preserve every dated training/ground-duty entry, including command
+  // training codes such as 738HIP1Z and 738HCDCZ.
+  return /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*|\d{3}[A-Z][A-Z0-9-]{2,})$/i
+    .test(String(value||"").trim());
 }
 function closest(items, xMin,xMax, y, tol=9){
   return items.filter(i=>i.x>=xMin&&i.x<xMax&&Math.abs(i.y-y)<=tol)
@@ -1261,10 +1285,7 @@ function buildRows(items,w,h,pageNumber=1){
         let item="";
         const activityCode=activity.trim().split(/\s+/)[0]||"";
 
-        if(
-          /^(?:D|DO\d?|DSA|OFF|AL|SL|S\d+-\d+|\d{3}BLP[A-Z0-9-]*)$/i
-            .test(activityCode)
-        ){
+        if(isPilotDateOnlyActivityCode(activityCode)){
           item=activityCode;
         }
 
@@ -2284,7 +2305,13 @@ function recoverPilotRowsByDateSegments(pdfText){
 
   const dateMatches=[
     ...text.matchAll(/\b\d{2}-[A-Za-z]{3}-\d{4}\b/g)
-  ];
+  ].filter(match=>{
+    // The far-right Updated Date column is administrative metadata, not a
+    // roster date. Its HH.mm timestamp can otherwise attach an undated
+    // continuation flight to an old date (e.g. MH6185 -> 12-Oct).
+    const following=text.slice(match.index+match[0].length);
+    return !/^\s+\d{1,2}\.\d{2}(?=\s|$)/.test(following);
+  });
 
   const recovered=[];
 
