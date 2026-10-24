@@ -757,6 +757,9 @@ const VALIDATION_FIXTURES={
       ["13-Nov-2026","738HCDCZ","KUL 08:30","KUL 17:30","17:30"],
       ["16-Nov-2026","738HCDCZ","KUL 08:30","KUL 17:30","17:30"],
       ["17-Nov-2026","738HCDCZ","KUL 08:30","KUL 17:30","17:30"]
+    ],
+    blockHours:[
+      ["07-Nov-2026","MH6185","03:50"]
     ]
   }
 };
@@ -875,6 +878,12 @@ function validateKnownRoster(rows,sourceEvidence=null){
 
       if(!found){
         issues.push(`${date}: missing or incorrect ${item}`);
+      }
+    });
+    (fixture.blockHours||[]).forEach(([date,item,block])=>{
+      const matching=validationRows.find(row=>row.date===date && row.item===item);
+      if(matching && String(matching.block||"").trim()!==block){
+        issues.push(`${date} ${item}: block hours ${matching.block||"blank"}; expected ${block}.`);
       }
     });
   }
@@ -2340,6 +2349,31 @@ function recoverPilotRowsByDateSegments(pdfText){
       const report=flightMatch[1]||"";
       if(report) firstReport=report;
 
+      // On a continuation sector without printed Duty Hrs, the two trailing
+      // times may be Duty End + Flying Hrs rather than Flying Hrs + Duty Hrs.
+      // Recognize a plausible debrief shortly after arrival instead of
+      // interpreting its clock time as block duration (MH6185: 18:35 / 03:50).
+      let recoveredEnd=flightMatch[8]||"";
+      let recoveredBlock=flightMatch[9];
+      let recoveredDuty=sectorIndex===0 ? flightMatch[10] : "";
+      if(!recoveredEnd && sectorIndex>0 && !report){
+        const clock=value=>{
+          const match=String(value||"").match(/(\d{1,2}):(\d{2})/);
+          if(!match || Number(match[1])>23 || Number(match[2])>59) return null;
+          return Number(match[1])*60+Number(match[2]);
+        };
+        const arrivalClock=clock(flightMatch[7]);
+        const candidateEnd=clock(flightMatch[9]);
+        if(
+          arrivalClock!==null && candidateEnd!==null &&
+          (candidateEnd-arrivalClock+1440)%1440<=180
+        ){
+          recoveredEnd=flightMatch[9];
+          recoveredBlock=flightMatch[10];
+          recoveredDuty="";
+        }
+      }
+
       recovered.push({
         date,
         day:dayName(date),
@@ -2348,9 +2382,9 @@ function recoverPilotRowsByDateSegments(pdfText){
         work:flightMatch[3],
         dep:`${flightMatch[4]} ${flightMatch[5]}`,
         arr:`${flightMatch[6]} ${flightMatch[7]}`,
-        dutyEnd:flightMatch[8]||"",
-        block:flightMatch[9],
-        duty:sectorIndex===0 ? flightMatch[10] : "",
+        dutyEnd:recoveredEnd,
+        block:recoveredBlock,
+        duty:recoveredDuty,
         ac:flightMatch[11],
         _recoveredFromText:true,
         _sectorIndex:sectorIndex
