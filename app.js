@@ -7325,7 +7325,19 @@ function buildCrewViewPdfDocument(){
   `).join("");
 
   // PAGE 2: allowance calculations only.
-  const {grade,rule,rate,over80Rate}=activePayContext();
+  const {grade,rule,rate,over80Rate,mc,cabin}=activePayContext();
+
+  for(const id of ["cvPdfPilotBlockRow","cvPdfPilotOver80Row","cvPdfPilotFdpRow"]){
+    $("#"+id)?.classList.toggle("hidden",cabin);
+  }
+  for(const id of ["cvPdfCabinRateRow","cvPdfCabinMcRow","cvPdfCabinRuleRow"]){
+    $("#"+id)?.classList.toggle("hidden",!cabin);
+  }
+  if(cabin){
+    $("#cvPdfCabinRate").textContent=moneyRM(rate)+"/hour";
+    $("#cvPdfCabinMc").textContent=String(mc.days);
+    $("#cvPdfCabinRule").textContent=mc.days>2?"Reduced (3+ days)":"Normal (0–2 days)";
+  }
 
   const duties=payDutyGroups();
   const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
