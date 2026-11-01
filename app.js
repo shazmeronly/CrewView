@@ -4919,16 +4919,16 @@ async function parsePDF(file){
       );
       const printedFlights=[...printed.values()].reduce((sum,n)=>sum+n,0);
       const viewportFlights=viewportRows.filter(row=>
-        /^MH\\d{2,4}$/i.test(String(row.item||"").trim())
+        /^MH\d{2,4}$/i.test(String(row.item||"").trim())
       );
       const viewportComplete=printedFlights>0 &&
         absentCount(viewportRows)===0 &&
         viewportFlights.length===printedFlights &&
         viewportFlights.every(row=>
-          /^\\d{1,2}:\\d{2}$/.test(String(row.block||"").trim()) &&
-          /^[A-Z]{3}\\s+\\d{1,2}:\\d{2}/.test(String(row.dep||"")) &&
-          /^[A-Z]{3}\\s+\\d{1,2}:\\d{2}/.test(String(row.arr||"")) &&
-          /^\\d{2}-[A-Za-z]{3}-\\d{4}$/.test(String(row.date||""))
+          /^\d{1,2}:\d{2}$/.test(String(row.block||"").trim()) &&
+          /^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(String(row.dep||"")) &&
+          /^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(String(row.arr||"")) &&
+          /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.date||""))
         );
       const selected=viewportComplete
         ? {
