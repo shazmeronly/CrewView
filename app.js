@@ -1624,6 +1624,88 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
   return rows;
 }
 
+/*
+ * Cabin PDF pairing continuity must be determined by flight sequence, not
+ * a date accidentally inherited from the next printed row. For example,
+ * MH711 KUL->CGK on 02-Nov ends with undated MH710 CGK->KUL; a PDF layout
+ * can incorrectly label that second sector 03-Nov.
+ *
+ * This also preserves groups when a pairing continues across PDF pages.
+ */
+function reconcileCabinPairingSequence(rows){
+  let active=null;
+  let lastSector=null;
+  let sectorIndex=0;
+  const out=[];
+  for(const source of rows){
+    const row={...source};
+    const flight=/^MH\d{2,4}$/i.test(String(row.item||"").trim());
+    const report=String(row.dutyStart||"").trim();
+    if(flight && report){
+      active={
+        date:row.date,
+        group:row._dutyGroup ||
+          "CABIN|"+row.date+"|"+report+"|"+row.item
+      };
+      sectorIndex=0;
+      row._dutyGroup=active.group;
+      row._sectorIndex=0;
+      lastSector=row;
+    }else if(flight && active && !report){
+      const previousArrival=flightAirport(lastSector?.arr||"");
+      const currentDeparture=flightAirport(row.dep||"");
+      const sourceDate=parseRosterDate(active.date);
+      const candidateDate=parseRosterDate(row.date);
+      const dayGap=sourceDate && candidateDate
+        ? Math.round((candidateDate-sourceDate)/86400000)
+        : 0;
+      // Only join genuinely connected sectors, never different duties.
+      if(
+        previousArrival && previousArrival===currentDeparture &&
+        dayGap>=0 && dayGap<=1
+      ){
+        sectorIndex+=1;
+        row.date=active.date;
+        row.day=dayName(active.date);
+        row._dutyGroup=active.group;
+        row._sectorIndex=sectorIndex;
+        lastSector=row;
+      }else{
+        active=null;
+        lastSector=null;
+      }
+    }else if(flight){
+      active=null;
+      lastSector=null;
+    }
+    out.push(row);
+    if(flight && String(row.dutyEnd||"").trim()){
+      active=null;
+      lastSector=null;
+    }
+    // Non-flight rows may be printed between sectors because of a misplaced
+    // date boundary; only a real new report or completed flight ends a duty.
+    if(!flight && String(row.dutyStart||"").trim() &&
+      !["D","OFF","DO","DO1","AL","SL"].includes(
+        String(row.item||"").trim().toUpperCase()
+      )){
+      active=null;
+      lastSector=null;
+    }
+  }
+  const totals=new Map();
+  out.forEach(row=>{
+    if(row._dutyGroup && /^MH\d{2,4}$/i.test(String(row.item||""))){
+      totals.set(row._dutyGroup,(totals.get(row._dutyGroup)||0)+1);
+    }
+  });
+  out.forEach(row=>{
+    if(row._dutyGroup && totals.has(row._dutyGroup))
+      row._sectorCount=totals.get(row._dutyGroup);
+  });
+  return out;
+}
+
 function parseRosterDate(s){
   const m=String(s||"").match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
   if(!m)return null;
@@ -4473,7 +4555,14 @@ function scorePairingRows(rows){
   rows.forEach(row=>{
     const item=String(row.item||"").trim().toUpperCase();
     if(/^\d{2}:\d{2}$/.test(String(row.dutyStart||""))) score+=2;
-    if(/^MH\d{2,4}$/i.test(item)) score+=5;
+    if(/^MH\d{2,4}$/i.test(item)){
+      score+=5;
+      // Prefer the coordinate interpretation that retains both the Flying
+      // Hrs and first-sector Duty Hrs printed on the same physical row.
+      if(/^\d{1,2}:\d{2}$/.test(String(row.block||""))) score+=7;
+      if(String(row.dutyStart||"").trim() &&
+        /^\d{1,2}:\d{2}$/.test(String(row.duty||""))) score+=12;
+    }
     // Cabin office duty (OFF01 / OF1) is a real duty, not an off day.
     if(/^(?:OFF0?1|OF1)$/.test(item)) score+=12;
     if(/^[A-Z]{3}\s+\d{2}:\d{2}/.test(String(row.dep||""))) score+=3;
@@ -4711,8 +4800,41 @@ async function parsePDF(file){
         };
       });
 
-      attempts.sort((a,b)=>b.score-a.score);
+      // Cross-check ALL flight-number tokens printed on this PDF page.
+      // Score alone can favor a visually plausible candidate that drops the
+      // last row of page one (20-Nov MH711 = 02:10 FH / 06:55 DH).
+      const printed=new Map();
+      viewportItems.forEach(item=>{
+        const code=String(item.s||"").trim().toUpperCase();
+        if(!/^MH\d{2,4}$/.test(code)) return;
+        printed.set(code,(printed.get(code)||0)+1);
+      });
+      const absentCount=rows=>{
+        const detected=new Map();
+        rows.forEach(row=>{
+          const code=String(row.item||"").trim().toUpperCase();
+          if(/^MH\d{2,4}$/.test(code))
+            detected.set(code,(detected.get(code)||0)+1);
+        });
+        return [...printed].reduce(
+          (total,[code,count])=>total+Math.max(0,count-(detected.get(code)||0)),
+          0
+        );
+      };
+      attempts.forEach(candidate=>{
+        candidate.missingFlights=absentCount(candidate.rows);
+      });
+      attempts.sort((a,b)=>
+        a.missingFlights-b.missingFlights || b.score-a.score
+      );
       const selected=attempts[0];
+      if(selected.missingFlights){
+        throw new Error(
+          "Cabin PDF import could not read "+selected.missingFlights+
+          " printed flight sector(s) on page "+pageNumber+
+          ". Please use a new iFlight PDF export."
+        );
+      }
 
       console.info(
         "CrewView cabin parser:",
@@ -4720,6 +4842,7 @@ async function parsePDF(file){
         selected.score
       );
 
+      selected.rows.forEach(row=>{row._pageNumber=pageNumber;});
       allRows.push(...selected.rows);
     }else{
       const pageEvidence=readPilotSourceEvidence(viewportItems,viewport.width);
@@ -4782,6 +4905,12 @@ async function parsePDF(file){
     throw new Error(
       "No roster rows were detected. This version supports Malaysia Airlines pilot and pairing-based cabin crew Roster Report PDFs."
     );
+  }
+
+  // Repair date assignments and multi-sector grouping in original PDF
+  // page order BEFORE monthly calendar fill and chronological sorting.
+  if(pairingMode){
+    allRows=reconcileCabinPairingSequence(allRows);
   }
 
   // Pilot text recovery is not valid for cabin pairing reports: it can
@@ -4878,6 +5007,13 @@ async function parsePDF(file){
 
     if(a._overnightContinuation && !b._overnightContinuation) return -1;
     if(!a._overnightContinuation && b._overnightContinuation) return 1;
+
+    // A cabin pairing may cross a physical page boundary. Always retain
+    // source page order: page-two sector 1 follows page-one sector 0.
+    if(pairingMode){
+      const ap=Number(a._pageNumber||1), bp=Number(b._pageNumber||1);
+      if(ap!==bp) return ap-bp;
+    }
 
     const aOrder=Number.isFinite(a._visualOrder)
       ? a._visualOrder
