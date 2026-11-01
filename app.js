@@ -2846,7 +2846,11 @@ function buildCompleteDuty(rows,index){
 }
 
 function isSmartNonWorkingItem(item){
-  return ["D","DO","DO1","OFF"].includes(String(item||"").trim().toUpperCase());
+  const code=String(item||"").trim().toUpperCase();
+  // A leave day with a printed 00:00 report is not an upcoming duty.
+  // In particular, the cabin roster has AL on 23–27 Nov.
+  return ["D","DO","DO1","OFF","AL","SL"].includes(code) ||
+    /^MC\d*$/.test(code);
 }
 
 function smartCrewRole(){
