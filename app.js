@@ -50,6 +50,7 @@ const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block"
 let officialFH=null, officialDH=null;
 let officialRosterPeriod=null;
 let rosterTimeBasis="LT"; // iFlight LT (base-local) | SLT (station-local) | UTC
+let rosterCrewType=""; // Auto-detected from PDF: pilot or cabin.
 
 const ROSTER_CACHE_KEY="crewview-roster-cache-v1";
 const ROSTER_LIBRARY_KEY="crewview-roster-library-v2";
@@ -190,6 +191,7 @@ function buildRosterSnapshot(rows){
     officialDH,
     officialRosterPeriod:serializeRosterPeriod(officialRosterPeriod),
     rosterTimeBasis,
+    rosterCrewType,
     profile
   };
 }
@@ -985,13 +987,13 @@ function parseHeader(text){
   // internal text order, even though it is visually shown on the same header.
   // Search the complete extracted text instead of only the text after the date range.
   let person=head.match(
-    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,4})(?=\s|Roster Report|FH|$)/i
+    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z0-9-]{2,6})(?=\s|Roster Report|FH|$)/i
   );
 
   // Fallback when PDF.js drops the vertical bars.
   if(!person){
     person=head.match(
-      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,4})(?=\s+Roster Report|\s+FH\s*:|$)/i
+      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z0-9-]{2,6})(?=\s+Roster Report|\s+FH\s*:|$)/i
     );
   }
 
@@ -2841,7 +2843,8 @@ function isSmartNonWorkingItem(item){
 function smartCrewRole(){
   const rank=($("#rank")?.value||"").trim().toUpperCase();
   if(["FO","SO","CPT","CAPT","CMDR","SFO"].includes(rank)) return "pilot";
-  if(["FS","FSS","LS","CSS","IFS","IFM","CCM"].includes(rank)) return "cabin";
+  if(["FS","FSS","LS","CSS","IFS","IFM","CCM","D1-CC","D2-CC","E4-CC","E3-CC"].includes(rank)) return "cabin";
+  if(rosterCrewType==="pilot" || rosterCrewType==="cabin") return rosterCrewType;
   return "crew";
 }
 
@@ -4584,7 +4587,7 @@ function detectRosterType(text){
    * Cabin ranks continue using the pairing parser.
    */
   const profile=normalized.match(
-    /\|\s*\d{5,}\s*\|\s*[A-Z0-9]{2,5}\s*\|\s*[A-Z]{3}\s*\|\s*([A-Z0-9]{2,5})\b/i
+    /\|\s*\d{5,}\s*\|\s*[A-Z0-9]{2,5}\s*\|\s*[A-Z]{3}\s*\|\s*([A-Z0-9-]{2,6})(?=\s|\||$)/i
   );
 
   const rank=(profile?.[1]||"").toUpperCase();
@@ -4596,7 +4599,7 @@ function detectRosterType(text){
   }
 
   if(
-    ["FS","FSS","LS","CSS","IFS","IFM","CCM"].includes(rank)
+    ["FS","FSS","LS","CSS","IFS","IFM","CCM","D1-CC","D2-CC","E4-CC","E3-CC"].includes(rank)
   ){
     return "cabin";
   }
@@ -4615,6 +4618,8 @@ async function parsePDF(file){
   officialFH=null;
   officialDH=null;
   officialRosterPeriod=null;
+  rosterCrewType="";
+  if($("#payGrade")) delete $("#payGrade").dataset.userSelected;
   $("#validationResult")?.classList.add("hidden");
   ["name","staff","rank","fleet","base"].forEach(id=>$("#"+id).value="");
 
@@ -4711,6 +4716,7 @@ async function parsePDF(file){
 
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
+  rosterCrewType=pairingMode?"cabin":"pilot";
   // Detect only the scheduled roster time basis. This does not alter the PDF
   // parser, offline boot, service-worker strategy, or pilot actual UTC storage.
   rosterTimeBasis=detectRosterTimeBasis(allRows,combinedText);
@@ -4949,15 +4955,108 @@ const PAY_RULES={
   "C2-P":{pa:240,over80:95,label:"Captain"},
   "C1-P":{pa:130,over80:75,label:"First Officer"},
   "D2-P":{pa:130,over80:75,label:"Second Officer"},
-  "D1-P":{pa:105,over80:75,label:"Cadet Pilot"}
+  "D1-P":{pa:105,over80:75,label:"Cadet Pilot"},
+  "D1-CC":{pa:29,mcPa:22,over80:0,label:"IFS"},
+  "D2-CC":{pa:29,mcPa:22,over80:0,label:"IFS"},
+  "E4-CC":{pa:27,mcPa:20,over80:0,label:"LS"},
+  "E3-CC":{pa:25,mcPa:18,over80:0,label:"FS"}
 };
 
 function inferredPayGrade(){
   const rank=String($("#rank")?.value||"").trim().toUpperCase();
+  if(["D1-CC","D2-CC","E4-CC","E3-CC"].includes(rank)) return rank;
+  if(["IFS","IFM","CCM"].includes(rank)) return "D1-CC";
+  if(["LS","CSS"].includes(rank)) return "E4-CC";
+  if(["FS","FSS"].includes(rank)) return "E3-CC";
   if(["CPT","CAPT","CMDR","CP"].includes(rank)) return "C2-P";
   if(["SO"].includes(rank)) return "D2-P";
   if(["CADET","CPILOT"].includes(rank)) return "D1-P";
+  if(rosterCrewType==="cabin") return "E3-CC"; // fallback if PDF omits grade/rank
   return "C1-P";
+}
+
+
+// Cabin-crew productivity: MC days are counted within the selected calendar
+// roster month. A manual override is stored locally by crew and month.
+const CABIN_MC_STORAGE_KEY="crewview-cabin-mc-days-v1";
+function isCabinPayGrade(grade){
+  return String(grade||"").endsWith("-CC");
+}
+function activePayGrade(){
+  const select=$("#payGrade");
+  const inferred=inferredPayGrade();
+  const cabin=isCabinPayGrade(inferred);
+  const allowed=cabin
+    ? ["D1-CC","D2-CC","E4-CC","E3-CC"]
+    : ["C2-P","C1-P","D2-P","D1-P"];
+  if(select){
+    [...select.options].forEach(option=>{
+      option.hidden=!allowed.includes(option.value);
+      option.disabled=!allowed.includes(option.value);
+    });
+    if(!select.dataset.userSelected || !allowed.includes(select.value)){
+      select.value=allowed.includes(inferred)?inferred:allowed[0];
+      delete select.dataset.userSelected;
+    }
+  }
+  return select && allowed.includes(select.value) ? select.value : inferred;
+}
+function cabinMcMonthKey(){
+  const month=loadedRosterMonth();
+  if(!month) return "";
+  const yyyy=month.getFullYear();
+  const mm=String(month.getMonth()+1).padStart(2,"0");
+  const staff=String($("#staff")?.value||"crew").trim();
+  return staff+"|"+yyyy+"-"+mm;
+}
+function cabinMcFromRoster(){
+  const dates=new Set();
+  getRows().forEach(row=>{
+    if(!isInsideOfficialRosterPeriod(row) || !row.date) return;
+    const item=String(row.item||"").trim().toUpperCase();
+    if(/^(?:MC\d*|SICK(?: LEAVE)?|MEDICAL LEAVE)$/.test(item)){
+      dates.add(row.date);
+    }
+  });
+  return dates.size;
+}
+function readCabinMcOverrides(){
+  try{
+    const value=JSON.parse(localStorage.getItem(CABIN_MC_STORAGE_KEY)||"{}");
+    return value && typeof value==="object" && !Array.isArray(value) ? value : {};
+  }catch(_error){return {};}
+}
+function cabinMcState(){
+  const key=cabinMcMonthKey();
+  const detected=cabinMcFromRoster();
+  const stored=readCabinMcOverrides();
+  const value=key ? stored[key] : undefined;
+  const manual=Number.isInteger(value) && value>=0 && value<=31;
+  return {key,detected,manual,days:manual ? value : detected};
+}
+function saveCabinMcDays(days){
+  const key=cabinMcMonthKey();
+  if(!key || !Number.isInteger(days) || days<0 || days>31) return;
+  const stored=readCabinMcOverrides();
+  stored[key]=days;
+  try{localStorage.setItem(CABIN_MC_STORAGE_KEY,JSON.stringify(stored));}
+  catch(_error){/* Private browsing may not allow writes. */}
+}
+function resetCabinMcDays(){
+  const key=cabinMcMonthKey();
+  if(!key) return;
+  const stored=readCabinMcOverrides();
+  delete stored[key];
+  try{localStorage.setItem(CABIN_MC_STORAGE_KEY,JSON.stringify(stored));}
+  catch(_error){/* Private browsing may not allow writes. */}
+}
+function activePayContext(){
+  const grade=activePayGrade();
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  const cabin=isCabinPayGrade(grade);
+  const mc=cabin?cabinMcState():null;
+  const rate=(cabin && mc.days>2) ? rule.mcPa : rule.pa;
+  return {grade,rule,cabin,mc,rate,over80Rate:cabin?0:rule.over80};
 }
 
 function isPayStandby(row){
@@ -5058,11 +5157,7 @@ function moneyRM(value){
 
 function productivityAllowanceForDuty(row){
   if(!row) return 0;
-  const gradeEl=$("#payGrade");
-  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
-    ? gradeEl.value
-    : inferredPayGrade();
-  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  const {rate}=activePayContext();
 
   const item=String(row.item||"").trim().toUpperCase();
   const work=String(row.work||"").trim().toUpperCase();
@@ -5089,7 +5184,7 @@ function productivityAllowanceForDuty(row){
   if(!(minutes>0)) minutes=toMinutes(row.duty);
   if(!(minutes>0)) minutes=toMinutes(row._totalDuty);
 
-  return minutes>0 ? minutes/60*rule.pa : 0;
+  return minutes>0 ? minutes/60*rate : 0;
 }
 
 function smartDutyClockParts(text){
@@ -5110,19 +5205,31 @@ function smartDutyDateForNextDay(dateText,value){
 }
 
 function renderPayView(){
-  const gradeEl=$("#payGrade");
-  if(!gradeEl) return;
-  if(!gradeEl.dataset.userSelected){
-    gradeEl.value=inferredPayGrade();
+  if(!$("#payGrade")) return;
+  const {grade,rule,cabin,mc,rate,over80Rate}=activePayContext();
+  $("#cabinMcControl")?.classList.toggle("hidden",!cabin);
+  $("#pay80Card")?.classList.toggle("hidden",cabin);
+  $("#payFdpCard")?.classList.toggle("hidden",cabin);
+  const mcInput=$("#cabinMcDays");
+  if(cabin && mcInput){
+    if(document.activeElement!==mcInput) mcInput.value=String(mc.days);
+    $("#cabinMcHint").textContent=mc.manual
+      ? String(mc.days)+" MC day(s) entered manually; "+mc.detected+" detected in roster."
+      : String(mc.detected)+" MC day(s) detected in roster. Adjust if missing.";
+    $("#cabinMcReset")?.classList.toggle("hidden",!mc.manual);
   }
-  const grade=gradeEl.value;
-  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  $("#payEstimatedSubtext").textContent=cabin
+    ? "Cabin crew productivity · monthly MC rule"
+    : "Productivity Allowance + applicable 80+ block-hour payment";
+  $("#payPaRule").textContent=cabin
+    ? "0–2 MC days: normal rate. 3 or more: reduced rate for all eligible duty hours that month. Standby and observation excluded."
+    : "Actual operating and positioning duty where entered; roster duty is used as an estimate otherwise. All standby and observation duties are excluded.";
   const duties=payDutyGroups();
   const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
   const blockMinutes=payMonthlyBlockMinutes();
   const excessMinutes=Math.max(0,blockMinutes-80*60);
-  const paAmount=eligibleMinutes/60*rule.pa;
-  const over80Amount=excessMinutes/60*rule.over80;
+  const paAmount=eligibleMinutes/60*rate;
+  const over80Amount=excessMinutes/60*over80Rate;
   const total=paAmount+over80Amount;
   const month=loadedRosterMonth();
 
@@ -5132,7 +5239,7 @@ function renderPayView(){
   $("#payEstimatedTotal").textContent=moneyRM(total);
   $("#payPaAmount").textContent=moneyRM(paAmount);
   $("#payEligibleDuty").textContent=hhmm(eligibleMinutes);
-  $("#payPaFormula").textContent=`${hhmm(eligibleMinutes)} × ${moneyRM(rule.pa)}/hour · ${grade}`;
+  $("#payPaFormula").textContent=`${hhmm(eligibleMinutes)} × ${moneyRM(rate)}/hour · ${grade}${cabin ? ` · ${mc.days} MC day(s)` : ""}`;
   $("#pay80Amount").textContent=moneyRM(over80Amount);
   $("#payBlockHours").textContent=hhmm(blockMinutes);
   $("#pay80Formula").textContent=excessMinutes>0
@@ -5140,7 +5247,7 @@ function renderPayView(){
     : "No excess above 80:00";
   $("#payDutyCount").textContent=`${duties.length} ${duties.length===1?"duty":"duties"}`;
   $("#payBreakdownList").innerHTML=duties.length ? duties.map(d=>{
-    const amount=d.minutes/60*rule.pa;
+    const amount=d.minutes/60*rate;
     const source=d.source==="actual"?"Actual duty":"Roster estimate";
     return `<div class="pay-breakdown-row"><div><strong>${esc(d.date)} · ${esc(d.items||"Flight")}</strong><small>${esc(d.route)} · ${source}</small></div><span class="pay-breakdown-hours">${hhmm(d.minutes)}</span><span class="pay-breakdown-amount">${moneyRM(amount)}</span></div>`;
   }).join("") : '<div class="pay-empty">No eligible operating or positioning flight duty found in this roster.</div>';
@@ -6977,6 +7084,8 @@ $("#clearBtn")?.addEventListener("click",event=>{
   officialFH=null;
   officialDH=null;
   officialRosterPeriod=null;
+  rosterCrewType="";
+  if($("#payGrade")) delete $("#payGrade").dataset.userSelected;
 
   if(nextDutyTimer){
     clearInterval(nextDutyTimer);
@@ -7040,6 +7149,11 @@ function applyRosterSnapshot(cached,{statusText="Roster loaded.",resetViewport=f
   officialFH=cached.officialFH||null;
   officialDH=cached.officialDH||null;
   officialRosterPeriod=deserializeRosterPeriod(cached.officialRosterPeriod);
+  const storedRank=String(cached.profile?.rank||"").toUpperCase();
+  rosterCrewType=["pilot","cabin"].includes(cached.rosterCrewType)
+    ? cached.rosterCrewType
+    : ["IFS","IFM","CCM","LS","CSS","FS","FSS","D1-CC","D2-CC","E4-CC","E3-CC"].includes(storedRank)?"cabin":"pilot";
+  if($("#payGrade")) delete $("#payGrade").dataset.userSelected;
   Object.entries(cached.profile||{}).forEach(([id,value])=>{
     const input=$("#"+id);
     if(input) input.value=value||"";
@@ -7195,21 +7309,15 @@ function buildCrewViewPdfDocument(){
   `).join("");
 
   // PAGE 2: allowance calculations only.
-  const gradeEl=$("#payGrade");
-  if(gradeEl && !gradeEl.dataset.userSelected) gradeEl.value=inferredPayGrade();
-
-  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value)
-    ? gradeEl.value
-    : inferredPayGrade();
-  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  const {grade,rule,rate,over80Rate}=activePayContext();
 
   const duties=payDutyGroups();
   const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
   const blockMinutes=payMonthlyBlockMinutes();
   const excessMinutes=Math.max(0,blockMinutes-80*60);
 
-  const productivityAmount=eligibleMinutes/60*rule.pa;
-  const over80Amount=excessMinutes/60*rule.over80;
+  const productivityAmount=eligibleMinutes/60*rate;
+  const over80Amount=excessMinutes/60*over80Rate;
 
   const layovers=calculateLayoverAllowances();
   const layoverAmount=layovers.reduce((sum,l)=>sum+Number(l.amount||0),0);
@@ -7228,7 +7336,7 @@ function buildCrewViewPdfDocument(){
       <td>${esc(cvPdfText(d.date))}</td>
       <td>${esc(cvPdfText(d.items,"Flight"))}</td>
       <td>${esc(hhmm(d.minutes))}</td>
-      <td>${esc(moneyRM(d.minutes/60*rule.pa))}</td>
+      <td>${esc(moneyRM(d.minutes/60*rate))}</td>
     </tr>
   `).join("") : `<tr><td colspan="4">No eligible operating or positioning flight duty found.</td></tr>`;
 
@@ -7456,16 +7564,13 @@ function cvPdfDirectData(){
   const flightMinutes=rows.reduce((sum,row)=>sum+toMinutes(row.block),0);
   const dutyMinutes=rows.reduce((sum,row)=>sum+toMinutes(row.duty),0);
 
-  const gradeEl=$("#payGrade");
-  if(gradeEl && !gradeEl.dataset.userSelected) gradeEl.value=inferredPayGrade();
-  const grade=(gradeEl?.dataset?.userSelected && gradeEl.value) ? gradeEl.value : inferredPayGrade();
-  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  const {grade,rule,rate,over80Rate,mc,cabin}=activePayContext();
   const duties=payDutyGroups();
   const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
   const blockMinutes=payMonthlyBlockMinutes();
   const excessMinutes=Math.max(0,blockMinutes-80*60);
-  const productivityAmount=eligibleMinutes/60*rule.pa;
-  const over80Amount=excessMinutes/60*rule.over80;
+  const productivityAmount=eligibleMinutes/60*rate;
+  const over80Amount=excessMinutes/60*over80Rate;
   const layovers=calculateLayoverAllowances();
   const layoverAmount=layovers.reduce((sum,l)=>sum+Number(l.amount||0),0);
   const estimatedTotal=productivityAmount+over80Amount+layoverAmount;
@@ -7473,7 +7578,7 @@ function cvPdfDirectData(){
   return {
     rows,name,meta,month,generated,
     flightMinutes,dutyMinutes,offDays:cvPdfOffDayCount(rows),
-    grade,rule,duties,eligibleMinutes,blockMinutes,
+    grade,rule,rate,cabin,mc,duties,eligibleMinutes,blockMinutes,
     productivityAmount,over80Amount,layovers,layoverAmount,estimatedTotal
   };
 }
@@ -7518,12 +7623,19 @@ function cvPdfBuildDirectBlob(){
 
   // Stronger Allowance Summary.
   p2.text(32,190,"Allowance Summary",12,{bold:true});
-  const summaryRows=[
-    ["Eligible Duty Hours",hhmm(d.eligibleMinutes)],
-    ["Monthly Flying Block",hhmm(d.blockMinutes)],
-    ["80+ Block Hours Payment",moneyRM(d.over80Amount)],
-    ["FDP Extension","Separate Rule"]
-  ];
+  const summaryRows=d.cabin
+    ? [
+        ["Eligible Duty Hours",hhmm(d.eligibleMinutes)],
+        ["Productivity Rate",moneyRM(d.rate)+" / hour"],
+        ["MC Days This Month",String(d.mc.days)],
+        ["Rate Rule",d.mc.days>2?"Reduced (3+ MC days)":"Normal (0–2 MC days)"]
+      ]
+    : [
+        ["Eligible Duty Hours",hhmm(d.eligibleMinutes)],
+        ["Monthly Flying Block",hhmm(d.blockMinutes)],
+        ["80+ Block Hours Payment",moneyRM(d.over80Amount)],
+        ["FDP Extension","Separate Rule"]
+      ];
   cvPdfDrawTable(p2,{
     x:32,y:203,widths:[265.5,265.5],headers:[],rows:summaryRows,
     rowH:22,headH:0,fontSize:7.8,aligns:["left","left"]
@@ -7535,7 +7647,7 @@ function cvPdfBuildDirectBlob(){
     item.date,
     item.items||"Flight",
     hhmm(item.minutes),
-    moneyRM(item.minutes/60*d.rule.pa)
+    moneyRM(item.minutes/60*d.rate)
   ]);
 
   const prodCount=Math.max(1,prodRows.length);
@@ -7658,6 +7770,22 @@ document.querySelectorAll(".pay-subtab[data-pay-section]").forEach(button=>
 $("#payGrade")?.addEventListener("change",event=>{
   event.currentTarget.dataset.userSelected="1";
   renderPayView();
+  renderNextDuty();
+});
+$("#cabinMcDays")?.addEventListener("change",event=>{
+  const days=Number(event.currentTarget.value);
+  if(!Number.isInteger(days) || days<0 || days>31){
+    event.currentTarget.value=String(cabinMcState().days);
+    return;
+  }
+  saveCabinMcDays(days);
+  renderPayView();
+  renderNextDuty();
+});
+$("#cabinMcReset")?.addEventListener("click",()=>{
+  resetCabinMcDays();
+  renderPayView();
+  renderNextDuty();
 });
 
 /* v148 Allowances Show more / Show less */
