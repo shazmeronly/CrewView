@@ -1748,6 +1748,98 @@ function reconcileCabinPairingSequence(rows){
   return out;
 }
 
+/*
+ * Cabin continuation flights often have no printed Date or Duty Report.
+ * Some PDF transformations scatter them below the NEXT day's report.
+ * Rebuild each multi-sector duty from station-to-station continuity instead
+ * of trusting the initial visual sort. Match the shortest valid connection
+ * among all pending sectors so BTU->KUL is assigned before KUL->BKI, even
+ * when the imported rows arrive in reverse order.
+ */
+function reconcileCabinFlightRoutes(rows){
+  const output=(rows||[]).map(row=>({...row}));
+  const isFlight=row=>/^MH\d{2,4}$/i.test(String(row.item||"").trim());
+  const airport=value=>String(value||"").trim().split(/\s+/)[0].toUpperCase();
+  const clock=value=>{
+    const found=String(value||"").match(/(\d{1,2}):(\d{2})/);
+    if(!found || Number(found[1])>23 || Number(found[2])>59) return null;
+    return Number(found[1])*60+Number(found[2]);
+  };
+  const dateNumber=value=>{
+    const d=parseRosterDate(String(value||""));
+    return d ? Math.round(d.getTime()/86400000) : null;
+  };
+  const anchors=output.filter(row=>isFlight(row) && String(row.dutyStart||"").trim());
+  const groups=anchors.map((row,index)=>{
+    const group=row._dutyGroup ||
+      "CABIN|"+row.date+"|"+row.dutyStart+"|"+row.item+"|"+index;
+    const order=clock(row.dutyStart);
+    row._dutyGroup=group;
+    row._sectorIndex=0;
+    row._cabinDutyClock=order;
+    return {
+      group,date:row.date,dateNumber:dateNumber(row.date),
+      order,last:row,count:1,
+      closed:Boolean(String(row.dutyEnd||"").trim())
+    };
+  });
+  const pending=output.filter(row=>isFlight(row) && !String(row.dutyStart||"").trim());
+  const remaining=new Set(pending);
+  // Global shortest-connection matching avoids attaching an 08-Nov sector
+  // to 09-Nov's newly reported flight merely because that flight appeared
+  // earlier in the PDF text layer.
+  for(let round=0;round<pending.length;round++){
+    let best=null;
+    for(const row of remaining){
+      const dep=airport(row.dep);
+      const depClock=clock(row.dep);
+      const originalDay=dateNumber(row.date);
+      if(!dep || depClock===null) continue;
+      for(const group of groups){
+        if(group.closed || group.dateNumber===null || originalDay===null)
+          continue;
+        const dateGap=originalDay-group.dateNumber;
+        if(dateGap<0 || dateGap>1) continue;
+        if(airport(group.last.arr)!==dep) continue;
+        const arriveClock=clock(group.last.arr);
+        if(arriveClock===null) continue;
+        const wait=(depClock-arriveClock+1440)%1440;
+        // A sector with no fresh report should belong to the same duty,
+        // not an unrelated pairing several hours or days later.
+        if(wait>540) continue;
+        const score=wait + dateGap*4;
+        if(!best || score<best.score){
+          best={row,group,score};
+        }
+      }
+    }
+    if(!best) break;
+    const {row,group}=best;
+    remaining.delete(row);
+    row.date=group.date;
+    row.day=dayName(group.date);
+    row._dutyGroup=group.group;
+    row._sectorIndex=group.count++;
+    row._sectorCount=group.count;
+    row._cabinDutyClock=group.order;
+    group.last=row;
+    if(String(row.dutyEnd||"").trim()) group.closed=true;
+  }
+  const counts=new Map();
+  output.forEach(row=>{
+    if(isFlight(row) && row._dutyGroup){
+      counts.set(row._dutyGroup,(counts.get(row._dutyGroup)||0)+1);
+    }
+  });
+  output.forEach(row=>{
+    if(isFlight(row) && row._dutyGroup &&
+       counts.has(row._dutyGroup)){
+      row._sectorCount=counts.get(row._dutyGroup);
+    }
+  });
+  return output;
+}
+
 function parseRosterDate(s){
   const m=String(s||"").match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
   if(!m)return null;
@@ -2855,12 +2947,10 @@ function isOvernightContinuationRow(row, previousDuty){
 function isSectorContinuation(row,firstDuty){
   if(!row || !firstDuty) return false;
 
-  if(
-    firstDuty._dutyGroup &&
-    row._dutyGroup &&
-    row._dutyGroup===firstDuty._dutyGroup
-  ){
-    return true;
+  if(firstDuty._dutyGroup && row._dutyGroup){
+    // Never merge a continuation from a different imported pairing simply
+    // because the PDF happened to shift both onto the same calendar date.
+    return row._dutyGroup===firstDuty._dutyGroup;
   }
 
   // Fallback for editable/manual rows: same date, another flight number,
@@ -5064,6 +5154,7 @@ async function parsePDF(file){
   if(pairingMode){
     allRows=restoreCabinPrintedDateSequence(allRows);
     allRows=reconcileCabinPairingSequence(allRows);
+    allRows=reconcileCabinFlightRoutes(allRows);
   }
 
   // Pilot text recovery is not valid for cabin pairing reports: it can
@@ -5160,6 +5251,19 @@ async function parsePDF(file){
 
     if(a._overnightContinuation && !b._overnightContinuation) return -1;
     if(!a._overnightContinuation && b._overnightContinuation) return 1;
+
+    // Route-reconstructed cabin duties take precedence over PDF source
+    // indices, which can place continuation sectors after the next duty.
+    if(pairingMode && a._dutyGroup && a._dutyGroup===b._dutyGroup &&
+       Number.isFinite(a._sectorIndex) && Number.isFinite(b._sectorIndex) &&
+       a._sectorIndex!==b._sectorIndex){
+      return a._sectorIndex-b._sectorIndex;
+    }
+    if(pairingMode && Number.isFinite(a._cabinDutyClock) &&
+       Number.isFinite(b._cabinDutyClock) &&
+       a._cabinDutyClock!==b._cabinDutyClock){
+      return a._cabinDutyClock-b._cabinDutyClock;
+    }
 
     // On the same date preserve the exact original PDF duty sequence,
     // especially on 08 Nov (BTU + BKI) and 13 Nov (DEL return).
