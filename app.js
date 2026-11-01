@@ -4949,15 +4949,107 @@ const PAY_RULES={
   "C2-P":{pa:240,over80:95,label:"Captain"},
   "C1-P":{pa:130,over80:75,label:"First Officer"},
   "D2-P":{pa:130,over80:75,label:"Second Officer"},
-  "D1-P":{pa:105,over80:75,label:"Cadet Pilot"}
+  "D1-P":{pa:105,over80:75,label:"Cadet Pilot"},
+  "D1-CC":{pa:29,mcPa:22,over80:0,label:"IFS"},
+  "D2-CC":{pa:29,mcPa:22,over80:0,label:"IFS"},
+  "E4-CC":{pa:27,mcPa:20,over80:0,label:"LS"},
+  "E3-CC":{pa:25,mcPa:18,over80:0,label:"FS"}
 };
 
 function inferredPayGrade(){
   const rank=String($("#rank")?.value||"").trim().toUpperCase();
+  if(["D1-CC","D2-CC","E4-CC","E3-CC"].includes(rank)) return rank;
+  if(["IFS","IFM","CCM"].includes(rank)) return "D1-CC";
+  if(["LS","CSS"].includes(rank)) return "E4-CC";
+  if(["FS","FSS"].includes(rank)) return "E3-CC";
   if(["CPT","CAPT","CMDR","CP"].includes(rank)) return "C2-P";
   if(["SO"].includes(rank)) return "D2-P";
   if(["CADET","CPILOT"].includes(rank)) return "D1-P";
   return "C1-P";
+}
+
+
+// Cabin-crew productivity: MC days are counted within the selected calendar
+// roster month. A manual override is stored locally by crew and month.
+const CABIN_MC_STORAGE_KEY="crewview-cabin-mc-days-v1";
+function isCabinPayGrade(grade){
+  return String(grade||"").endsWith("-CC");
+}
+function activePayGrade(){
+  const select=$("#payGrade");
+  const inferred=inferredPayGrade();
+  const cabin=isCabinPayGrade(inferred);
+  const allowed=cabin
+    ? ["D1-CC","D2-CC","E4-CC","E3-CC"]
+    : ["C2-P","C1-P","D2-P","D1-P"];
+  if(select){
+    [...select.options].forEach(option=>{
+      option.hidden=!allowed.includes(option.value);
+      option.disabled=!allowed.includes(option.value);
+    });
+    if(!select.dataset.userSelected || !allowed.includes(select.value)){
+      select.value=allowed.includes(inferred)?inferred:allowed[0];
+      delete select.dataset.userSelected;
+    }
+  }
+  return select && allowed.includes(select.value) ? select.value : inferred;
+}
+function cabinMcMonthKey(){
+  const month=loadedRosterMonth();
+  if(!month) return "";
+  const yyyy=month.getFullYear();
+  const mm=String(month.getMonth()+1).padStart(2,"0");
+  const staff=String($("#staff")?.value||"crew").trim();
+  return staff+"|"+yyyy+"-"+mm;
+}
+function cabinMcFromRoster(){
+  const dates=new Set();
+  getRows().forEach(row=>{
+    if(!isInsideOfficialRosterPeriod(row) || !row.date) return;
+    const item=String(row.item||"").trim().toUpperCase();
+    if(/^(?:MC\d*|SICK(?: LEAVE)?|MEDICAL LEAVE)$/.test(item)){
+      dates.add(row.date);
+    }
+  });
+  return dates.size;
+}
+function readCabinMcOverrides(){
+  try{
+    const value=JSON.parse(localStorage.getItem(CABIN_MC_STORAGE_KEY)||"{}");
+    return value && typeof value==="object" && !Array.isArray(value) ? value : {};
+  }catch(_error){return {};}
+}
+function cabinMcState(){
+  const key=cabinMcMonthKey();
+  const detected=cabinMcFromRoster();
+  const stored=readCabinMcOverrides();
+  const value=key ? stored[key] : undefined;
+  const manual=Number.isInteger(value) && value>=0 && value<=31;
+  return {key,detected,manual,days:manual ? value : detected};
+}
+function saveCabinMcDays(days){
+  const key=cabinMcMonthKey();
+  if(!key || !Number.isInteger(days) || days<0 || days>31) return;
+  const stored=readCabinMcOverrides();
+  stored[key]=days;
+  try{localStorage.setItem(CABIN_MC_STORAGE_KEY,JSON.stringify(stored));}
+  catch(_error){/* Private browsing may not allow writes. */}
+}
+function resetCabinMcDays(){
+  const key=cabinMcMonthKey();
+  if(!key) return;
+  const stored=readCabinMcOverrides();
+  delete stored[key];
+  try{localStorage.setItem(CABIN_MC_STORAGE_KEY,JSON.stringify(stored));}
+  catch(_error){/* Private browsing may not allow writes. */}
+}
+function activePayContext(){
+  const grade=activePayGrade();
+  const rule=PAY_RULES[grade]||PAY_RULES["C1-P"];
+  const cabin=isCabinPayGrade(grade);
+  const mc=cabin?cabinMcState():null;
+  const rate=(cabin && mc.days>2) ? rule.mcPa : rule.pa;
+  return {grade,rule,cabin,mc,rate,over80Rate:cabin?0:rule.over80};
 }
 
 function isPayStandby(row){
