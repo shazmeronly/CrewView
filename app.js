@@ -5206,7 +5206,7 @@ function smartDutyDateForNextDay(dateText,value){
 
 function renderPayView(){
   if(!$("#payGrade")) return;
-  const {grade,cabin,mc,rate,over80Rate}=activePayContext();
+  const {grade,rule,cabin,mc,rate,over80Rate}=activePayContext();
   $("#cabinMcControl")?.classList.toggle("hidden",!cabin);
   $("#pay80Card")?.classList.toggle("hidden",cabin);
   $("#payFdpCard")?.classList.toggle("hidden",cabin);
