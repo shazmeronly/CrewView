@@ -1425,7 +1425,9 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
    */
   const rawAnchors=items
     .filter(item=>{
-      if(item.y<h*0.075) return false;
+      // Page 2 can start with an undated continuation flight at y≈55 on a
+      // 750pt page. The original 7.5% cutoff incorrectly discarded MH710.
+      if(item.y<h*(pageNumber>1?0.055:0.075)) return false;
 
       const isDate=
         /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s) &&
@@ -1511,7 +1513,8 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
     );
 
     const block=cleanTime(textAt(0.600,0.642,y,7));
-    const duty=cleanTime(textAt(0.640,0.690,y,7));
+    // Cabin SDC starts at x≈823 and must not enter Duty Hrs at x≈778.
+    const duty=cleanTime(textAt(0.640,0.683,y,7));
     const ac=textAt(0.720,0.765,y,7);
 
     const isFlight=/^MH\d{2,4}$/i.test(item);
@@ -3997,8 +4000,17 @@ function renderSmartDutyStateOverview(row,state,dutyLayover,calledUp=false){
     $("#smartDutyNextReportTime").textContent=nextParts.pop()||"—";
     $("#smartDutyNextReportDate").textContent=smartDutyShortDate(nextParts.join(" "));
   }else{
-    $("#smartDutyNextReportTime").textContent="—";
-    $("#smartDutyNextReportDate").textContent="—";
+    // A home-base return has no layover. Display the next rostered report.
+    const following=getSmartDutyCandidates(getRows()).find(candidate=>
+      candidate._smartKey!==row._smartKey &&
+      Number.isFinite(candidate._reportUtcMs) &&
+      Number.isFinite(row._reportUtcMs) &&
+      candidate._reportUtcMs>row._reportUtcMs
+    );
+    $("#smartDutyNextReportTime").textContent=following?.dutyStart||"—";
+    $("#smartDutyNextReportDate").textContent=following
+      ? smartDutyShortDate(following.date)
+      : "—";
   }
 
   const standby=isPayStandby(row);
@@ -4768,12 +4780,11 @@ async function parsePDF(file){
     );
   }
 
-  // Restore complete rows from the PDF text before creating the monthly calendar.
-  // This preserves previous-month carry-in rows and final rows on later pages.
-  allRows=restoreMissingPilotDates(
-    allRows,
-    combinedText
-  );
+  // Pilot text recovery is not valid for cabin pairing reports: it can
+  // misdate and duplicate their continuation sectors.
+  if(!pairingMode){
+    allRows=restoreMissingPilotDates(allRows,combinedText);
+  }
 
   // Preserve the PDF's UTC source date separately, then normalize the visible
   // roster date to the reporting station's calendar date before calendar fill.
@@ -4825,8 +4836,10 @@ async function parsePDF(file){
   // columns were shifted by the PDF text geometry.
   // Normalize shifted multi-sector rows before monthly FH/DH validation.
   // This must run even when a PDF revision omits continuation metadata.
-  allRows=normalizePilotContinuationColumns(allRows);
-  allRows=repairSplitPilotDutyColumns(allRows);
+  if(!pairingMode){
+    allRows=normalizePilotContinuationColumns(allRows);
+    allRows=repairSplitPilotDutyColumns(allRows);
+  }
 
   allRows=markRemainingBlankDaysAsOff(allRows);
 
