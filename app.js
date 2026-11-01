@@ -50,6 +50,7 @@ const cols=["date","day","dutyStart","item","dep","arr","dutyEnd","work","block"
 let officialFH=null, officialDH=null;
 let officialRosterPeriod=null;
 let rosterTimeBasis="LT"; // iFlight LT (base-local) | SLT (station-local) | UTC
+let rosterCrewType=""; // Auto-detected from PDF: pilot or cabin.
 
 const ROSTER_CACHE_KEY="crewview-roster-cache-v1";
 const ROSTER_LIBRARY_KEY="crewview-roster-library-v2";
@@ -190,6 +191,7 @@ function buildRosterSnapshot(rows){
     officialDH,
     officialRosterPeriod:serializeRosterPeriod(officialRosterPeriod),
     rosterTimeBasis,
+    rosterCrewType,
     profile
   };
 }
@@ -985,13 +987,13 @@ function parseHeader(text){
   // internal text order, even though it is visually shown on the same header.
   // Search the complete extracted text instead of only the text after the date range.
   let person=head.match(
-    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z]{2,4})(?=\s|Roster Report|FH|$)/i
+    /([A-Z][A-Z .'-]{5,}?)\s*\|\s*(\d{5,})\s*\|\s*([A-Z0-9]{2,5})\s*\|\s*([A-Z]{3})\s*\|\s*([A-Z0-9-]{2,6})(?=\s|Roster Report|FH|$)/i
   );
 
   // Fallback when PDF.js drops the vertical bars.
   if(!person){
     person=head.match(
-      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z]{2,4})(?=\s+Roster Report|\s+FH\s*:|$)/i
+      /([A-Z][A-Z .'-]{5,}?)\s+(\d{5,})\s+([A-Z0-9]{2,5})\s+([A-Z]{3})\s+([A-Z0-9-]{2,6})(?=\s+Roster Report|\s+FH\s*:|$)/i
     );
   }
 
@@ -2841,7 +2843,8 @@ function isSmartNonWorkingItem(item){
 function smartCrewRole(){
   const rank=($("#rank")?.value||"").trim().toUpperCase();
   if(["FO","SO","CPT","CAPT","CMDR","SFO"].includes(rank)) return "pilot";
-  if(["FS","FSS","LS","CSS","IFS","IFM","CCM"].includes(rank)) return "cabin";
+  if(["FS","FSS","LS","CSS","IFS","IFM","CCM","D1-CC","D2-CC","E4-CC","E3-CC"].includes(rank)) return "cabin";
+  if(rosterCrewType==="pilot" || rosterCrewType==="cabin") return rosterCrewType;
   return "crew";
 }
 
@@ -4584,7 +4587,7 @@ function detectRosterType(text){
    * Cabin ranks continue using the pairing parser.
    */
   const profile=normalized.match(
-    /\|\s*\d{5,}\s*\|\s*[A-Z0-9]{2,5}\s*\|\s*[A-Z]{3}\s*\|\s*([A-Z0-9]{2,5})\b/i
+    /\|\s*\d{5,}\s*\|\s*[A-Z0-9]{2,5}\s*\|\s*[A-Z]{3}\s*\|\s*([A-Z0-9-]{2,6})(?=\s|\||$)/i
   );
 
   const rank=(profile?.[1]||"").toUpperCase();
@@ -4596,7 +4599,7 @@ function detectRosterType(text){
   }
 
   if(
-    ["FS","FSS","LS","CSS","IFS","IFM","CCM"].includes(rank)
+    ["FS","FSS","LS","CSS","IFS","IFM","CCM","D1-CC","D2-CC","E4-CC","E3-CC"].includes(rank)
   ){
     return "cabin";
   }
@@ -4615,6 +4618,8 @@ async function parsePDF(file){
   officialFH=null;
   officialDH=null;
   officialRosterPeriod=null;
+  rosterCrewType="";
+  if($("#payGrade")) delete $("#payGrade").dataset.userSelected;
   $("#validationResult")?.classList.add("hidden");
   ["name","staff","rank","fleet","base"].forEach(id=>$("#"+id).value="");
 
@@ -4711,6 +4716,7 @@ async function parsePDF(file){
 
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
+  rosterCrewType=pairingMode?"cabin":"pilot";
   // Detect only the scheduled roster time basis. This does not alter the PDF
   // parser, offline boot, service-worker strategy, or pilot actual UTC storage.
   rosterTimeBasis=detectRosterTimeBasis(allRows,combinedText);
@@ -4965,6 +4971,7 @@ function inferredPayGrade(){
   if(["CPT","CAPT","CMDR","CP"].includes(rank)) return "C2-P";
   if(["SO"].includes(rank)) return "D2-P";
   if(["CADET","CPILOT"].includes(rank)) return "D1-P";
+  if(rosterCrewType==="cabin") return "E3-CC"; // fallback if PDF omits grade/rank
   return "C1-P";
 }
 
@@ -7077,6 +7084,8 @@ $("#clearBtn")?.addEventListener("click",event=>{
   officialFH=null;
   officialDH=null;
   officialRosterPeriod=null;
+  rosterCrewType="";
+  if($("#payGrade")) delete $("#payGrade").dataset.userSelected;
 
   if(nextDutyTimer){
     clearInterval(nextDutyTimer);
@@ -7140,6 +7149,11 @@ function applyRosterSnapshot(cached,{statusText="Roster loaded.",resetViewport=f
   officialFH=cached.officialFH||null;
   officialDH=cached.officialDH||null;
   officialRosterPeriod=deserializeRosterPeriod(cached.officialRosterPeriod);
+  const storedRank=String(cached.profile?.rank||"").toUpperCase();
+  rosterCrewType=["pilot","cabin"].includes(cached.rosterCrewType)
+    ? cached.rosterCrewType
+    : ["IFS","IFM","CCM","LS","CSS","FS","FSS","D1-CC","D2-CC","E4-CC","E3-CC"].includes(storedRank)?"cabin":"pilot";
+  if($("#payGrade")) delete $("#payGrade").dataset.userSelected;
   Object.entries(cached.profile||{}).forEach(([id,value])=>{
     const input=$("#"+id);
     if(input) input.value=value||"";
