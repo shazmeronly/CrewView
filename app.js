@@ -4555,7 +4555,14 @@ function scorePairingRows(rows){
   rows.forEach(row=>{
     const item=String(row.item||"").trim().toUpperCase();
     if(/^\d{2}:\d{2}$/.test(String(row.dutyStart||""))) score+=2;
-    if(/^MH\d{2,4}$/i.test(item)) score+=5;
+    if(/^MH\d{2,4}$/i.test(item)){
+      score+=5;
+      // Prefer the coordinate interpretation that retains both the Flying
+      // Hrs and first-sector Duty Hrs printed on the same physical row.
+      if(/^\d{1,2}:\d{2}$/.test(String(row.block||""))) score+=7;
+      if(String(row.dutyStart||"").trim() &&
+        /^\d{1,2}:\d{2}$/.test(String(row.duty||""))) score+=12;
+    }
     // Cabin office duty (OFF01 / OF1) is a real duty, not an off day.
     if(/^(?:OFF0?1|OF1)$/.test(item)) score+=12;
     if(/^[A-Z]{3}\s+\d{2}:\d{2}/.test(String(row.dep||""))) score+=3;
