@@ -4638,11 +4638,14 @@ function recoverCabinPageFlightRows(viewportItems,selectedRows,width,pageNumber,
     const dep=field(.400,.455,anchor.y);
     const arr=field(.465,.520,anchor.y,11);
     const report=field(.190,.222,anchor.y);
+    // PDF candidates may have slightly different whitespace or missing
+    // arrival cells. Match one printed occurrence to one parsed flight using
+    // its flight number and date, not exact string formatting.
     const same=accepted.findIndex((row,index)=>
       !used.has(index) &&
       String(row.item||"").toUpperCase()===item &&
-      String(row.dep||"").trim()===dep &&
-      String(row.arr||"").trim()===arr
+      String(row.date||"")===date &&
+      (!flightAirport(row.dep) || flightAirport(row.dep)===flightAirport(dep))
     );
     if(same>=0){
       used.add(same);
@@ -4904,9 +4907,38 @@ async function parsePDF(file){
       attempts.sort((a,b)=>
         a.missingFlights-b.missingFlights || b.score-a.score
       );
-      const selected=attempts[0];
-      // A missed edge row is recoverable; never reject the entire cabin
-      // roster simply because one coordinate projection omits a sector.
+
+      // The PDF's own viewport coordinates are the canonical physical row
+      // order for a normal iFlight Roster Report. A rotated-coordinate
+      // candidate can score well but shift MH710 ahead of MH711, while the
+      // additive recovery may produce a second MH711 for the same duty.
+      // Prefer the viewport interpretation whenever it covers every printed
+      // flight with its operational time fields, WITHOUT mixing candidates.
+      const viewportRows=buildPairingRows(
+        viewportItems,viewport.width,viewport.height,pageNumber,carryState
+      );
+      const printedFlights=[...printed.values()].reduce((sum,n)=>sum+n,0);
+      const viewportFlights=viewportRows.filter(row=>
+        /^MH\d{2,4}$/i.test(String(row.item||"").trim())
+      );
+      const viewportComplete=printedFlights>0 &&
+        absentCount(viewportRows)===0 &&
+        viewportFlights.length===printedFlights &&
+        viewportFlights.every(row=>
+          /^\d{1,2}:\d{2}$/.test(String(row.block||"").trim()) &&
+          /^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(String(row.dep||"")) &&
+          /^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(String(row.arr||"")) &&
+          /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.date||""))
+        );
+      const selected=viewportComplete
+        ? {
+            name:"viewport-complete",
+            score:scorePairingRows(viewportRows),
+            rows:viewportRows,
+            missingFlights:0
+          }
+        : attempts[0];
+      // Only use recovery when the canonical viewport itself is incomplete.
       const pageRows=selected.missingFlights
         ? recoverCabinPageFlightRows(
             viewportItems,selected.rows,viewport.width,pageNumber,carryState
