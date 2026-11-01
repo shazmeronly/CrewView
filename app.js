@@ -1398,7 +1398,7 @@ function buildRows(items,w,h,pageNumber=1){
 }
 
 
-function buildPairingRows(items,w,h,pageNumber=1){
+function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
   const inRange=(item,left,right)=>
     item.x>=w*left && item.x<w*right;
 
@@ -1469,9 +1469,15 @@ function buildPairingRows(items,w,h,pageNumber=1){
   });
 
   const rows=[];
-  let currentDate="";
-  let currentDuty=null;
-  let sectorIndex=0;
+  // Multi-sector duties may continue onto another PDF page without a date
+  // (e.g. 20-Nov MH711 followed by MH710 at the top of page two).
+  let currentDate=String(carryState?.date||"");
+  let currentDuty=carryState?.group
+    ? {date:currentDate,day:dayName(currentDate),group:carryState.group}
+    : null;
+  let sectorIndex=Number.isFinite(carryState?.sectorIndex)
+    ? carryState.sectorIndex
+    : 0;
 
   physicalRows.forEach(({y,explicitDate,visualOrder})=>{
     if(explicitDate && explicitDate!==currentDate){
@@ -1510,7 +1516,7 @@ function buildPairingRows(items,w,h,pageNumber=1){
 
     const isFlight=/^MH\d{2,4}$/i.test(item);
     const cleanActivity=activity.split(/\s+/)[0]||"";
-    const offCode=/^(D|DO)$/i.test(cleanActivity);
+    const offCode=/^(D|DO|DO1|OFF)$/i.test(cleanActivity);
 
     if(offCode){
       rows.push({
@@ -4629,6 +4635,7 @@ async function parsePDF(file){
   let allRows=[];
   let allText=[];
   let pairingMode=false;
+  let documentRosterType="";
   let sourceEvidence={flights:[],duties:[]};
 
   for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
@@ -4654,12 +4661,20 @@ async function parsePDF(file){
     const pageText=viewportItems.map(item=>item.s).join(" ");
     allText.push(pageText);
 
-    const rosterType=detectRosterType(pageText);
+    // The first page identifies the crew type; continuation pages may not
+    // repeat the header. Keep parser selection consistent throughout the PDF.
+    if(pageNumber===1) documentRosterType=detectRosterType(pageText);
+    const rosterType=documentRosterType;
 
     if(rosterType==="cabin"){
       pairingMode=true;
       sourceEvidence=null;
 
+      const previousRow=allRows.length ? allRows[allRows.length-1] : null;
+      const carryState=pageNumber>1 && previousRow
+        ? {date:previousRow.date,group:previousRow._dutyGroup||"",
+           sectorIndex:Number(previousRow._sectorIndex||0)}
+        : null;
       const attempts=pairingCoordinateCandidates(
         textContent,
         viewport,
@@ -4669,7 +4684,8 @@ async function parsePDF(file){
           candidate.items,
           candidate.width,
           candidate.height,
-          pageNumber
+          pageNumber,
+          carryState
         );
 
         return {
@@ -4716,7 +4732,7 @@ async function parsePDF(file){
 
   const combinedText=allText.join(" ");
   parseHeader(combinedText);
-  rosterCrewType=pairingMode?"cabin":"pilot";
+  rosterCrewType=documentRosterType;
   // Detect only the scheduled roster time basis. This does not alter the PDF
   // parser, offline boot, service-worker strategy, or pilot actual UTC storage.
   rosterTimeBasis=detectRosterTimeBasis(allRows,combinedText);
@@ -7309,7 +7325,19 @@ function buildCrewViewPdfDocument(){
   `).join("");
 
   // PAGE 2: allowance calculations only.
-  const {grade,rule,rate,over80Rate}=activePayContext();
+  const {grade,rule,rate,over80Rate,mc,cabin}=activePayContext();
+
+  for(const id of ["cvPdfPilotBlockRow","cvPdfPilotOver80Row","cvPdfPilotFdpRow"]){
+    $("#"+id)?.classList.toggle("hidden",cabin);
+  }
+  for(const id of ["cvPdfCabinRateRow","cvPdfCabinMcRow","cvPdfCabinRuleRow"]){
+    $("#"+id)?.classList.toggle("hidden",!cabin);
+  }
+  if(cabin){
+    $("#cvPdfCabinRate").textContent=moneyRM(rate)+"/hour";
+    $("#cvPdfCabinMc").textContent=String(mc.days);
+    $("#cvPdfCabinRule").textContent=mc.days>2?"Reduced (3+ days)":"Normal (0–2 days)";
+  }
 
   const duties=payDutyGroups();
   const eligibleMinutes=duties.reduce((sum,d)=>sum+d.minutes,0);
