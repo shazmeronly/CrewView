@@ -1575,7 +1575,8 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
         ac,
         _dutyGroup:currentDuty.group,
         _sectorIndex:sectorIndex,
-        _visualOrder:visualOrder
+        _visualOrder:visualOrder,
+        _physicalY:y
       });
 
       if(dutyEnd){
@@ -4665,6 +4666,7 @@ function recoverCabinPageFlightRows(viewportItems,selectedRows,width,pageNumber,
       ac:field(.720,.765,anchor.y),
       _pageNumber:pageNumber,
       _visualOrder:1000+anchor.y,
+      _physicalY:anchor.y,
       _recoveredCabinGeometry:true
     };
     // A continuation row never has an additional report. Keep the
@@ -4676,15 +4678,12 @@ function recoverCabinPageFlightRows(viewportItems,selectedRows,width,pageNumber,
     accepted.push(sourceRow);
     used.add(accepted.length-1);
   }
-  // Restore source order, not recovery insertion order, before pairing.
+  // Sort physical PDF rows, not incompatible ordinal / Y units.
   return accepted.sort((a,b)=>{
-    const ay=Number(a._visualOrder||0),by=Number(b._visualOrder||0);
-    // Existing candidates use ordinal row indices, while recovered rows
-    // have source Y as their sort key. Put recovered rows in date order below;
-    // the final parse sort also respects dates and page numbers.
-    const ad=parseRosterDate(a.date),bd=parseRosterDate(b.date);
-    const delta=(ad?.getTime()||0)-(bd?.getTime()||0);
-    return delta||ay-by;
+    const ay=Number.isFinite(a._physicalY)?a._physicalY:Infinity;
+    const by=Number.isFinite(b._physicalY)?b._physicalY:Infinity;
+    if(ay!==by) return ay-by;
+    return Number(a._visualOrder||0)-Number(b._visualOrder||0);
   });
 }
 
@@ -4921,24 +4920,26 @@ async function parsePDF(file){
       const viewportFlights=viewportRows.filter(row=>
         /^MH\d{2,4}$/i.test(String(row.item||"").trim())
       );
-      const viewportComplete=printedFlights>0 &&
-        absentCount(viewportRows)===0 &&
-        viewportFlights.length===printedFlights &&
-        viewportFlights.every(row=>
-          /^\d{1,2}:\d{2}$/.test(String(row.block||"").trim()) &&
-          /^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(String(row.dep||"")) &&
-          /^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(String(row.arr||"")) &&
-          /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.date||""))
-        );
-      const selected=viewportComplete
+      const flightColumnsAligned=viewportItems.some(item=>
+        /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s) &&
+        item.x<viewport.width*.09
+      ) && viewportItems.some(item=>
+        /^MH\d{2,4}$/i.test(item.s) &&
+        item.x>=viewport.width*.238 && item.x<viewport.width*.285
+      );
+      // Overnight arrival clocks can be on a separate PDF baseline.
+      // Don't reject an aligned viewport and switch to the rotated
+      // interpretation just because one arrival lacks an inline HH:mm.
+      const viewportAuthoritative=flightColumnsAligned &&
+        viewportFlights.length>=Math.max(1,Math.ceil(printedFlights*.7));
+      const selected=viewportAuthoritative
         ? {
-            name:"viewport-complete",
+            name:"viewport-physical-rows",
             score:scorePairingRows(viewportRows),
             rows:viewportRows,
-            missingFlights:0
+            missingFlights:absentCount(viewportRows)
           }
         : attempts[0];
-      // Only use recovery when the canonical viewport itself is incomplete.
       const pageRows=selected.missingFlights
         ? recoverCabinPageFlightRows(
             viewportItems,selected.rows,viewport.width,pageNumber,carryState
@@ -5124,6 +5125,17 @@ async function parsePDF(file){
       if(ap!==bp) return ap-bp;
     }
 
+    // A report belongs to sector 0; keep all same-duty sectors ordered
+    // even when an imported candidate carried a different visual index.
+    if(pairingMode && a._dutyGroup && a._dutyGroup===b._dutyGroup &&
+       Number.isFinite(a._sectorIndex) && Number.isFinite(b._sectorIndex) &&
+       a._sectorIndex!==b._sectorIndex){
+      return a._sectorIndex-b._sectorIndex;
+    }
+    if(pairingMode && Number.isFinite(a._physicalY) &&
+       Number.isFinite(b._physicalY) && a._physicalY!==b._physicalY){
+      return a._physicalY-b._physicalY;
+    }
     const aOrder=Number.isFinite(a._visualOrder)
       ? a._visualOrder
       : Number(a._displayOrder||0);
