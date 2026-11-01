@@ -2947,12 +2947,10 @@ function isOvernightContinuationRow(row, previousDuty){
 function isSectorContinuation(row,firstDuty){
   if(!row || !firstDuty) return false;
 
-  if(
-    firstDuty._dutyGroup &&
-    row._dutyGroup &&
-    row._dutyGroup===firstDuty._dutyGroup
-  ){
-    return true;
+  if(firstDuty._dutyGroup && row._dutyGroup){
+    // Never merge a continuation from a different imported pairing simply
+    // because the PDF happened to shift both onto the same calendar date.
+    return row._dutyGroup===firstDuty._dutyGroup;
   }
 
   // Fallback for editable/manual rows: same date, another flight number,
