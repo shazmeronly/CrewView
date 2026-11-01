@@ -4608,6 +4608,83 @@ function scorePairingRows(rows){
   return score;
 }
 
+/*
+ * Fallback for an iFlight cabin flight printed at the bottom/top edge of a
+ * rotated PDF page. Unlike pilot text recovery, this uses the actual PDF
+ * columns and physical row y-position, so a continuation cannot be attached
+ * to an unrelated Updated Date or moved to the following day.
+ */
+function recoverCabinPageFlightRows(viewportItems,selectedRows,width,pageNumber,carryState){
+  const accepted=[...selectedRows];
+  const dateAnchors=viewportItems.filter(item=>
+    /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(item.s) &&
+    item.x<width*.09
+  ).sort((a,b)=>a.y-b.y);
+  const flightAnchors=viewportItems.filter(item=>
+    /^MH\d{2,4}$/i.test(item.s) &&
+    item.x>=width*.238 && item.x<width*.285
+  ).sort((a,b)=>a.y-b.y);
+  const field=(l,r,y,tol=8)=>viewportItems.filter(item=>
+    item.x>=width*l && item.x<width*r &&
+    Math.abs(item.y-y)<=tol
+  ).sort((a,b)=>a.x-b.x).map(item=>item.s).join(" ")
+    .replace(/\s+/g," ").trim();
+  const used=new Set();
+  for(const anchor of flightAnchors){
+    const printedDate=dateAnchors.filter(item=>item.y<=anchor.y+4).pop()?.s||"";
+    const date=printedDate||String(carryState?.date||"");
+    if(!date) continue;
+    const item=anchor.s.toUpperCase();
+    const dep=field(.400,.455,anchor.y);
+    const arr=field(.465,.520,anchor.y,11);
+    const report=field(.190,.222,anchor.y);
+    const same=accepted.findIndex((row,index)=>
+      !used.has(index) &&
+      String(row.item||"").toUpperCase()===item &&
+      String(row.dep||"").trim()===dep &&
+      String(row.arr||"").trim()===arr
+    );
+    if(same>=0){
+      used.add(same);
+      continue;
+    }
+    // Do not invent values for a questionable page/header token.
+    const block=field(.600,.642,anchor.y);
+    if(!/^\d{1,2}:\d{2}$/.test(block) ||
+       !/^[A-Z]{3}\s+\d{1,2}:\d{2}/.test(dep)) continue;
+    const sourceRow={
+      date,day:dayName(date),dutyStart:report,item,
+      dep,arr,
+      dutyEnd:field(.555,.600,anchor.y,11),
+      work:field(.330,.365,anchor.y),
+      block,
+      duty:field(.640,.683,anchor.y),
+      ac:field(.720,.765,anchor.y),
+      _pageNumber:pageNumber,
+      _visualOrder:1000+anchor.y,
+      _recoveredCabinGeometry:true
+    };
+    // A continuation row never has an additional report. Keep the
+    // previous duty identifier when it is the first row on page two.
+    if(!report && carryState?.group && !printedDate){
+      sourceRow._dutyGroup=carryState.group;
+      sourceRow._sectorIndex=Number(carryState.sectorIndex||0)+1;
+    }
+    accepted.push(sourceRow);
+    used.add(accepted.length-1);
+  }
+  // Restore source order, not recovery insertion order, before pairing.
+  return accepted.sort((a,b)=>{
+    const ay=Number(a._visualOrder||0),by=Number(b._visualOrder||0);
+    // Existing candidates use ordinal row indices, while recovered rows
+    // have source Y as their sort key. Put recovered rows in date order below;
+    // the final parse sort also respects dates and page numbers.
+    const ad=parseRosterDate(a.date),bd=parseRosterDate(b.date);
+    const delta=(ad?.getTime()||0)-(bd?.getTime()||0);
+    return delta||ay-by;
+  });
+}
+
 function pairingCoordinateCandidates(textContent,viewport,page){
   const rawWidth=Math.abs((page.view?.[2]||0)-(page.view?.[0]||0))||viewport.height;
   const rawHeight=Math.abs((page.view?.[3]||0)-(page.view?.[1]||0))||viewport.width;
@@ -4828,22 +4905,22 @@ async function parsePDF(file){
         a.missingFlights-b.missingFlights || b.score-a.score
       );
       const selected=attempts[0];
-      if(selected.missingFlights){
-        throw new Error(
-          "Cabin PDF import could not read "+selected.missingFlights+
-          " printed flight sector(s) on page "+pageNumber+
-          ". Please use a new iFlight PDF export."
-        );
-      }
-
+      // A missed edge row is recoverable; never reject the entire cabin
+      // roster simply because one coordinate projection omits a sector.
+      const pageRows=selected.missingFlights
+        ? recoverCabinPageFlightRows(
+            viewportItems,selected.rows,viewport.width,pageNumber,carryState
+          )
+        : selected.rows;
       console.info(
         "CrewView cabin parser:",
         selected.name,
-        selected.score
+        selected.score,
+        "source flights", [...printed.values()].reduce((n,v)=>n+v,0),
+        "parsed",pageRows.filter(row=>/^MH\d{2,4}$/i.test(row.item)).length
       );
-
-      selected.rows.forEach(row=>{row._pageNumber=pageNumber;});
-      allRows.push(...selected.rows);
+      pageRows.forEach(row=>{row._pageNumber=pageNumber;});
+      allRows.push(...pageRows);
     }else{
       const pageEvidence=readPilotSourceEvidence(viewportItems,viewport.width);
       if(sourceEvidence && pageEvidence){
