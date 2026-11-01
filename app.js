@@ -1534,7 +1534,9 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
         block:"",
         duty:"",
         ac:"",
-        _visualOrder:visualOrder
+        _visualOrder:visualOrder,
+        _physicalY:y,
+        _printedDate:explicitDate||""
       });
       return;
     }
@@ -1576,7 +1578,8 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
         _dutyGroup:currentDuty.group,
         _sectorIndex:sectorIndex,
         _visualOrder:visualOrder,
-        _physicalY:y
+        _physicalY:y,
+        _printedDate:explicitDate||""
       });
 
       if(dutyEnd){
@@ -1602,7 +1605,9 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
         block,
         duty,
         ac,
-        _visualOrder:visualOrder
+        _visualOrder:visualOrder,
+        _physicalY:y,
+        _printedDate:explicitDate||""
       });
     }
   });
@@ -1633,6 +1638,42 @@ function buildPairingRows(items,w,h,pageNumber=1,carryState=null){
  *
  * This also preserves groups when a pairing continues across PDF pages.
  */
+/*
+ * The printed roster date belongs to the FIRST flight of a duty, not to
+ * every sector. A continuation sector may be physically after its first
+ * flight and before the next dated row, or at the top of the next PDF page.
+ *
+ * Restore the physical PDF line order before deciding the date. Sorting the
+ * raw candidate by inferred dates first misfiles Nov 8 MH2743/MH2616 and
+ * Nov 13 MH173, and can put a 14-Nov NRT departure on 15-Nov.
+ */
+function restoreCabinPrintedDateSequence(rows){
+  const ordered=[...(rows||[])].sort((a,b)=>{
+    const pageDiff=Number(a._pageNumber||1)-Number(b._pageNumber||1);
+    if(pageDiff) return pageDiff;
+    const ay=Number.isFinite(a._physicalY)?a._physicalY:Infinity;
+    const by=Number.isFinite(b._physicalY)?b._physicalY:Infinity;
+    if(ay!==by) return ay-by;
+    return Number(a._visualOrder||0)-Number(b._visualOrder||0);
+  });
+  let printedDate="";
+  return ordered.map((source,index)=>{
+    const row={...source};
+    if(/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row._printedDate||""))){
+      printedDate=row._printedDate;
+    }else if(!printedDate){
+      // A carry-in row at the beginning of a document can be undated.
+      printedDate=String(row.date||"");
+    }
+    if(printedDate){
+      row.date=printedDate;
+      row.day=dayName(printedDate);
+    }
+    row._cabinPhysicalOrder=index;
+    return row;
+  });
+}
+
 function reconcileCabinPairingSequence(rows){
   let active=null;
   let lastSector=null;
@@ -4667,6 +4708,7 @@ function recoverCabinPageFlightRows(viewportItems,selectedRows,width,pageNumber,
       _pageNumber:pageNumber,
       _visualOrder:1000+anchor.y,
       _physicalY:anchor.y,
+      _printedDate:dateAnchors.some(item=>Math.abs(item.y-anchor.y)<=8)?date:"",
       _recoveredCabinGeometry:true
     };
     // A continuation row never has an additional report. Keep the
@@ -5017,9 +5059,10 @@ async function parsePDF(file){
     );
   }
 
-  // Repair date assignments and multi-sector grouping in original PDF
-  // page order BEFORE monthly calendar fill and chronological sorting.
+  // Cabin roster dates are printed only on the first sector. Restore
+  // every physical PDF line and date anchor BEFORE pairing or calendar fill.
   if(pairingMode){
+    allRows=restoreCabinPrintedDateSequence(allRows);
     allRows=reconcileCabinPairingSequence(allRows);
   }
 
@@ -5117,6 +5160,14 @@ async function parsePDF(file){
 
     if(a._overnightContinuation && !b._overnightContinuation) return -1;
     if(!a._overnightContinuation && b._overnightContinuation) return 1;
+
+    // On the same date preserve the exact original PDF duty sequence,
+    // especially on 08 Nov (BTU + BKI) and 13 Nov (DEL return).
+    if(pairingMode && Number.isFinite(a._cabinPhysicalOrder) &&
+       Number.isFinite(b._cabinPhysicalOrder) &&
+       a._cabinPhysicalOrder!==b._cabinPhysicalOrder){
+      return a._cabinPhysicalOrder-b._cabinPhysicalOrder;
+    }
 
     // A cabin pairing may cross a physical page boundary. Always retain
     // source page order: page-two sector 1 follows page-one sector 0.
